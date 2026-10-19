@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from './query'
 import App from './App'
 import './styles.css'
+import './tailwind.css'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: 20_000 } },

@@ -1,0 +1,17 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  --color-cl-bg: #101214;
+  --color-cl-panel: #191b1d;
+  --color-cl-panel-soft: #202224;
+  --color-cl-border: #2a2d30;
+  --color-cl-muted: #8d9198;
+  --color-cl-purple: #8d33e3;
+  --color-cl-cyan: #23a5cb;
+  --color-cl-orange: #fe7526;
+  --color-cl-green: #5bff93;
+  --font-cl-body: "DM Sans", sans-serif;
+  --font-cl-display: "Manrope", sans-serif;
+}

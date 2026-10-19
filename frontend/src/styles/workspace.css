@@ -1,0 +1,39 @@
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:44px;height:44px;object-fit:contain}
+.brand div{display:grid}
+.brand b{font-family:Manrope,sans-serif;font-size:17px}
+.brand span{font-size:11px;color:#9a9da2}
+.app-shell,.editor-shell{min-height:100vh;background:#111315}
+.app-header{height:88px;display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:28px;padding:0 30px}
+.top-tools{display:flex;padding:5px;border-radius:18px;background:#191b1d}
+.top-tools button,.top-tools a,.round-tool{width:39px;height:39px;border-radius:13px;background:transparent;display:grid;place-items:center;color:#9b9fa5}
+.top-tools svg,.round-tool svg{width:18px}
+.top-tools button:hover,.top-tools a:hover,.round-tool:hover{background:#272a2d;color:#fff}
+.breadcrumbs{justify-self:center;display:flex;align-items:center;gap:8px;font-size:13px}
+.breadcrumbs span{color:#575b61}
+.breadcrumbs b{color:#34383c}
+.breadcrumbs strong{font-weight:600}
+.header-actions{display:flex;align-items:center;gap:11px}
+.avatar{width:46px;height:46px;border-radius:50%;background:#ddd;color:#171819;border:3px solid #292d2f;font-weight:800}
+.account-wrap{position:relative}
+.account-menu{right:0;top:57px;width:220px}
+.account-menu>div{display:grid;padding:9px 10px 13px;border-bottom:1px solid #34373a;margin-bottom:6px}
+.account-menu span{font-size:11px;color:#909399;margin-top:3px}
+.export-btn{height:48px;background:#f7f7f5;color:#171819;border-radius:18px;padding:0 20px;display:flex;align-items:center;gap:8px;font-weight:800}
+.export-btn svg{width:18px}
+.export-btn small{color:#85888c;font-size:8px;margin-left:2px}
+.export-btn:disabled{opacity:1;cursor:not-allowed}
+.save-state{font-size:11px;color:#888d92;display:flex;align-items:center;gap:6px}
+.save-state>span{width:7px;height:7px;border-radius:50%;background:#5bff93}
+.save-state.saving>span{background:#fe9f42}
+.save-state.error>span{background:#ff5e70}
+.editor-shell{height:100vh;min-width:1180px;overflow:hidden}
+.editor-shell .app-header{height:8vh;min-height:72px;max-height:92px}
+.editor-workspace{height:92vh;padding:12px 24px 20px;display:grid;grid-template-rows:45% 55%;gap:18px}
+.upper-workspace{display:grid;grid-template-columns:28% 1fr 24%;gap:18px;min-height:0}
+.editor-shell .app-header{height:9vh;min-height:78px;max-height:112px}
+.editor-workspace{height:91vh;grid-template-rows:51% 49%}
+.brand img{object-fit:contain}
+
+.tool-rail{overflow-y:auto;scrollbar-width:none}.tool-rail::-webkit-scrollbar{display:none}
+.app-header button:disabled{cursor:not-allowed;opacity:.5}

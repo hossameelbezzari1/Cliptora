@@ -1,0 +1,9 @@
+import { AudioLines, Image, Lock, MoreHorizontal, Sparkles, Upload } from 'lucide-react'
+import { libraryItems } from './libraryItems'
+import { useEditor } from '../state/editorStore'
+
+export function Library({active}:{active:string}){
+  const {demo,toggleDemo}=useEditor()
+  if(active!=='media')return <div className="library-content future-library"><div className="library-title"><span><Sparkles/> {libraryItems.find(i=>i.id===active)?.label}</span></div><div className="coming"><Lock/><h3>Planned workspace</h3><p>This tool is intentionally unavailable until its implementation phase. Nothing here pretends to run.</p></div></div>
+  return <div className="library-content"><div className="library-title"><span><Upload/> Import media</span><button title="Media options"><MoreHorizontal/></button></div><div className="media-tabs"><button className="active">All media</button><button disabled title="Filtering requires imported media">Video</button><button disabled title="Filtering requires imported media">Image</button><button disabled title="Filtering requires imported media">Sound</button></div><div className="demo-banner"><span>DEMO MEDIA</span><label><input type="checkbox" checked={demo} onChange={toggleDemo}/> Show reference content</label></div>{demo?<div className="media-grid"><button disabled><img src="/assets/planet-demo.png" alt="Demo planet"/><span>Planet.png</span></button><button disabled><img src="/assets/planet-demo.png" alt="Demo space clip"/><span>Origin.mp4</span></button><button className="audio-card" disabled><AudioLines/><span>Intro-sound.mp3</span></button><button className="upload-card" disabled><Upload/><span>Upload in Phase 2</span></button></div>:<div className="empty-library"><Image/><p>No media in this project</p><span>Media import arrives in Phase 2.</span></div>}</div>
+}
