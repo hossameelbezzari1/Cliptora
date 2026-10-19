@@ -1,0 +1,36 @@
+{
+  "name": "frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "preview": "vite preview",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "4.7.0",
+    "lucide-react": "0.475.0",
+    "react-router-dom": "7.18.0",
+    "zustand": "5.0.14",
+    "vite": "6.4.3",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "browserslist": "4.28.2",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "postcss": "8.5.15",
+    "picomatch": "4.0.4",
+    "node-releases": "2.0.48",
+    "electron-to-chromium": "1.5.376",
+    "caniuse-lite": "1.0.30001799",
+    "browserslist": "4.28.2"
+  }
+}

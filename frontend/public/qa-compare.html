@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Cliptora visual QA</title>
+    <style>
+        body {
+            margin: 0;
+            background: #08090a;
+            color: #fff;
+            font: 700 14px Arial
+        }
+
+        .head {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around
+        }
+
+        .compare {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 8px;
+            padding: 0 8px
+        }
+
+        .frame {
+            min-width: 0;
+            background: #111;
+            border: 1px solid #333;
+            overflow: hidden
+        }
+
+        .frame img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            display: block
+        }
+    </style>
+</head>
+
+<body>
+    <div class="head"><span>SOURCE — design-reference.png</span><span>IMPLEMENTATION — 2038 × 1260</span></div>
+    <div class="compare">
+        <div class="frame"><img src="/assets/design-reference.png" alt="Source design"></div>
+        <div class="frame"><img src="/assets/implementation-editor.png" alt="Current implementation"></div>
+    </div>
+</body>
+
+</html>
