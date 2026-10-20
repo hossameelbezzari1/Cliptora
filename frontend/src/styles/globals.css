@@ -22,3 +22,9 @@ input[type=range]{accent-color:#9139e9}
 @keyframes glint{0%,100%{opacity:.5}50%{opacity:1}}
 .loading-pulse{animation:glint 1.5s infinite}
 .timeline-playhead{background:linear-gradient(#fe7526,#fc6821);box-shadow:0 0 16px #fe752677}
+
+/* The tool rail is intentionally scrollbar-free; the main panel scrolls independently. */
+.cliptora-toolrail { scrollbar-width: none; -ms-overflow-style: none; }
+.cliptora-toolrail::-webkit-scrollbar { display: none; }
+/* Contain only the horizontal timeline; importing a long source never widens the editor. */
+[data-timeline-scroll] { max-width: 100%; overscroll-behavior: contain; }

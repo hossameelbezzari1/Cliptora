@@ -6,14 +6,22 @@ import { probeMediaDuration } from '../../../lib/media'
 import type { Track, Clip } from '../../../types'
 
 const LABEL_W = 186
-const ROW_H = 76
-const MIN_ZOOM = 8
+const ROW_H = 62
+const MIN_ZOOM = 0.05
 const MAX_ZOOM = 140
 const DRAG_MIME = 'application/x-cliptora'
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
 const px = (n: number) => Math.round(n * 100) / 100
 
-type Preview = { start: number; duration: number; valid: boolean; type: Clip['type'] }
+type Preview = {
+  start: number
+  duration: number
+  valid: boolean
+  type: Clip['type']
+  gapStart: number
+  gapEnd: number | null
+  snapEdge: number | null
+}
 
 type DropProps = { trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
 
@@ -36,7 +44,19 @@ function calculateDrop(event: DragEvent<HTMLDivElement>, dragging: DragItem, tra
   const origin = clipId ? state.tracks.find(t => t.clips.some(c => c.client_id === clipId)) : undefined
   const valid = (!trackId || Boolean(destination)) && (!origin || !origin.locked) &&
     (destination ? canPlace(destination, start, duration, clipId) : state.tracks.length < MAX_LAYERS)
-  return { start: px(start), duration, valid, type: clipKind(dragging, state.tracks) } satisfies Preview
+  // The hovered interval is bounded by its neighboring clips on this same layer.
+  // Draw guides for that free slot instead of changing the global viewport width.
+  const neighbors = (destination?.clips ?? []).filter(c => c.client_id !== clipId).sort((a, b) => a.start - b.start)
+  let gapStart = 0
+  let gapEnd: number | null = null
+  for (const neighbor of neighbors) {
+    if (neighbor.start + neighbor.duration <= start + 0.001) gapStart = Math.max(gapStart, neighbor.start + neighbor.duration)
+    else { gapEnd = neighbor.start; break }
+  }
+  const snapThreshold = Math.min(1.5, 9 / zoom) + 0.02
+  const snapCandidates = [gapStart, ...(gapEnd === null ? [] : [gapEnd])]
+  const snapEdge = snapCandidates.find(edge => Math.abs(edge - start) < snapThreshold || Math.abs(edge - start - duration) < snapThreshold) ?? null
+  return { start: px(start), duration, valid, type: clipKind(dragging, state.tracks), gapStart, gapEnd, snapEdge } satisfies Preview
 }
 
 async function finishDrop(dragging: DragItem, drop: Preview, trackId: string | null) {
@@ -82,13 +102,25 @@ function DropLane({ trackId, zoom, preview, onPreview, children }: DropProps & {
     setDragging(null)
     void finishDrop(dragging, final, trackId)
   }
-  return <div data-clip-lane className="relative my-1.5 min-w-0 flex-1 rounded-xl bg-[#101214]" onDragOver={onDragOver} onDragLeave={e => {
+  return <div data-clip-lane className="relative my-0.5 min-w-0 flex-1 rounded bg-[#101214]" onDragOver={onDragOver} onDragLeave={e => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) onPreview(null)
   }} onDrop={onDrop} onClick={() => useEditor.getState().selectTrack(trackId)}>
     {children}
-    {preview && <div aria-hidden className={`pointer-events-none absolute inset-y-2 z-30 flex items-center overflow-hidden rounded-lg border-2 border-dashed px-2 text-[10px] font-semibold ${preview.valid ? 'border-[#b78aff] bg-[#813edb]/40 text-white' : 'border-red-400 bg-red-950/70 text-red-100'}`} style={{ left: preview.start * zoom, width: Math.max(preview.duration * zoom, 12) }}>
-      {preview.valid ? `Drop ${preview.type}` : 'Overlap / locked'}
-    </div>}
+    {preview && <>
+      {/* The neighbors of a dragged clip define its available slot. */}
+      {trackId && <>
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 z-20 w-px border-l border-dashed border-emerald-400/80" style={{ left: preview.gapStart * zoom }}/>
+        {preview.gapEnd !== null && <div aria-hidden className="pointer-events-none absolute inset-y-0 z-20 w-px border-l border-dashed border-emerald-400/80" style={{ left: preview.gapEnd * zoom }}/>} 
+        {preview.gapEnd !== null && preview.gapEnd > preview.gapStart && <div aria-hidden className="pointer-events-none absolute top-0 z-20 h-0.5 bg-emerald-400/70" style={{ left: preview.gapStart * zoom, width: (preview.gapEnd - preview.gapStart) * zoom }}/>} 
+        <span aria-live="polite" className="pointer-events-none absolute top-1 z-40 whitespace-nowrap rounded bg-[#111819]/95 px-1.5 py-0.5 text-[9px] text-emerald-300 shadow-md" style={{ left: Math.max(3, preview.start * zoom + 8) }}>
+          {preview.gapEnd === null ? `Free after ${formatTime(preview.gapStart)}` : `Free gap ${formatTime(Math.max(0, preview.gapEnd - preview.gapStart))}`}
+        </span>
+      </>}
+      {preview.snapEdge !== null && <div aria-hidden className="pointer-events-none absolute -top-1 bottom-[-4px] z-40 w-[2px] bg-[#e8d5ff] shadow-[0_0_9px_#a473ff]" style={{ left: preview.snapEdge * zoom }}/>} 
+      <div aria-hidden className={`pointer-events-none absolute inset-y-1 z-30 flex items-center overflow-hidden rounded border-2 border-dashed px-2 text-[10px] font-semibold ${preview.valid ? 'border-[#b78aff] bg-[#813edb]/40 text-white' : 'border-red-400 bg-red-950/70 text-red-100'}`} style={{ left: preview.start * zoom, width: Math.max(preview.duration * zoom, 12) }}>
+        {preview.valid ? `Drop ${preview.type}` : 'No space / locked'}
+      </div>
+    </>}
   </div>
 }
 
@@ -101,43 +133,65 @@ export function TimelinePanel() {
   const [zoom, setZoom] = useState(23)
   const [previewByTrack, setPreviewByTrack] = useState<Record<string, Preview | null>>({})
   const scroll = useRef<HTMLDivElement>(null)
+  const timelineRoot = useRef<HTMLElement>(null)
+  const manualZoom = useRef(false)
+  const previousClipCount = useRef<number | null>(null)
   const maxEnd = Math.max(30, playhead + 8, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration)))
   const duration = Math.min(MAX_TIME, Math.max(60, maxEnd + 16))
   const timelineWidth = duration * zoom
-  const candidateTicks = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200]
+  const candidateTicks = [0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600]
   const ticksEvery = candidateTicks.find(step => step * zoom >= 45 && duration / step <= 350) ?? 1200
   const ticks = useMemo(() => Array.from({ length: Math.floor(duration / ticksEvery) + 1 }, (_, i) => i * ticksEvery), [duration, ticksEvery])
+  // A logarithmic control keeps short and long videos equally easy to zoom.
+  const zoomSlider = 100 * Math.log(zoom / MIN_ZOOM) / Math.log(MAX_ZOOM / MIN_ZOOM)
+  const sliderToZoom = (value: number) => MIN_ZOOM * Math.pow(MAX_ZOOM / MIN_ZOOM, value / 100)
   const preview = (trackId: string | null, value: Preview | null) => setPreviewByTrack(s => ({ ...s, [trackId ?? 'new']: value }))
   useEffect(() => { if (!dragged) setPreviewByTrack({}) }, [dragged])
 
   function zoomTo(next: number, anchorX?: number) {
+    manualZoom.current = true
     const pane = scroll.current
-    const value = clamp(Math.round(next * 10) / 10, MIN_ZOOM, MAX_ZOOM)
+    const value = clamp(Math.round(next * 1000) / 1000, MIN_ZOOM, MAX_ZOOM)
     if (!pane) { setZoom(value); return }
-    const visualX = anchorX ?? Math.max(0, (pane.clientWidth - LABEL_W) / 2)
+    const visualX = clamp(anchorX ?? Math.max(0, (pane.clientWidth - LABEL_W) / 2), 0, Math.max(0, pane.clientWidth - LABEL_W))
     const sourceTime = (pane.scrollLeft + visualX) / zoom
     setZoom(value)
     requestAnimationFrame(() => { if (scroll.current) scroll.current.scrollLeft = Math.max(0, sourceTime * value - visualX) })
   }
-  function fit() {
+  function fit(userInitiated = true) {
+    if (userInitiated) manualZoom.current = true
     const pane = scroll.current
     if (!pane) return
-    const content = Math.max(60, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration + 5)))
-    setZoom(clamp((pane.clientWidth - LABEL_W - 25) / content, MIN_ZOOM, MAX_ZOOM))
+    const content = Math.max(60, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration + 2)))
+    setZoom(clamp((pane.clientWidth - LABEL_W - 16) / content, MIN_ZOOM, MAX_ZOOM))
     pane.scrollLeft = 0
   }
+  // Intercept Ctrl+Wheel over the timeline and toolbar, not only the ruler.
+  // Otherwise browsers zoom the entire editor when hovering a track label or toolbar.
   useEffect(() => {
+    const root = timelineRoot.current?.parentElement
     const pane = scroll.current
-    if (!pane) return
+    if (!root || !pane) return
     const handle = (event: globalThis.WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return
       event.preventDefault()
+      event.stopPropagation()
       const rect = pane.getBoundingClientRect()
       zoomTo(zoom * (event.deltaY < 0 ? 1.16 : 1 / 1.16), event.clientX - rect.left - LABEL_W)
     }
-    pane.addEventListener('wheel', handle, { passive: false })
-    return () => pane.removeEventListener('wheel', handle)
+    root.addEventListener('wheel', handle, { passive: false })
+    return () => root.removeEventListener('wheel', handle)
   }, [zoom])
+  const clipCount = tracks.reduce((sum, track) => sum + track.clips.length, 0)
+  // First populated timeline or first imported clip: fit without resizing other panels.
+  useEffect(() => {
+    const prev = previousClipCount.current
+    previousClipCount.current = clipCount
+    if (clipCount && !manualZoom.current && (prev === null || prev === 0)) {
+      const id = requestAnimationFrame(() => fit(false))
+      return () => cancelAnimationFrame(id)
+    }
+  }, [clipCount])
   function scrub(event: MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
     setPlayhead(px(clamp((event.clientX - rect.left) / zoom, 0, MAX_TIME)))
@@ -161,25 +215,25 @@ export function TimelinePanel() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  return <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-cl-line bg-cl-panel">
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-cl-line px-4 py-2.5">
+  return <section ref={timelineRoot} className="relative flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
       <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
       <button title="Add layer (optional)" disabled={tracks.length >= MAX_LAYERS} onClick={addTrack} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-3 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer</button>
       <span className="hidden text-[10px] text-cl-muted xl:inline">Drag clips between layers · Drag edges to trim · Double-click to rename</span>
       <div className="ml-auto flex items-center gap-2">
         <button title="Zoom out" aria-label="Zoom out" onClick={() => zoomTo(zoom / 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Minus size={16}/></button>
-        <input aria-label="Timeline zoom" type="range" min={MIN_ZOOM} max={MAX_ZOOM} value={zoom} onChange={e => zoomTo(Number(e.target.value))} className="w-16 accent-[#a87cf4] sm:w-24"/>
+        <input aria-label="Timeline zoom" type="range" min={0} max={100} step={1} value={zoomSlider} onChange={e => zoomTo(sliderToZoom(Number(e.target.value)))} className="w-16 accent-[#a87cf4] sm:w-24"/>
         <button title="Zoom in" aria-label="Zoom in" onClick={() => zoomTo(zoom * 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Plus size={16}/></button>
-        <button title="Fit timeline" aria-label="Fit timeline" onClick={fit} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Maximize2 size={15}/></button>
-        <span className="w-10 text-right text-[10px] tabular-nums text-cl-muted">{Math.round(zoom / 23 * 100)}%</span>
+        <button title="Fit timeline" aria-label="Fit timeline" onClick={() => fit()} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Maximize2 size={15}/></button>
+        <span className="w-16 text-right text-[10px] tabular-nums text-cl-muted">{zoom.toFixed(zoom < 10 ? 2 : 1)}px/s</span>
       </div>
     </div>
-    <div data-timeline-scroll ref={scroll} className="min-h-0 flex-1 overflow-auto" onDragEnd={() => {
+    <div data-timeline-scroll ref={scroll} className="relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-auto overscroll-contain" onDragEnd={() => {
       useEditor.getState().startDrag(null); setPreviewByTrack({})
     }}>
       <div style={{ width: LABEL_W + timelineWidth, minWidth: '100%' }} className="relative">
-        <div className="sticky top-0 z-20 flex h-12 border-b border-cl-line bg-cl-panel">
-          <div className="sticky left-0 z-30 flex shrink-0 items-center border-r border-cl-line bg-cl-panel px-3 text-[10px] text-cl-muted" style={{ width: LABEL_W }}>Time · {formatTime(duration)}</div>
+        <div className="sticky top-0 z-20 flex h-9 border-b border-white/5 bg-cl-panel">
+          <div className="sticky left-0 z-30 flex shrink-0 items-center border-r border-white/5 bg-cl-panel px-3 text-[10px] text-cl-muted" style={{ width: LABEL_W }}>Time · {formatTime(duration)}</div>
           <div className="relative h-full cursor-crosshair bg-[#212427]" style={{ width: timelineWidth }} onClick={scrub}>
             {ticks.map(t => <div key={t} className="absolute bottom-0 top-1 border-l border-white/10" style={{ left: t * zoom }}><span className="relative left-1 text-[10px] tabular-nums text-cl-muted">{formatTime(t)}</span></div>)}
           </div>
@@ -212,8 +266,8 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview }: { track: T
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(track.name)
   const finish = () => { rename(track.client_id, name); setEditing(false) }
-  return <div className="flex border-b border-[#282a2e]" style={{ height: ROW_H }}>
-    <div className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-[#2b2d32] px-2.5 ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
+  return <div className="flex border-b border-white/5" style={{ height: ROW_H }}>
+    <div className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
       <GripVertical size={13} className="shrink-0 text-cl-muted"/>
       <div className="mr-auto min-w-0 flex-1">
         {editing ? <input autoFocus aria-label="Layer name" maxLength={100} className="w-full rounded bg-[#30343a] px-1 text-[11px] outline-none focus:ring-1 focus:ring-[#b387fd]" value={name} onChange={e => setName(e.target.value)} onBlur={finish} onKeyDown={e => { if (e.key === 'Enter') finish(); if (e.key === 'Escape') { setName(track.name); setEditing(false) } }} onClick={e => e.stopPropagation()}/>
@@ -291,7 +345,7 @@ function ClipBar({ clip, track, zoom }: { clip: Clip; track: Track; zoom: number
     onContextMenu={e => { e.preventDefault(); if (!track.locked && window.confirm(`Remove ${clip.name}?`)) useEditor.getState().removeClip(clip.client_id) }}
     title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · drag to move, drag edges to trim`}
     style={{ left: displayStart * zoom, width: Math.max(visualDuration * zoom, 8) }}
-    className={`group absolute inset-y-2 z-[2] flex min-w-0 items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
+    className={`group absolute inset-y-1 z-[2] flex min-w-0 items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
     {!track.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40"/>}
     <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
       {clip.type === 'video' ? <Video size={13} className="shrink-0"/> : clip.type === 'audio' ? <Music2 size={13} className="shrink-0"/> : clip.type === 'text' ? <Type size={13} className="shrink-0"/> : <ImageIcon size={13} className="shrink-0"/>}

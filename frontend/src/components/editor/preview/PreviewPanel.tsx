@@ -43,9 +43,9 @@ export function PreviewPanel({ project }: { project: Project }) {
     return { visuals, audio }
   }, [tracks, playhead])
   const total = Math.max(30, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration)))
-  return <section className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-4 overflow-hidden rounded-3xl bg-[#141618] px-4 py-5">
-    <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
-      <div className="relative flex max-h-full w-auto max-w-full items-center justify-center overflow-hidden rounded-2xl bg-[#08090a] shadow-[0_16px_65px_#0009]" style={{ aspectRatio: `${project.width} / ${project.height}`, height: '100%', maxHeight: '100%' }}>
+  return <section className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#141618] p-2">
+    <div className="relative flex min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-hidden">
+      <div className="relative flex h-full min-h-0 max-h-full w-auto max-w-full shrink items-center justify-center overflow-hidden rounded-lg bg-[#08090a]" style={{ aspectRatio: `${project.width} / ${project.height}`, height: '100%', maxHeight: '100%' }}>
         {!active.visuals.length && <div className="grid h-full w-full place-items-center text-[#4e5358]"><div className="grid justify-items-center gap-2"><Aperture size={36}/><p className="text-xs">Preview canvas</p></div></div>}
         {active.visuals.map(({ clip, muted }) => clip.type === 'video'
           ? <ActiveVideo key={clip.client_id} clip={clip} playhead={playhead} playing={playing} muted={muted}/>
@@ -57,8 +57,8 @@ export function PreviewPanel({ project }: { project: Project }) {
       </div>
       {active.audio.map(clip => <ActiveAudio key={clip.client_id} clip={clip} playhead={playhead} playing={playing}/>)}
     </div>
-    <div className="flex w-full max-w-190 items-center gap-4 rounded-2xl bg-[#24272a] px-4 py-3">
-      <span className="shrink-0 rounded-xl bg-[#303336] px-3 py-2 text-[11px] font-bold">{project.width}:{project.height}</span>
+    <div className="flex w-full min-w-0 max-w-190 shrink-0 items-center gap-2 rounded-lg bg-[#24272a] px-2.5 py-2">
+      <span className="shrink-0 rounded-md bg-[#303336] px-2 py-1.5 text-[10px] font-bold">{project.width}:{project.height}</span>
       <button aria-label={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(!playing)} className="text-white">{playing ? <Pause size={20}/> : <Play size={20}/>}</button>
       <span className="min-w-18 text-[10px] text-[#afb4b9]">{formatTime(playhead)} / {formatTime(total)}</span>
       <input className="min-w-0 flex-1" type="range" min={0} max={total} step={.1} value={Math.min(total, playhead)} onChange={e => setPlayhead(Number(e.target.value))}/>

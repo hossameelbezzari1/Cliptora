@@ -22,7 +22,7 @@ export function MediaCard({ media, onAdd }: { media: MediaAsset; onAdd: (media: 
   }
   return <div className="group min-w-0">
     <button draggable onDragStart={drag} onDragEnd={() => startDrag(null)} onClick={() => onAdd(media)}
-      className="relative aspect-[1.3] w-full cursor-grab overflow-hidden rounded-xl bg-[#101214] ring-1 ring-cl-line hover:ring-cl-cyan active:cursor-grabbing"
+      className="relative aspect-[1.3] w-full cursor-grab overflow-hidden rounded-lg bg-[#101214] hover:ring-1 hover:ring-cl-cyan active:cursor-grabbing"
       title={`Drag ${media.name} to a timeline layer, or click to add it`}>
       {media.kind === 'image' ? <img src={fileUrl(media.id)} className="h-full w-full object-cover" alt={media.name} draggable={false}/>
         : media.kind === 'video' ? <video src={fileUrl(media.id)} preload="metadata" muted className="h-full w-full object-cover" draggable={false}/>
