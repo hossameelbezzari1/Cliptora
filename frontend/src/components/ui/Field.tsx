@@ -1,0 +1,5 @@
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
+const common='w-full rounded-xl border border-cl-line bg-[#222427] px-3.5 py-3 text-sm text-white placeholder:text-[#747980] focus:border-cl-purple focus:outline-none focus:ring-2 focus:ring-cl-purple/20'
+export function Field({label,...rest}:InputHTMLAttributes<HTMLInputElement>&{label:string}){return <label className="grid gap-2 text-xs font-semibold text-[#b0b3b7]"><span>{label}</span><input className={common} {...rest}/></label>}
+export function TextField({label,...rest}:TextareaHTMLAttributes<HTMLTextAreaElement>&{label:string}){return <label className="grid gap-2 text-xs font-semibold text-[#b0b3b7]"><span>{label}</span><textarea className={common+' min-h-24 resize-y'} {...rest}/></label>}
+export function Alert({error}:{error:unknown}){if(!error)return null;return <div role="alert" className="rounded-xl border border-red-700/40 bg-red-950/50 px-4 py-3 text-sm text-red-300">{error instanceof Error?error.message:String(error)}</div>}

@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import 'tailwindcss';
+@theme {
+  --color-cl-bg: #101214;
+  --color-cl-panel: #191b1d;
+  --color-cl-panel-2: #222528;
+  --color-cl-line: #303337;
+  --color-cl-muted: #92969b;
+  --color-cl-purple: #9139e9;
+  --color-cl-cyan: #25aace;
+  --color-cl-orange: #fe7526;
+  --color-cl-green: #5bff93;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Manrope', sans-serif;
+}
+:root { color-scheme: dark; font-family: 'DM Sans',sans-serif; background: #101214; color: #f6f7f8 }
+html,body,#root{min-height:100%;margin:0}
+button,a,input,select,textarea{outline-offset:3px}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=range]{accent-color:#9139e9}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{border-radius:8px;background:#3a3d41}::-webkit-scrollbar-track{background:transparent}
+@keyframes glint{0%,100%{opacity:.5}50%{opacity:1}}
+.loading-pulse{animation:glint 1.5s infinite}
+.timeline-playhead{background:linear-gradient(#fe7526,#fc6821);box-shadow:0 0 16px #fe752677}

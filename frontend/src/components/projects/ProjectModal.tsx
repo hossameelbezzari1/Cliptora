@@ -1,0 +1,11 @@
+import { useState,type FormEvent } from 'react'
+import { Modal } from '../ui/Modal'
+import { Field,Alert } from '../ui/Field'
+import { Button } from '../ui/Button'
+import { api } from '../../lib/api'
+import type { Project } from '../../types'
+export function ProjectModal({project,onClose,onSaved}:{project?:Project;onClose:()=>void;onSaved:(p:Project)=>void}){
+ const [name,setName]=useState(project?.name||'Untitled project');const [preset,setPreset]=useState(project?`${project.width}x${project.height}`:'1920x1080');const [fps,setFps]=useState(project?.fps||30);const [busy,setBusy]=useState(false);const [error,setError]=useState<unknown>(null)
+ async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError(null);try{const [width,height]=preset.split('x').map(Number);const result=await api<Project>(project?`/projects/${project.id}`:'/projects',{method:project?'PATCH':'POST',body:JSON.stringify({name,width,height,fps})});onSaved(result)}catch(err){setError(err)}finally{setBusy(false)}}
+ return <Modal title={project?'Project settings':'New project'} onClose={onClose}><form onSubmit={submit} className="grid gap-5"><Field label="Project name" maxLength={160} value={name} onChange={e=>setName(e.target.value)} required/><label className="grid gap-2 text-xs font-semibold text-[#b0b3b7]">Aspect ratio<select className="w-full rounded-xl border border-cl-line bg-cl-panel-2 p-3 text-sm" value={preset} onChange={e=>setPreset(e.target.value)}><option value="1920x1080">16:9 · 1920 × 1080</option><option value="1080x1920">9:16 · 1080 × 1920</option><option value="1080x1080">1:1 · 1080 × 1080</option><option value="1080x1350">4:5 · 1080 × 1350</option></select></label><label className="grid gap-2 text-xs font-semibold text-[#b0b3b7]">Frame rate<select className="w-full rounded-xl border border-cl-line bg-cl-panel-2 p-3 text-sm" value={fps} onChange={e=>setFps(Number(e.target.value))}><option value={24}>24 FPS</option><option value={30}>30 FPS</option><option value={60}>60 FPS</option></select></label><Alert error={error}/><div className="flex justify-end gap-3"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button disabled={busy}>{busy?'Saving…':project?'Save changes':'Create project'}</Button></div></form></Modal>
+}
