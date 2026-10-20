@@ -45,3 +45,5 @@ There is no `.git` in ZIP, and no Git CLI calls in scripts. The default DB `clip
 ## What is implemented vs planned
 
 Implemented: sessions/CSRF, project CRUD, media upload/playback, timeline persistence, clip timing/text, AI transcript prompt/scene JSON workflow. Planned: FFmpeg exports, whisper transcription, direct model APIs, visual transforms, keyframes, transitions, effects, high-end editing.
+
+Timeline V2.2: generic mixed layers are stored in the existing tracks table (type=mixed); clips retain their individual type. New projects get three layers. See root README.

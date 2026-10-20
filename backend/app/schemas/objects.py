@@ -80,8 +80,8 @@ class ClipIn(BaseModel):
 class TrackIn(BaseModel):
     client_id: str = Field(min_length=1,max_length=64)
     name: str = Field(min_length=1,max_length=100)
-    type: Literal['video','audio','text']
-    position: int = Field(ge=0,le=100)
+    type: Literal['mixed','video','audio','text']
+    position: int = Field(ge=0,le=250)
     hidden: bool = False
     muted: bool = False
     locked: bool = False
@@ -89,7 +89,7 @@ class TrackIn(BaseModel):
 
 class TimelineIn(BaseModel):
     revision: int = Field(ge=1)
-    tracks: list[TrackIn] = Field(default_factory=list,max_length=40)
+    tracks: list[TrackIn] = Field(default_factory=list,max_length=100)
 
 class TimelineOut(TimelineIn):
     pass

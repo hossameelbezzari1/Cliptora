@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models import Project,Track,Clip,MediaAsset
 from app.schemas.objects import TimelineIn,TimelineOut,TrackIn,ClipIn
 from app.models.entities import now
+from uuid import uuid4
 
 router=APIRouter(prefix='/projects',tags=['Timeline'])
 
@@ -15,6 +16,11 @@ def serialize(db:Session,project:Project)->dict:
 
 @router.get('/{project_id}/timeline',response_model=TimelineOut)
 def get(project:Project=Depends(owned_project),db:Session=Depends(get_db)):
+    existing=db.scalar(select(Track.id).where(Track.project_id==project.id).limit(1))
+    if existing is None:
+        for pos in range(3):
+            db.add(Track(project_id=project.id,client_id=str(uuid4()),name=f'Layer {pos+1}',type='mixed',position=pos,hidden=False,muted=False,locked=False))
+        db.commit()
     return serialize(db,project)
 
 @router.put('/{project_id}/timeline',response_model=TimelineOut)
@@ -33,8 +39,12 @@ def put(data:TimelineIn,project:Project=Depends(owned_project),db:Session=Depend
         raise HTTPException(422,'A clip references media outside this project.')
     for track in data.tracks:
         for clip in track.clips:
-            if clip.start+clip.duration>14400 or (clip.type=='text' and track.type!='text') or (clip.type=='audio' and track.type!='audio') or (clip.type in ('image','video') and track.type!='video'):
-                raise HTTPException(422,'Invalid clip duration or track type.')
+            if clip.start+clip.duration>14400:
+                raise HTTPException(422,'Clip is outside the maximum timeline duration.')
+            if clip.type!='text' and clip.media_id is None:
+                raise HTTPException(422,'Media clip requires an uploaded asset.')
+            if clip.type=='text' and clip.media_id is not None:
+                raise HTTPException(422,'Text clips cannot reference media.')
     for t in db.scalars(select(Track).where(Track.project_id==project.id)).all(): db.delete(t)
     db.flush()
     for t in data.tracks:

@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.v1.deps import owned_project
 from app.core.database import get_db
 from app.core.security import current_user
-from app.models import Project, User
+from app.models import Project, User, Track, Clip
+from uuid import uuid4
 from app.schemas.objects import ProjectIn, ProjectOut
 
 router=APIRouter(prefix='/projects',tags=['Projects'])
@@ -15,7 +16,10 @@ def listing(db:Session=Depends(get_db),user:User=Depends(current_user)):
 
 @router.post('',response_model=ProjectOut,status_code=201)
 def create(data:ProjectIn,db:Session=Depends(get_db),user:User=Depends(current_user)):
-    p=Project(owner_id=user.id,**data.model_dump());db.add(p);db.commit();db.refresh(p);return p
+    p=Project(owner_id=user.id,**data.model_dump());db.add(p);db.flush()
+    for position in range(3):
+        db.add(Track(project_id=p.id,client_id=str(uuid4()),name=f'Layer {position+1}',type='mixed',position=position,hidden=False,muted=False,locked=False))
+    db.commit();db.refresh(p);return p
 
 @router.get('/{project_id}',response_model=ProjectOut)
 def get(project:Project=Depends(owned_project)):
@@ -33,4 +37,7 @@ def remove(project:Project=Depends(owned_project),db:Session=Depends(get_db)):
 @router.post('/{project_id}/duplicate',response_model=ProjectOut,status_code=201)
 def duplicate(project:Project=Depends(owned_project),db:Session=Depends(get_db)):
     clone=Project(owner_id=project.owner_id,name=f'{project.name} (copy)'[:160],width=project.width,height=project.height,fps=project.fps)
-    db.add(clone);db.commit();db.refresh(clone);return clone
+    db.add(clone);db.flush()
+    for position in range(3):
+        db.add(Track(project_id=clone.id,client_id=str(uuid4()),name=f'Layer {position+1}',type='mixed',position=position,hidden=False,muted=False,locked=False))
+    db.commit();db.refresh(clone);return clone

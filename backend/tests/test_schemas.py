@@ -14,3 +14,16 @@ def test_negative_clip_start_is_rejected():
         assert False
     except ValidationError:
         pass
+
+
+def test_mixed_layer_accepts_all_clip_types():
+    from app.schemas.objects import TrackIn, TimelineIn
+    common={'start':0,'duration':5,'source_offset':0,'text':None,'color':'#5bff93'}
+    clips=[{'client_id':f'clip-{i}','name':kind,'type':kind,'media_id':None if kind=='text' else 1,**{**common,'start':i*5}} for i,kind in enumerate(('video','audio','image','text'))]
+    timeline=TimelineIn(revision=1,tracks=[TrackIn(client_id='layer-1',name='Layer 1',type='mixed',position=0,clips=clips)])
+    assert [clip.type for clip in timeline.tracks[0].clips]==['video','audio','image','text']
+
+def test_100_layers_are_permitted():
+    from app.schemas.objects import TrackIn, TimelineIn
+    layers=[TrackIn(client_id=f'layer-{i}',name=f'Layer {i+1}',type='mixed',position=i) for i in range(100)]
+    assert len(TimelineIn(revision=1,tracks=layers).tracks)==100

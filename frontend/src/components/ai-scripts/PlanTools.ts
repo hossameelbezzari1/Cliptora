@@ -16,10 +16,10 @@ export function parseScenes(raw:string):Scene[]{const data:unknown=JSON.parse(ra
  scenes.sort((a,b)=>a.start-b.start);for(let i=1;i<scenes.length;i++)if(scenes[i].start<scenes[i-1].end)throw Error('Scenes must not overlap.')
  return scenes}
 export function applyScenes(timeline:Timeline,scenes:Scene[],video:MediaAsset):Timeline{
- const existing=timeline.tracks.find(t=>t.type==='video'&&!t.locked)
+ const existing=[...timeline.tracks].reverse().find(t=>!t.locked)
  const trackId=existing?.client_id||uid()
  let offset=existing?Math.max(0,...existing.clips.map(c=>c.start+c.duration)):0
  const clips:Clip[]=scenes.map((scene,index)=>{const c:Clip={client_id:uid(),name:`Scene ${index+1}${scene.reason?' · '+scene.reason.slice(0,90):''}`,type:'video',media_id:video.id,text:null,color:'#5bff93',start:offset,duration:scene.end-scene.start,source_offset:scene.start};offset+=c.duration;return c})
- const tracks:Track[]=existing?timeline.tracks.map(t=>t.client_id===trackId?{...t,clips:[...t.clips,...clips]}:t):[...timeline.tracks,{client_id:trackId,name:'MEDIA 1',type:'video',position:timeline.tracks.length,hidden:false,muted:false,locked:false,clips}]
+ const tracks:Track[]=existing?timeline.tracks.map(t=>t.client_id===trackId?{...t,clips:[...t.clips,...clips]}:t):[...timeline.tracks,{client_id:trackId,name:`Layer ${timeline.tracks.length+1}`,type:'mixed',position:timeline.tracks.length,hidden:false,muted:false,locked:false,clips}]
  return {...timeline,tracks}
 }
