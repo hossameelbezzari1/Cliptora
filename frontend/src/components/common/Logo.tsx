@@ -1,9 +1,2 @@
 import { Link } from 'react-router-dom'
-export function Logo({ compact = false }: { compact?: boolean }) {
-    return <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
-        <img className="h-10 w-10 rounded-lg object-contain" src="/assets/logo.png" alt="" />
-        <div className={compact ? 'hidden xl:block' : ''}>
-            <strong className="font-display text-base font-extrabold tracking-tight">Cliptora</strong>
-        </div>
-    </Link>
-}
+export function Logo({compact=false}:{compact?:boolean}){return <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5"><img className="h-10 w-10 rounded-lg object-contain" src="/assets/logo.png" alt=""/><div className={compact?'hidden xl:block':''}><strong className="font-display text-base font-extrabold tracking-tight">Cliptora</strong><p className="text-[10px] text-cl-muted">AI Video Editor</p></div></Link>}
