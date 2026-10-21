@@ -58,6 +58,7 @@ class Track(Base):
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     muted: Mapped[bool] = mapped_column(Boolean, default=False)
     locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    background_color: Mapped[str] = mapped_column(String(20), default='#101214')
     project: Mapped[Project] = relationship(back_populates='tracks')
     clips: Mapped[list['Clip']] = relationship(back_populates='track', cascade='all, delete-orphan', order_by='Clip.start')
     __table_args__ = (UniqueConstraint('project_id','client_id', name='uq_track_client'),)
@@ -75,6 +76,8 @@ class Clip(Base):
     media_id: Mapped[int | None] = mapped_column(ForeignKey('media_assets.id', ondelete='SET NULL'), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default='#5bff93')
+    properties_json: Mapped[str] = mapped_column(Text, default='{}')
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
     track: Mapped[Track] = relationship(back_populates='clips')
 
 class MediaAsset(Base):

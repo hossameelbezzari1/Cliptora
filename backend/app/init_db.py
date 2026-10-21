@@ -32,6 +32,8 @@ def main():
         server.dispose()
 
     Base.metadata.create_all(bind=engine)
+    from app.migrate_editor import migrate
+    migrate()
     print(f'Cliptora tables ready in MySQL database: {name}')
     print('No existing tables or rows were deleted.')
 

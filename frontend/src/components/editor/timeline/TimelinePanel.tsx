@@ -4,6 +4,7 @@ import { useEditor, canPlace, snapTime, MAX_LAYERS, MIN_CLIP, MAX_TIME, type Dra
 import { formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
 import type { Track, Clip } from '../../../types'
+import { ContextMenu, type MenuState, type ContextAction } from '../../ui/ContextMenu'
 
 const LABEL_W = 186
 const ROW_H = 62
@@ -23,7 +24,7 @@ type Preview = {
   snapEdge: number | null
 }
 
-type DropProps = { trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
+type DropProps = { backgroundColor?:string; trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
 
 const clipKind = (dragging: DragItem, tracks: Track[]): Clip['type'] => {
   if (dragging.kind === 'text') return 'text'
@@ -74,7 +75,7 @@ async function finishDrop(dragging: DragItem, drop: Preview, trackId: string | n
   }
 }
 
-function DropLane({ trackId, zoom, preview, onPreview, children }: DropProps & { children?: ReactNode }) {
+function DropLane({ trackId, zoom, preview, onPreview, children, backgroundColor }: DropProps & { children?: ReactNode }) {
   const setDragging = useEditor(s => s.startDrag)
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     const dragging = useEditor.getState().dragging
@@ -102,7 +103,7 @@ function DropLane({ trackId, zoom, preview, onPreview, children }: DropProps & {
     setDragging(null)
     void finishDrop(dragging, final, trackId)
   }
-  return <div data-clip-lane className="relative my-0.5 min-w-0 flex-1 rounded bg-[#101214]" onDragOver={onDragOver} onDragLeave={e => {
+  return <div data-clip-lane style={{backgroundColor:backgroundColor||'#101214'}} className="relative my-0.5 min-w-0 flex-1 rounded" onDragOver={onDragOver} onDragLeave={e => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) onPreview(null)
   }} onDrop={onDrop} onClick={() => useEditor.getState().selectTrack(trackId)}>
     {children}
@@ -131,6 +132,7 @@ export function TimelinePanel() {
   const addTrack = useEditor(s => s.addTrack)
   const dragged = useEditor(s => s.dragging)
   const [zoom, setZoom] = useState(23)
+  const [menu, setMenu] = useState<MenuState>(null)
   const [previewByTrack, setPreviewByTrack] = useState<Record<string, Preview | null>>({})
   const scroll = useRef<HTMLDivElement>(null)
   const timelineRoot = useRef<HTMLElement>(null)
@@ -206,6 +208,11 @@ export function TimelinePanel() {
         else useEditor.getState().undo()
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
         event.preventDefault(); useEditor.getState().redo()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'x') {
+        const selected = useEditor.getState().selectedClipId
+        if (selected) {event.preventDefault(); useEditor.getState().cutClip(selected)}
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+        if (useEditor.getState().clipboard) {event.preventDefault(); useEditor.getState().pasteClip()}
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         const selected = useEditor.getState().selectedClipId
         if (selected) { event.preventDefault(); useEditor.getState().removeClip(selected) }
@@ -215,7 +222,7 @@ export function TimelinePanel() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  return <section ref={timelineRoot} className="relative flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]">
+  return <><section ref={timelineRoot} className="relative flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]">
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
       <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
       <button title="Add layer (optional)" disabled={tracks.length >= MAX_LAYERS} onClick={addTrack} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-3 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer</button>
@@ -241,7 +248,7 @@ export function TimelinePanel() {
         <div className="relative">
           <div aria-hidden className="pointer-events-none absolute bottom-0 top-0 z-10 w-[2px] bg-cl-orange shadow-[0_0_15px_#fe7526]" style={{ left: LABEL_W + playhead * zoom }}><span className="absolute -top-1 -left-2 h-6 w-4 rounded-md bg-cl-orange"/></div>
           {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} zoom={zoom} timelineWidth={timelineWidth}
-            preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)}/>) }
+            preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)} onMenu={setMenu}/>) }
           {dragged && <div className="flex h-[66px] border-b border-dashed border-[#8752dc] bg-[#7547b3]/10">
             <div className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff]" style={{ width: LABEL_W }}><Plus size={16}/>New layer on drop</div>
             <div style={{ width: timelineWidth }} className="flex min-w-0 flex-1">
@@ -254,10 +261,10 @@ export function TimelinePanel() {
         </div>
       </div>
     </div>
-  </section>
+  </section><ContextMenu menu={menu} onClose={()=>setMenu(null)}/></>
 }
 
-function TrackRow({ track, zoom, timelineWidth, preview, onPreview }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void }) {
+function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void; onMenu: (menu:MenuState)=>void }) {
   const toggle = useEditor(s => s.toggleTrack)
   const remove = useEditor(s => s.removeTrack)
   const rename = useEditor(s => s.renameTrack)
@@ -266,8 +273,24 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview }: { track: T
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(track.name)
   const finish = () => { rename(track.client_id, name); setEditing(false) }
+  const showMenu=(event:MouseEvent<HTMLElement>)=>{
+    event.preventDefault(); event.stopPropagation()
+    selectTrack(track.client_id)
+    const actions:ContextAction[]=[
+      {label:'Rename layer',onClick:()=>{setName(track.name);setEditing(true)}},
+      {label:'Duplicate layer',onClick:()=>useEditor.getState().duplicateTrack(track.client_id)},
+      {label:track.muted?'Unmute layer':'Mute layer',onClick:()=>toggle(track.client_id,'muted')},
+      {label:track.hidden?'Show layer':'Hide layer',onClick:()=>toggle(track.client_id,'hidden')},
+      {label:track.locked?'Unlock layer':'Lock layer',onClick:()=>toggle(track.client_id,'locked')},
+      {label:'',divider:true},
+      {label:'',content:<label className="flex items-center justify-between gap-2 text-xs">Background color <input aria-label="Layer background color" type="color" defaultValue={track.background_color||'#101214'} onChange={e=>useEditor.getState().patchTrack(track.client_id,{background_color:e.target.value})}/></label>},
+      {label:'',divider:true},
+      {label:'Remove layer and its clips',danger:true,onClick:()=>window.confirm(`Delete ${track.name} and its clips?`)&&remove(track.client_id)}
+    ]
+    onMenu({x:event.clientX,y:event.clientY,actions})
+  }
   return <div className="flex border-b border-white/5" style={{ height: ROW_H }}>
-    <div className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
+    <div onContextMenu={showMenu} className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
       <GripVertical size={13} className="shrink-0 text-cl-muted"/>
       <div className="mr-auto min-w-0 flex-1">
         {editing ? <input autoFocus aria-label="Layer name" maxLength={100} className="w-full rounded bg-[#30343a] px-1 text-[11px] outline-none focus:ring-1 focus:ring-[#b387fd]" value={name} onChange={e => setName(e.target.value)} onBlur={finish} onKeyDown={e => { if (e.key === 'Enter') finish(); if (e.key === 'Escape') { setName(track.name); setEditing(false) } }} onClick={e => e.stopPropagation()}/>
@@ -282,14 +305,14 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview }: { track: T
       </div>
     </div>
     <div className="flex" style={{ width: timelineWidth }}>
-      <DropLane trackId={track.client_id} zoom={zoom} preview={preview} onPreview={onPreview}>
-        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom}/>) }
+      <DropLane trackId={track.client_id} backgroundColor={track.background_color} zoom={zoom} preview={preview} onPreview={onPreview}>
+        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu}/>) }
       </DropLane>
     </div>
   </div>
 }
 
-function ClipBar({ clip, track, zoom }: { clip: Clip; track: Track; zoom: number }) {
+function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom: number; onMenu: (menu:MenuState)=>void }) {
   const selected = useEditor(s => s.selectedClipId === clip.client_id)
   const selectClip = useEditor(s => s.selectClip)
   const rename = useEditor(s => s.patchClip)
@@ -313,7 +336,7 @@ function ClipBar({ clip, track, zoom }: { clip: Clip; track: Track; zoom: number
   const validTrim = canPlace(track, displayStart, visualDuration, clip.client_id)
   const commitName = () => { if (name.trim()) rename(clip.client_id, { name: name.trim().slice(0, 160) }); setEditing(false) }
   const beginTrim = (edge: 'left' | 'right') => (event: PointerEvent<HTMLSpanElement>) => {
-    if (track.locked || event.button !== 0) return
+    if (track.locked || clip.locked || event.button !== 0) return
     event.preventDefault(); event.stopPropagation()
     origin.current = { x: event.clientX, edge }
     setTrimDraft({ edge, delta: 0 })
@@ -333,26 +356,67 @@ function ClipBar({ clip, track, zoom }: { clip: Clip; track: Track; zoom: number
     setTrimDraft(null)
   }
   const startDrag = (event: DragEvent<HTMLDivElement>) => {
-    if (track.locked || editing || origin.current) { event.preventDefault(); return }
+    if (track.locked || clip.locked || editing || origin.current) { event.preventDefault(); return }
     const rect = event.currentTarget.getBoundingClientRect()
     const item: DragItem = { kind: 'clip', clipId: clip.client_id, duration: clip.duration, offset: clamp((event.clientX - rect.left) / zoom, 0, clip.duration) }
     drag(item); event.dataTransfer.setData(DRAG_MIME, clip.client_id); event.dataTransfer.effectAllowed = 'move'
   }
-  return <div role="button" tabIndex={track.locked ? -1 : 0} draggable={!track.locked && !editing && !trimDraft} onDragStart={startDrag} onDragEnd={() => drag(null)}
+  const focusField=(field:string)=>{
+    selectClip(clip.client_id)
+    useEditor.getState().selectTrack(track.client_id)
+    window.requestAnimationFrame(()=>{const input=document.querySelector<HTMLInputElement>(`[data-clip-field="${field}"]`);input?.focus();input?.select()})
+  }
+  const showClipMenu=(e:MouseEvent<HTMLDivElement>)=>{
+    e.preventDefault();e.stopPropagation()
+    selectClip(clip.client_id)
+    useEditor.getState().selectTrack(track.client_id)
+    const store=useEditor.getState()
+    const isLocked=track.locked||clip.locked
+    const canMerge=!!clip.props?.attached_to||store.tracks.some(t=>t.clips.some(c=>c.props?.attached_to===clip.client_id))
+    const actions:ContextAction[]=[
+      {label:'Rename',onClick:()=>{setName(clip.name);setEditing(true)},disabled:isLocked},
+      {label:'Duplicate',onClick:()=>store.duplicateClip(clip.client_id),disabled:isLocked},
+      {label:'Cut clip',onClick:()=>store.cutClip(clip.client_id),disabled:isLocked},
+      {label:'Split at playhead',onClick:()=>store.splitClip(clip.client_id,store.playhead),disabled:isLocked || store.playhead<=clip.start+MIN_CLIP || store.playhead>=clip.start+clip.duration-MIN_CLIP},
+      {label:'Paste at playhead',onClick:()=>store.pasteClip(),disabled:!store.clipboard||track.locked},
+      {label:'',divider:true},
+      {label:'Detach sound from video',onClick:()=>store.detachAudio(clip.client_id),disabled:isLocked||clip.type!=='video'||!!clip.props?.audio_muted},
+      {label:'Merge sound with video',onClick:()=>store.mergeAudio(clip.client_id),disabled:isLocked||!canMerge},
+      {label:clip.locked?'Unlock clip':'Lock clip',onClick:()=>store.patchClip(clip.client_id,{locked:!clip.locked}),disabled:track.locked},
+      {label:'',divider:true},
+      {label:'Set duration',onClick:()=>focusField('duration')},
+      {label:'Start at…',onClick:()=>focusField('start')},
+      {label:'End at…',onClick:()=>focusField('end')},
+      {label:'Set width',onClick:()=>focusField('width'),disabled:clip.type==='audio'},
+      {label:'Set height',onClick:()=>focusField('height'),disabled:clip.type==='audio'},
+      {label:'Set position (X)',onClick:()=>focusField('x'),disabled:clip.type==='audio'},
+      {label:'Set position (Y)',onClick:()=>focusField('y'),disabled:clip.type==='audio'},
+      {label:'Set rotation',onClick:()=>focusField('rotation'),disabled:clip.type==='audio'},
+      {label:'Set scale',onClick:()=>focusField('scale'),disabled:clip.type==='audio'},
+      {label:clip.props?.reversed?'Normal playback':'Reverse video frames (silent)',onClick:()=>store.patchProps(clip.client_id,{reversed:!clip.props?.reversed}),disabled:clip.type!=='video'||isLocked},
+      {label:'',divider:true},
+      {label:`Indicator → start (${formatTime(clip.start)})`,onClick:()=>store.setPlayhead(clip.start)},
+      {label:`Indicator → end (${formatTime(clip.start+clip.duration)})`,onClick:()=>store.setPlayhead(clip.start+clip.duration)},
+      {label:'',divider:true},
+      {label:'Remove clip',danger:true,onClick:()=>store.removeClip(clip.client_id),disabled:isLocked},
+    ]
+    onMenu({x:e.clientX,y:e.clientY,actions})
+  }
+  return <div role="button" tabIndex={track.locked || clip.locked ? -1 : 0} draggable={!track.locked && !clip.locked && !editing && !trimDraft} onDragStart={startDrag} onDragEnd={() => drag(null)}
     onClick={e => { e.stopPropagation(); selectClip(clip.client_id); useEditor.getState().selectTrack(track.client_id) }}
     onKeyDown={e => { if (e.key === 'Enter') selectClip(clip.client_id); if (e.key === 'F2') { setName(clip.name); setEditing(true) } }}
-    onDoubleClick={e => { e.stopPropagation(); if (!track.locked) { setName(clip.name); setEditing(true) } }}
-    onContextMenu={e => { e.preventDefault(); if (!track.locked && window.confirm(`Remove ${clip.name}?`)) useEditor.getState().removeClip(clip.client_id) }}
+    onDoubleClick={e => { e.stopPropagation(); if (!track.locked && !clip.locked) { setName(clip.name); setEditing(true) } }}
+    onContextMenu={showClipMenu}
     title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · drag to move, drag edges to trim`}
     style={{ left: displayStart * zoom, width: Math.max(visualDuration * zoom, 8) }}
-    className={`group absolute inset-y-1 z-[2] flex min-w-0 items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
-    {!track.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40"/>}
+    className={`group absolute inset-y-1 z-[2] flex min-w-0 items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
+    {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40"/>}
     <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
       {clip.type === 'video' ? <Video size={13} className="shrink-0"/> : clip.type === 'audio' ? <Music2 size={13} className="shrink-0"/> : clip.type === 'text' ? <Type size={13} className="shrink-0"/> : <ImageIcon size={13} className="shrink-0"/>}
       {editing ? <input autoFocus className="min-w-0 flex-1 bg-black/35 px-1 outline-none" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }}/>
         : <span className="truncate whitespace-nowrap">{clip.name}</span>}
     </span>
     {trimDraft && <span className="pointer-events-none z-10 ml-auto whitespace-nowrap rounded bg-black/70 px-1 text-[10px] tabular-nums">{visualDuration.toFixed(2)}s</span>}
-    {!track.locked && <span role="separator" aria-label="Trim clip end" title="Drag to trim end / change duration" onPointerDown={beginTrim('right')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 right-0 z-10 w-[9px] cursor-ew-resize rounded-r-md bg-black/15 hover:bg-white/40"/>}
+    {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip end" title="Drag to trim end / change duration" onPointerDown={beginTrim('right')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 right-0 z-10 w-[9px] cursor-ew-resize rounded-r-md bg-black/15 hover:bg-white/40"/>}
   </div>
 }

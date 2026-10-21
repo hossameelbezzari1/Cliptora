@@ -7,12 +7,13 @@ from app.models import Project,Track,Clip,MediaAsset
 from app.schemas.objects import TimelineIn,TimelineOut,TrackIn,ClipIn
 from app.models.entities import now
 from uuid import uuid4
+import json
 
 router=APIRouter(prefix='/projects',tags=['Timeline'])
 
 def serialize(db:Session,project:Project)->dict:
     tracks=db.scalars(select(Track).where(Track.project_id==project.id).options(selectinload(Track.clips)).order_by(Track.position)).all()
-    return {'revision':project.revision,'tracks':[{'client_id':t.client_id,'name':t.name,'type':t.type,'position':t.position,'hidden':t.hidden,'muted':t.muted,'locked':t.locked,'clips':[{'client_id':c.client_id,'name':c.name,'type':c.type,'start':c.start,'duration':c.duration,'source_offset':c.source_offset,'media_id':c.media_id,'text':c.text,'color':c.color} for c in t.clips]} for t in tracks]}
+    return {'revision':project.revision,'tracks':[{'client_id':t.client_id,'name':t.name,'type':t.type,'position':t.position,'hidden':t.hidden,'muted':t.muted,'locked':t.locked,'background_color':t.background_color or '#101214','clips':[{'client_id':c.client_id,'name':c.name,'type':c.type,'start':c.start,'duration':c.duration,'source_offset':c.source_offset,'media_id':c.media_id,'text':c.text,'color':c.color,'locked':c.locked,'props':json.loads(c.properties_json or '{}')} for c in t.clips]} for t in tracks]}
 
 @router.get('/{project_id}/timeline',response_model=TimelineOut)
 def get(project:Project=Depends(owned_project),db:Session=Depends(get_db)):
@@ -49,7 +50,9 @@ def put(data:TimelineIn,project:Project=Depends(owned_project),db:Session=Depend
     db.flush()
     for t in data.tracks:
         tr=Track(project_id=project.id,**t.model_dump(exclude={'clips'}));db.add(tr);db.flush()
-        for c in t.clips: db.add(Clip(track_id=tr.id,**c.model_dump()))
+        for c in t.clips:
+            fields=c.model_dump(exclude={'props'})
+            db.add(Clip(track_id=tr.id,**fields,properties_json=c.props.model_dump_json()))
     project.revision+=1;project.updated_at=now()
     db.commit()
     return serialize(db,project)

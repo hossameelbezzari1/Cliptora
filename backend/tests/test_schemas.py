@@ -27,3 +27,17 @@ def test_100_layers_are_permitted():
     from app.schemas.objects import TrackIn, TimelineIn
     layers=[TrackIn(client_id=f'layer-{i}',name=f'Layer {i+1}',type='mixed',position=i) for i in range(100)]
     assert len(TimelineIn(revision=1,tracks=layers).tracks)==100
+
+
+def test_v24_properties_validation_and_default():
+    from app.schemas.objects import ClipIn, TrackIn
+    clip=ClipIn(client_id='transform',name='Transform',type='text',start=0,duration=10, props={'x':22.5,'width':50,'rotation':70,'scale':1.25})
+    assert clip.props.x==22.5 and clip.props.width==50
+    assert clip.props.opacity==1
+    layer=TrackIn(client_id='layer',name='Layer',type='mixed',position=0,background_color='#123abc')
+    assert layer.background_color=='#123abc'
+    try:
+        ClipIn(client_id='bad',name='Bad',type='text',start=0,duration=10,props={'scale':0})
+        assert False
+    except ValidationError:
+        pass

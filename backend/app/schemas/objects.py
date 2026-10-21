@@ -66,6 +66,21 @@ class MediaOut(BaseModel):
     size_bytes: int
     created_at: datetime
 
+class ClipProperties(BaseModel):
+    x: float = Field(default=0, ge=-500, le=500, allow_inf_nan=False)
+    y: float = Field(default=0, ge=-500, le=500, allow_inf_nan=False)
+    width: float = Field(default=100, ge=1, le=500, allow_inf_nan=False)
+    height: float = Field(default=100, ge=1, le=500, allow_inf_nan=False)
+    rotation: float = Field(default=0, ge=-3600, le=3600, allow_inf_nan=False)
+    scale: float = Field(default=1, ge=0.1, le=10, allow_inf_nan=False)
+    opacity: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+    flip_x: bool = False
+    flip_y: bool = False
+    reversed: bool = False
+    audio_muted: bool = False
+    volume: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+    attached_to: str | None = Field(default=None, max_length=64)
+
 class ClipIn(BaseModel):
     client_id: str = Field(min_length=1,max_length=64)
     name: str = Field(min_length=1,max_length=160)
@@ -76,6 +91,8 @@ class ClipIn(BaseModel):
     media_id: int | None = None
     text: str | None = Field(default=None,max_length=2000)
     color: str = Field(default='#5bff93', pattern=r'^#[0-9a-fA-F]{6}$')
+    props: ClipProperties = Field(default_factory=ClipProperties)
+    locked: bool = False
 
 class TrackIn(BaseModel):
     client_id: str = Field(min_length=1,max_length=64)
@@ -85,6 +102,7 @@ class TrackIn(BaseModel):
     hidden: bool = False
     muted: bool = False
     locked: bool = False
+    background_color: str = Field(default='#101214', pattern=r'^#[0-9a-fA-F]{6}$')
     clips: list[ClipIn] = Field(default_factory=list,max_length=500)
 
 class TimelineIn(BaseModel):

@@ -38,6 +38,15 @@ with tempfile.TemporaryDirectory() as tmp:
   ok(client.put(f'/api/v1/projects/{pid}/timeline',headers=H,json=saved),'mixed video/image/text track save')
   ok(client.get(f'/api/v1/media/{mid}/file'),'media private retrieval')
   ok(client.get(f'/api/v1/projects/{pid}/media'),'media list')
+  state=client.get(f'/api/v1/projects/{pid}/timeline').json()
+  state['tracks'][0]['background_color']='#123abc'
+  state['tracks'][0]['clips'][0]['props']={'x':12.5,'width':60,'rotation':20,'scale':1.4,'audio_muted':False}
+  state['tracks'][0]['clips'][0]['locked']=True
+  result=ok(client.put(f'/api/v1/projects/{pid}/timeline',headers=H,json=state),'v2.4 transform persistence').json()
+  assert result['tracks'][0]['background_color']=='#123abc'
+  assert result['tracks'][0]['clips'][0]['props']['x']==12.5
+  assert result['tracks'][0]['clips'][0]['locked'] is True
+  
   ok(client.post('/api/v1/auth/forgot-password',headers=H,json={'email':'demo@example.com'}),'forgot dev')
   ok(client.post('/api/v1/auth/logout',headers=H),'logout')
   unauthorized=client.get('/api/v1/auth/me');print('me after logout',unauthorized.status_code);assert unauthorized.status_code==401

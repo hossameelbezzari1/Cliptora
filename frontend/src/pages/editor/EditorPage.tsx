@@ -7,6 +7,7 @@ import { InspectorPanel } from '../../components/editor/inspector/InspectorPanel
 import { PreviewPanel } from '../../components/editor/preview/PreviewPanel'
 import { TimelinePanel } from '../../components/editor/timeline/TimelinePanel'
 import { ToolRail,type Tab } from '../../components/editor/sidebar/ToolRail'
+import { ResizableEditor } from '../../components/editor/layout/ResizableEditor'
 import { EditorToolbar } from '../../components/editor/toolbar/EditorToolbar'
 import { api } from '../../lib/api'
 import { useEditor } from '../../stores/editorStore'
@@ -19,5 +20,11 @@ export function EditorPage(){const {id}=useParams();const projectId=Number(id);c
  const playing=useEditor(s=>s.playing);useEffect(()=>{if(!playing)return;const tick=window.setInterval(()=>{const state=useEditor.getState();const max=Math.max(60,...state.tracks.flatMap(t=>t.clips.map(c=>c.start+c.duration)));if(state.playhead+.1>=max){state.setPlaying(false);return}state.setPlayhead(state.playhead+.1)},100);return()=>window.clearInterval(tick)},[playing])
  if(loading)return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm text-cl-muted">Loading editor…</div>
  if(!project)return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm"><div><Alert error={error}/><Link to="/dashboard" className="mt-4 block text-cl-cyan">Back to projects</Link></div></div>
- return <EditorLayout project={project} saveStatus={saveStatus}><main className="grid min-h-0 min-w-0 w-full max-w-full flex-1 grid-rows-[minmax(0,1fr)_minmax(240px,1.15fr)] gap-1.5 overflow-hidden px-2 pb-2"><div className="grid min-h-0 min-w-0 w-full max-w-full grid-cols-[minmax(230px,27%)_minmax(0,1fr)_minmax(230px,22%)] gap-1.5 overflow-hidden"><aside className="flex min-h-0 min-w-0 overflow-hidden rounded-lg bg-cl-panel"><ToolRail active={active} onChange={setActive}/><LibraryPanel active={active}/></aside><PreviewPanel project={project}/><InspectorPanel/></div><div className="flex min-h-0 min-w-0 w-full max-w-full flex-col gap-0.5 overflow-hidden"><EditorToolbar onSave={()=>void save()}/><TimelinePanel/></div></main>{error&&<div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200"><button className="float-right ml-3" aria-label="Dismiss" onClick={()=>setError(null)}>×</button>{error instanceof Error?error.message:String(error)}</div>}</EditorLayout>
+ return <EditorLayout project={project} saveStatus={saveStatus}><ResizableEditor
+   left={<><ToolRail active={active} onChange={setActive}/><LibraryPanel active={active}/></>}
+   center={<PreviewPanel project={project}/>}
+   right={<InspectorPanel/>}
+   toolbar={<EditorToolbar onSave={()=>void save()}/>}
+   timeline={<TimelinePanel/>}
+ />{error&&<div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200"><button className="float-right ml-3" aria-label="Dismiss" onClick={()=>setError(null)}>×</button>{error instanceof Error?error.message:String(error)}</div>}</EditorLayout>
 }
