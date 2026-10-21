@@ -20,11 +20,10 @@ export function EditorPage(){const {id}=useParams();const projectId=Number(id);c
  const playing=useEditor(s=>s.playing);useEffect(()=>{if(!playing)return;const tick=window.setInterval(()=>{const state=useEditor.getState();const max=Math.max(60,...state.tracks.flatMap(t=>t.clips.map(c=>c.start+c.duration)));if(state.playhead+.1>=max){state.setPlaying(false);return}state.setPlayhead(state.playhead+.1)},100);return()=>window.clearInterval(tick)},[playing])
  if(loading)return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm text-cl-muted">Loading editor…</div>
  if(!project)return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm"><div><Alert error={error}/><Link to="/dashboard" className="mt-4 block text-cl-cyan">Back to projects</Link></div></div>
- return <EditorLayout project={project} saveStatus={saveStatus}><ResizableEditor
+ return <EditorLayout project={project} saveStatus={saveStatus} editorTools={<EditorToolbar project={project} onSave={()=>void save()}/> }><ResizableEditor
    left={<><ToolRail active={active} onChange={setActive}/><LibraryPanel active={active}/></>}
    center={<PreviewPanel project={project}/>}
    right={<InspectorPanel/>}
-   toolbar={<EditorToolbar onSave={()=>void save()}/>}
    timeline={<TimelinePanel/>}
  />{error&&<div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200"><button className="float-right ml-3" aria-label="Dismiss" onClick={()=>setError(null)}>×</button>{error instanceof Error?error.message:String(error)}</div>}</EditorLayout>
 }

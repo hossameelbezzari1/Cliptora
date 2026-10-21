@@ -41,3 +41,17 @@ def test_v24_properties_validation_and_default():
         assert False
     except ValidationError:
         pass
+
+
+def test_crop_properties_validate_and_preserve_edges():
+    from app.schemas.objects import ClipProperties
+    crop=ClipProperties(crop_left=12,crop_right=8,crop_top=4,crop_bottom=3)
+    assert crop.model_dump()['crop_left']==12
+    assert crop.crop_bottom==3
+    assert ClipProperties().crop_top==0
+    for props in ({'crop_left':93,'crop_right':4},{'crop_top':60,'crop_bottom':40},{'crop_left':-1}):
+        try:
+            ClipProperties.model_validate(props)
+            assert False, 'Crop outside allowable bounds was accepted.'
+        except ValidationError:
+            pass

@@ -1,28 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import {
-  Aperture, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, Copy,
-  FlipHorizontal, FlipVertical, Lock, Maximize2, Move, MousePointer2, Pause,
-  Play, RotateCcw, RotateCw, Scaling, Scissors, Trash2, Type, Unlock,
-  Volume2, VolumeX,
-} from 'lucide-react'
+import { Aperture, ArrowLeftToLine, ArrowRightToLine, Copy, Crop, FlipHorizontal, FlipVertical, Lock, Maximize2, Move, MousePointer2, Pause, Play, RotateCcw, RotateCw, Scaling, Scissors, Trash2, Type, Unlock, Volume2, VolumeX } from 'lucide-react'
 import { useEditor, MIN_CLIP } from '../../../stores/editorStore'
 import { formatTime } from '../../../lib/api'
 import { ContextMenu, type ContextAction, type MenuState } from '../../ui/ContextMenu'
 import type { Clip, Project, Track } from '../../../types'
 import { AudioSource, PreviewObject } from './PreviewObject'
-import { clamp, getObjectTransform, resetTransform, round, type PreviewTool } from './previewGeometry'
-
-const tools: { id: PreviewTool; label: string; description: string; icon: typeof MousePointer2 }[] = [
-  { id: 'select', label: 'Select', description: 'Click an object, then drag to move it', icon: MousePointer2 },
-  { id: 'move', label: 'Move', description: 'Drag an object to change X / Y', icon: Move },
-  { id: 'resize', label: 'Resize', description: 'Drag an object to change width / height', icon: Maximize2 },
-  { id: 'rotate', label: 'Rotate', description: 'Drag an object around its center', icon: RotateCw },
-  { id: 'scale', label: 'Scale', description: 'Drag an object to scale proportionally', icon: Scaling },
-]
+import { clamp, getObjectTransform, resetTransform, round } from './previewGeometry'
 
 type VisibleObject = { clip: Clip; track: Track }
-
-const prettyKind: Record<Clip['type'], string> = { video: 'Video', image: 'Image', text: 'Text', audio: 'Audio' }
 
 export function PreviewPanel({ project }: { project: Project }) {
   const tracks = useEditor(s => s.tracks)
@@ -33,10 +18,10 @@ export function PreviewPanel({ project }: { project: Project }) {
   const selectedClipId = useEditor(s => s.selectedClipId)
   const selectClip = useEditor(s => s.selectClip)
   const selectTrack = useEditor(s => s.selectTrack)
-  const [tool, setTool] = useState<PreviewTool>('select')
+  const tool = useEditor(s => s.previewTool)
+  const setTool = useEditor(s => s.setPreviewTool)
   const [muted, setMuted] = useState(false)
   const [menu, setMenu] = useState<MenuState>(null)
-  const [showObjectList, setShowObjectList] = useState(false)
   const viewport = useRef<HTMLDivElement>(null)
   const [space, setSpace] = useState({ width: 640, height: 360 })
 
@@ -77,7 +62,6 @@ export function PreviewPanel({ project }: { project: Project }) {
     const track = useEditor.getState().tracks.find(item => item.clips.some(candidate => candidate.client_id === clip.client_id))
     selectClip(clip.client_id)
     if (track) selectTrack(track.client_id)
-    setShowObjectList(false)
   }
 
   const jumpTo = (clip: Clip) => {
@@ -100,7 +84,6 @@ export function PreviewPanel({ project }: { project: Project }) {
   function showMenu(event: MouseEvent<HTMLDivElement>, requested?: Clip) {
     event.preventDefault()
     event.stopPropagation()
-    setShowObjectList(false)
     if (!requested) {
       const state = useEditor.getState()
       const actions: ContextAction[] = [
@@ -130,6 +113,8 @@ export function PreviewPanel({ project }: { project: Project }) {
       { divider: true, label: '' },
       { label: 'Center object', icon: <Move size={15} />, disabled: locked, onClick: () => store.patchProps(clip.client_id, { x: round((100 - transform.width) / 2), y: round((100 - transform.height) / 2) }) },
       { label: 'Fit object to canvas', icon: <Maximize2 size={15} />, disabled: locked, onClick: () => store.patchProps(clip.client_id, resetTransform) },
+      { label: 'Crop source in Preview', icon: <Crop size={15} />, disabled: locked || (clip.type !== 'image' && clip.type !== 'video'), onClick: () => setTool('crop') },
+      { label: 'Reset crop', disabled: locked || (clip.type !== 'image' && clip.type !== 'video'), onClick: () => store.patchProps(clip.client_id, { crop_left:0, crop_right:0, crop_top:0, crop_bottom:0 }) },
       { label: 'Set width / height', icon: <Maximize2 size={15} />, onClick: () => focusInspector('width') },
       { label: 'Set position X / Y', icon: <Move size={15} />, onClick: () => focusInspector('x') },
       { label: 'Set rotation / scale', icon: <Scaling size={15} />, onClick: () => focusInspector('rotation') },
@@ -171,43 +156,10 @@ export function PreviewPanel({ project }: { project: Project }) {
     })
   }
 
-  return <section data-preview-root onKeyDown={keyDown} className="flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden bg-[#141618] p-2.5" aria-label="Interactive video preview">
-    <header className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-white/5 pb-2">
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="mr-1 shrink-0 text-[10px] font-extrabold uppercase tracking-wide text-[#b2b7bf]">Preview</span>
-        <div className="relative min-w-0">
-          <button type="button" onClick={() => setShowObjectList(value => !value)} aria-expanded={showObjectList} title="Choose an object, including objects covered by another layer" className="flex max-w-[180px] min-w-0 items-center gap-1 rounded-md bg-[#272a2e] px-2 py-1.5 text-[10px] text-white hover:bg-[#34383d]">
-            <MousePointer2 size={12} className="shrink-0 text-[#cda4ff]" />
-            <span className="truncate">{selected?.clip.name ?? 'Select object'}</span>
-            <ChevronDown size={12} className="shrink-0" />
-          </button>
-          {showObjectList && <div className="absolute top-full left-0 z-50 mt-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-white/15 bg-[#26282d] p-1 shadow-xl">
-            <div className="px-2 py-1.5 text-[10px] font-medium text-cl-muted">Objects at {formatTime(playhead)} (top to bottom)</div>
-            {[...active.visible].reverse().map(({ clip }) => <button key={clip.client_id} type="button" onClick={() => choose(clip)} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[11px] hover:bg-white/10">
-              {selectedClipId === clip.client_id ? <Check size={13} className="text-[#cda4ff]" /> : <span className="w-[13px]" />}
-              <span className="min-w-0 flex-1 truncate">{clip.name}</span>
-              <span className="text-[10px] text-cl-muted">{prettyKind[clip.type]}</span>
-            </button>)}
-            {!active.visible.length && <div className="px-2 py-3 text-xs text-cl-muted">No visual objects at playhead.</div>}
-            <button type="button" onClick={() => { selectClip(null); setShowObjectList(false) }} className="mt-1 w-full rounded-md border-t border-white/10 px-2 py-2 text-left text-[11px] hover:bg-white/10">Clear selection</button>
-          </div>}
-        </div>
-        {selected && !selectionIsOnCanvas && selected.clip.type !== 'audio' && <button type="button" onClick={() => jumpTo(selected.clip)} className="shrink-0 rounded-md border border-[#ac7af7]/50 bg-[#382443] px-2 py-1.5 text-[10px] text-[#ead9ff] hover:bg-[#473056]" title="The selected clip is outside the current time or its layer is hidden">Go to clip</button>}
-      </div>
-      <span className="hidden text-[10px] text-[#7d838b] 2xl:block">Right-click for actions</span>
-    </header>
-
-    <div role="toolbar" aria-label="Preview transform tools" className="flex shrink-0 flex-wrap items-center gap-1.5">
-      {tools.map(item => <button type="button" key={item.id} onClick={() => setTool(item.id)} title={item.description} aria-label={`${item.label} tool`} aria-pressed={tool === item.id}
-        className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-semibold ${tool === item.id ? 'bg-[#603296] text-white ring-1 ring-[#ac7af7]' : 'bg-[#22252a] text-[#aeb2bb] hover:text-white'}`}>
-        <item.icon size={13} /><span className="hidden xl:inline">{item.label}</span>
-      </button>)}
-      <span className="ml-auto truncate text-[10px] text-cl-muted">{project.width}×{project.height}</span>
-    </div>
-
+  return <section data-preview-root onKeyDown={keyDown} className="flex h-full min-h-0 min-w-0 flex-col gap-1.5 overflow-hidden bg-[#141618] p-1.5" aria-label="Interactive video preview">
     <div ref={viewport} className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-[#0d0f12]">
       <div data-preview-canvas tabIndex={0} role="application" aria-label="Canvas, click an object to select or right-click for options" className="relative shrink-0 select-none overflow-hidden shadow-[0_0_0_1px_#ffffff25] outline-none focus-visible:ring-2 focus-visible:ring-[#bb98ff]" style={{ width: canvasWidth, height: canvasHeight, background: active.background }}
-        onClick={() => { selectClip(null); setShowObjectList(false) }} onContextMenu={event => showMenu(event)}>
+        onClick={() => selectClip(null)} onContextMenu={event => showMenu(event)}>
         {!active.visible.length && <div className="pointer-events-none grid h-full w-full place-items-center text-[#757a82]"><div className="grid justify-items-center gap-2"><Aperture size={32}/><p className="text-center text-xs">No visual clip at {formatTime(playhead)}<br/><span className="text-[10px]">Drag media onto Timeline to begin.</span></p></div></div>}
         {active.visible.map(({ clip, track }) => <PreviewObject
           key={clip.client_id}
@@ -224,15 +176,9 @@ export function PreviewPanel({ project }: { project: Project }) {
       <div className="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden="true">{active.audio.map(({ clip, muted: trackMuted }) => <AudioSource key={clip.client_id} clip={clip} playhead={playhead} playing={playing} muted={trackMuted}/>)}</div>
     </div>
 
-    <div className="flex min-h-[24px] shrink-0 items-center gap-1 overflow-hidden text-[10px] text-[#aeb3bb]" aria-live="polite">
-      {selected?.clip && selectionIsOnCanvas ? <>
-        <span className="shrink-0 rounded bg-[#362445] px-1.5 py-1 font-medium text-[#e5cbff]">Selected</span>
-        <span className="min-w-0 flex-1 truncate">{selected.clip.name} · {prettyKind[selected.clip.type]} · {tool === 'select' ? 'Drag to move' : tools.find(item => item.id === tool)?.description}</span>
-      </> : selected?.clip ? <span className="truncate text-[#d9b8ff]">{selected.clip.type === 'audio' ? `${selected.clip.name} — audio only; edit its properties in Clip Settings.` : `${selected.clip.name} — not visible at this playhead. Use “Go to clip”.`}</span>
-        : <span className="truncate">Select an object from the canvas or dropdown. Purple outline = selected · corner square = resize · top circle = rotate · right-click = actions.</span>}
-    </div>
-
-    <div className="flex w-full shrink-0 items-center gap-2 rounded-lg bg-[#25282c] px-2.5 py-2">
+    <div className="flex w-full shrink-0 items-center gap-2 rounded-md bg-[#25282c] px-2 py-1.5">
+      {selected && !selectionIsOnCanvas && selected.clip.type!=='audio' && <button type="button" onClick={()=>jumpTo(selected.clip)} title="Jump to selected clip" className="shrink-0 rounded bg-[#4d3467] px-2 py-1 text-[10px] text-white">Go to clip</button>}
+      <button type="button" onClick={()=>{if(selected)useEditor.getState().splitClip(selected.clip.client_id,playhead)}} disabled={!editable||!selected||playhead<=selected.clip.start+MIN_CLIP||playhead>=selected.clip.start+selected.clip.duration-MIN_CLIP} className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] text-[#e7d9ff] hover:bg-white/10" aria-label="Cut selected clip at playhead" title="Cut / split selected clip at playhead"><Scissors size={14}/><span className="hidden sm:inline">Cut</span></button>
       <button type="button" aria-label={playing ? 'Pause preview' : 'Play preview'} title={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(!playing)} className="shrink-0 text-white hover:text-[#cfaaff]">{playing ? <Pause size={19} /> : <Play size={19} />}</button>
       <span className="shrink-0 text-[10px] tabular-nums text-[#d1d4da]">{formatTime(playhead)} / {formatTime(total)}</span>
       <input aria-label="Preview playhead" className="min-w-0 flex-1" type="range" min={0} max={total} step={0.01} value={Math.min(playhead, total)} onChange={event => { setPlaying(false); setPlayhead(Number(event.target.value)) }} />

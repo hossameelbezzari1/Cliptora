@@ -28,3 +28,9 @@ input[type=range]{accent-color:#9139e9}
 .cliptora-toolrail::-webkit-scrollbar { display: none; }
 /* Contain only the horizontal timeline; importing a long source never widens the editor. */
 [data-timeline-scroll] { max-width: 100%; overscroll-behavior: contain; }
+
+/* Scrollbars belong to the timeline viewport, not to the whole editor layout. */
+.cliptora-timeline-scroll { scrollbar-width: thin; scrollbar-color: #675483 #202225; }
+.cliptora-timeline-scroll::-webkit-scrollbar { height: 9px; width: 10px; }
+.cliptora-timeline-scroll::-webkit-scrollbar-track { background: #202225; }
+.cliptora-timeline-scroll::-webkit-scrollbar-thumb { background: #675483; border-radius: 10px; border: 2px solid #202225; }

@@ -1,6 +1,6 @@
 import type { Clip, ClipProperties } from '../../../types'
 
-export type PreviewTool = 'select' | 'move' | 'resize' | 'rotate' | 'scale'
+export type PreviewTool = 'select' | 'move' | 'resize' | 'rotate' | 'scale' | 'crop'
 export type ObjectTransform = Required<Pick<ClipProperties, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'scale' | 'opacity' | 'flip_x' | 'flip_y'>>
 
 export const clamp = (value: number, minimum: number, maximum: number) =>
@@ -29,7 +29,7 @@ export function getObjectTransform(clip: Clip, draft?: Partial<ClipProperties> |
 }
 
 export type PointerGesture = {
-  tool: Exclude<PreviewTool, 'select'>
+  tool: Exclude<PreviewTool, 'select'|'crop'>
   startX: number
   startY: number
   centerX: number
@@ -71,4 +71,13 @@ export function getTransformDelta(
 
 export const resetTransform: Partial<ClipProperties> = {
   x: 0, y: 0, width: 100, height: 100, scale: 1, rotation: 0, flip_x: false, flip_y: false,
+}
+
+/** UI crop value in source percentages. Cropping never changes timeline duration. */
+export function calculateCropMargin(
+  edge:'left'|'right'|'top'|'bottom', initial:number, opposite:number,
+  deltaPixels:number, mediaPixels:number,
+):number {
+  const direction=edge==='right'||edge==='bottom'?-1:1
+  return round(clamp(initial+direction*deltaPixels/Math.max(1,mediaPixels)*100,0,95-opposite),1)
 }

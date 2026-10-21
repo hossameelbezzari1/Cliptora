@@ -1,9 +1,9 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 type Axis='left'|'right'|'horizontal'
-type Props={left:ReactNode;center:ReactNode;right:ReactNode;toolbar:ReactNode;timeline:ReactNode}
+type Props={left:ReactNode;center:ReactNode;right:ReactNode;timeline:ReactNode}
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v))
 const saved=(key:string,def:number)=>{try{const v=Number(localStorage.getItem(key));return v>0?v:def}catch{return def}}
-export function ResizableEditor({left,center,right,toolbar,timeline}:Props){
+export function ResizableEditor({left,center,right,timeline}:Props){
  const root=useRef<HTMLElement>(null)
  const [l,setL]=useState(()=>saved('cliptora.left',27)),[r,setR]=useState(()=>saved('cliptora.right',22)),[t,setT]=useState(()=>saved('cliptora.top',49))
  const drag=useRef<{axis:Axis;x:number;y:number;initial:number}|null>(null)
@@ -26,6 +26,6 @@ export function ResizableEditor({left,center,right,toolbar,timeline}:Props){
    <div className="min-h-0 min-w-0 overflow-hidden rounded-md bg-cl-panel">{right}</div>
   </div>
   <div {...separator('horizontal')} className="group relative z-40 cursor-row-resize touch-none"><div className="absolute inset-x-3 top-[2px] h-[3px] rounded-full group-hover:bg-cl-purple group-active:bg-cl-cyan"/></div>
-  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden"><div className="shrink-0">{toolbar}</div><div className="min-h-0 flex-1">{timeline}</div></div>
+  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden"><div className="min-h-0 flex-1">{timeline}</div></div>
  </main>
 }

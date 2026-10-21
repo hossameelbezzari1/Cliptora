@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
-import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical } from 'lucide-react'
+import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical, Crop, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react'
 import { useEditor, canPlace, snapTime, MAX_LAYERS, MIN_CLIP, MAX_TIME, type DragItem } from '../../../stores/editorStore'
 import { formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
@@ -131,6 +131,11 @@ export function TimelinePanel() {
   const setPlayhead = useEditor(s => s.setPlayhead)
   const addTrack = useEditor(s => s.addTrack)
   const dragged = useEditor(s => s.dragging)
+  const selectedClipId = useEditor(s => s.selectedClipId)
+  const previewTool = useEditor(s => s.previewTool)
+  const selected = tracks.flatMap(t => t.clips.map(c => ({clip:c,track:t}))).find(item => item.clip.client_id === selectedClipId)
+  const cropAllowed = !!selected && !selected.clip.locked && !selected.track.locked && (selected.clip.type === 'video' || selected.clip.type === 'image')
+  const [pan, setPan] = useState({value:0,max:0,vertical:false})
   const [zoom, setZoom] = useState(23)
   const [menu, setMenu] = useState<MenuState>(null)
   const [previewByTrack, setPreviewByTrack] = useState<Record<string, Preview | null>>({})
@@ -138,9 +143,28 @@ export function TimelinePanel() {
   const timelineRoot = useRef<HTMLElement>(null)
   const manualZoom = useRef(false)
   const previousClipCount = useRef<number | null>(null)
+  function syncPan() {
+    const pane=scroll.current
+    if(!pane)return
+    const value=Math.round(pane.scrollLeft)
+    const max=Math.max(0,Math.ceil(pane.scrollWidth-pane.clientWidth))
+    const vertical=pane.scrollHeight > pane.clientHeight+2
+    setPan(old=>old.value===value&&old.max===max&&old.vertical===vertical?old:{value,max,vertical})
+  }
+  function shiftScroll(amountX=0,amountY=0){scroll.current?.scrollBy({left:amountX,top:amountY,behavior:'smooth'})}
+
   const maxEnd = Math.max(30, playhead + 8, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration)))
   const duration = Math.min(MAX_TIME, Math.max(60, maxEnd + 16))
   const timelineWidth = duration * zoom
+  useEffect(()=>{
+    const pane=scroll.current
+    if(!pane)return
+    const observer=new ResizeObserver(syncPan)
+    observer.observe(pane)
+    if(pane.firstElementChild)observer.observe(pane.firstElementChild)
+    const frame=requestAnimationFrame(syncPan)
+    return()=>{cancelAnimationFrame(frame);observer.disconnect()}
+  },[zoom,tracks.length,timelineWidth])
   const candidateTicks = [0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600]
   const ticksEvery = candidateTicks.find(step => step * zoom >= 45 && duration / step <= 350) ?? 1200
   const ticks = useMemo(() => Array.from({ length: Math.floor(duration / ticksEvery) + 1 }, (_, i) => i * ticksEvery), [duration, ticksEvery])
@@ -158,7 +182,7 @@ export function TimelinePanel() {
     const visualX = clamp(anchorX ?? Math.max(0, (pane.clientWidth - LABEL_W) / 2), 0, Math.max(0, pane.clientWidth - LABEL_W))
     const sourceTime = (pane.scrollLeft + visualX) / zoom
     setZoom(value)
-    requestAnimationFrame(() => { if (scroll.current) scroll.current.scrollLeft = Math.max(0, sourceTime * value - visualX) })
+    requestAnimationFrame(() => { if (scroll.current) {scroll.current.scrollLeft = Math.max(0, sourceTime * value - visualX);syncPan()} })
   }
   function fit(userInitiated = true) {
     if (userInitiated) manualZoom.current = true
@@ -167,7 +191,19 @@ export function TimelinePanel() {
     const content = Math.max(60, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration + 2)))
     setZoom(clamp((pane.clientWidth - LABEL_W - 16) / content, MIN_ZOOM, MAX_ZOOM))
     pane.scrollLeft = 0
+    requestAnimationFrame(syncPan)
   }
+  useEffect(()=>{
+    const pane=scroll.current
+    if(!pane)return
+    const wheel=(event:globalThis.WheelEvent)=>{
+      if(!event.shiftKey||event.ctrlKey||event.metaKey)return
+      event.preventDefault()
+      pane.scrollLeft+=event.deltaY
+    }
+    pane.addEventListener('wheel',wheel,{passive:false})
+    return()=>pane.removeEventListener('wheel',wheel)
+  },[])
   // Intercept Ctrl+Wheel over the timeline and toolbar, not only the ruler.
   // Otherwise browsers zoom the entire editor when hovering a track label or toolbar.
   useEffect(() => {
@@ -226,7 +262,8 @@ export function TimelinePanel() {
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
       <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
       <button title="Add layer (optional)" disabled={tracks.length >= MAX_LAYERS} onClick={addTrack} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-3 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer</button>
-      <span className="hidden text-[10px] text-cl-muted xl:inline">Drag clips between layers · Drag edges to trim · Double-click to rename</span>
+      <button aria-label="Crop selected video or image" aria-pressed={previewTool==='crop'} title="Crop selected image/video in Preview (drag green crop edges)" disabled={!cropAllowed} onClick={()=>{const store=useEditor.getState();store.setPreviewTool(previewTool==='crop'?'select':'crop');if(selected&&previewTool!=='crop')store.setPlayhead(selected.clip.start+Math.min(.02,selected.clip.duration/4))}} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${previewTool==='crop'?'bg-[#55377b] text-white':'bg-cl-panel-2 text-cl-muted hover:text-white'}`}><Crop size={15}/>Crop</button>
+      <span className="hidden text-[10px] text-cl-muted 2xl:inline">Drag = move · Edges = trim · Right-click = menu</span>
       <div className="ml-auto flex items-center gap-2">
         <button title="Zoom out" aria-label="Zoom out" onClick={() => zoomTo(zoom / 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Minus size={16}/></button>
         <input aria-label="Timeline zoom" type="range" min={0} max={100} step={1} value={zoomSlider} onChange={e => zoomTo(sliderToZoom(Number(e.target.value)))} className="w-16 accent-[#a87cf4] sm:w-24"/>
@@ -235,7 +272,7 @@ export function TimelinePanel() {
         <span className="w-16 text-right text-[10px] tabular-nums text-cl-muted">{zoom.toFixed(zoom < 10 ? 2 : 1)}px/s</span>
       </div>
     </div>
-    <div data-timeline-scroll ref={scroll} className="relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-auto overscroll-contain" onDragEnd={() => {
+    <div data-timeline-scroll ref={scroll} className="cliptora-timeline-scroll relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-auto overflow-y-auto overscroll-contain" onScroll={syncPan} onDragEnd={() => {
       useEditor.getState().startDrag(null); setPreviewByTrack({})
     }}>
       <div style={{ width: LABEL_W + timelineWidth, minWidth: '100%' }} className="relative">
@@ -260,6 +297,15 @@ export function TimelinePanel() {
           {!tracks.length && !dragged && <div className="grid h-28 place-items-center text-xs text-cl-muted">Drag media here to begin editing.</div>}
         </div>
       </div>
+    </div>
+    <div className="flex h-8 shrink-0 items-center gap-2 border-t border-white/10 bg-[#1c1e21] px-2.5" aria-label="Timeline scrolling controls">
+      <button aria-label="Pan timeline left" title="Pan left" disabled={!pan.max||!pan.value} onClick={()=>shiftScroll(-180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowLeft size={13}/></button>
+      <input aria-label="Timeline horizontal scroll" title="Pan timeline horizontally, independently of zoom" type="range" className="min-w-0 flex-1 accent-[#8952ce]" min={0} max={Math.max(1,pan.max)} step={1} disabled={!pan.max} value={Math.min(pan.value,Math.max(1,pan.max))} onChange={e=>{if(scroll.current){scroll.current.scrollLeft=Number(e.target.value);syncPan()}}}/>
+      <button aria-label="Pan timeline right" title="Pan right" disabled={!pan.max||pan.value>=pan.max} onClick={()=>shiftScroll(180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowRight size={13}/></button>
+      <span className="hidden text-[10px] text-cl-muted sm:block">Shift + wheel: pan</span>
+      <div className="h-4 w-px bg-white/10"/>
+      <button aria-label="Scroll layers up" title="Scroll layers up" onClick={()=>shiftScroll(0,-120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowUp size={14}/></button>
+      <button aria-label="Scroll layers down" title="Scroll layers down" onClick={()=>shiftScroll(0,120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowDown size={14}/></button>
     </div>
   </section><ContextMenu menu={menu} onClose={()=>setMenu(null)}/></>
 }
@@ -387,6 +433,8 @@ function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom
       {label:'Set duration',onClick:()=>focusField('duration')},
       {label:'Start at…',onClick:()=>focusField('start')},
       {label:'End at…',onClick:()=>focusField('end')},
+      {label:'Crop in Preview',onClick:()=>{selectClip(clip.client_id);useEditor.getState().setPreviewTool('crop');useEditor.getState().setPlayhead(clip.start+Math.min(.02,clip.duration/4))},disabled:isLocked || (clip.type!=='video'&&clip.type!=='image')},
+      {label:'Reset crop',onClick:()=>store.patchProps(clip.client_id,{crop_left:0,crop_right:0,crop_top:0,crop_bottom:0}),disabled:isLocked || (clip.type!=='video'&&clip.type!=='image')},
       {label:'Set width',onClick:()=>focusField('width'),disabled:clip.type==='audio'},
       {label:'Set height',onClick:()=>focusField('height'),disabled:clip.type==='audio'},
       {label:'Set position (X)',onClick:()=>focusField('x'),disabled:clip.type==='audio'},

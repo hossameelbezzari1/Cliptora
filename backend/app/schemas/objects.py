@@ -80,6 +80,16 @@ class ClipProperties(BaseModel):
     audio_muted: bool = False
     volume: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
     attached_to: str | None = Field(default=None, max_length=64)
+    crop_left: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
+    crop_right: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
+    crop_top: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
+    crop_bottom: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def crop_bounds(self):
+        if self.crop_left + self.crop_right > 95 or self.crop_top + self.crop_bottom > 95:
+            raise ValueError('Crop margins must leave at least 5% of the media visible.')
+        return self
 
 class ClipIn(BaseModel):
     client_id: str = Field(min_length=1,max_length=64)

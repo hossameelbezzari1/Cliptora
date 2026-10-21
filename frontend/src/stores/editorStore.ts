@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Track, Clip, ClipProperties, MediaAsset, Timeline } from '../types'
 import { uid } from '../lib/api'
+import type { PreviewTool } from '../components/editor/preview/previewGeometry'
 
 export type DragItem =
   | { kind: 'clip'; clipId: string; offset: number; duration: number }
@@ -41,7 +42,7 @@ export function snapTime(value: number, tracks: Track[], playhead: number, pxPer
 
 type Store = {
   projectId: number | null; revision: number; tracks: Track[]; media: MediaAsset[]; mediaDurations: Record<number, number>
-  playhead: number; playing: boolean; selectedClipId: string | null; selectedTrackId: string | null
+  playhead: number; playing: boolean; previewTool: PreviewTool; setPreviewTool: (tool: PreviewTool) => void; selectedClipId: string | null; selectedTrackId: string | null
   dragging: DragItem | null; dirty: number; past: Track[][]; future: Track[][]; clipboard: Clip | null
   hydrate: (projectId: number, timeline: Timeline) => void
   setMedia: (media: MediaAsset[]) => void; setMediaDuration: (id: number, seconds: number) => void
@@ -64,13 +65,13 @@ type Store = {
 }
 
 export const useEditor = create<Store>((set, get) => ({
-  projectId: null, revision: 1, tracks: [], media: [], mediaDurations: {}, playhead: 0, playing: false,
+  projectId: null, revision: 1, tracks: [], media: [], mediaDurations: {}, playhead: 0, playing: false, previewTool: 'select', setPreviewTool: previewTool => set({previewTool}),
   selectedClipId: null, selectedTrackId: null, dragging: null, dirty: 0, past: [], future: [], clipboard: null,
   hydrate: (projectId, timeline) => {
     const missing = timeline.tracks.length === 0
     const tracks = missing ? defaultLayers() : normalize(timeline.tracks)
     set({ projectId, revision: timeline.revision, tracks, playhead: 0, playing: false, selectedClipId: null,
-      selectedTrackId: tracks[tracks.length - 1]?.client_id ?? null, dragging: null, dirty: missing ? 1 : 0,
+      selectedTrackId: tracks[tracks.length - 1]?.client_id ?? null, previewTool: 'select', dragging: null, dirty: missing ? 1 : 0,
       mediaDurations: {}, past: [], future: [], clipboard: null })
   },
   setMedia: media => set({ media }),

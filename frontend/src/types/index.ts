@@ -1,7 +1,7 @@
 export type User = {id:number; email:string; display_name:string; created_at:string}
 export type Project = {id:number; name:string; width:number; height:number; fps:number; revision:number; created_at:string; updated_at:string}
 export type MediaAsset = {id:number; name:string; kind:'video'|'image'|'audio'; mime:string; size_bytes:number; created_at:string}
-export type ClipProperties = { x?:number; y?:number; width?:number; height?:number; rotation?:number; scale?:number; opacity?:number; flip_x?:boolean; flip_y?:boolean; reversed?:boolean; audio_muted?:boolean; volume?:number; attached_to?:string|null }
+export type ClipProperties = { x?:number; y?:number; width?:number; height?:number; rotation?:number; scale?:number; opacity?:number; flip_x?:boolean; flip_y?:boolean; reversed?:boolean; audio_muted?:boolean; volume?:number; attached_to?:string|null; crop_left?:number; crop_right?:number; crop_top?:number; crop_bottom?:number }
 export type Clip = {locked?:boolean; props?:ClipProperties; client_id:string; name:string; type:'video'|'image'|'audio'|'text'; start:number; duration:number; source_offset:number; media_id:number|null; text:string|null; color:string}
 export type Track = {background_color?:string; client_id:string; name:string; type:'mixed'|'video'|'audio'|'text'; position:number; hidden:boolean; muted:boolean; locked:boolean; clips:Clip[]}
 export type Timeline = {revision:number;tracks:Track[]}

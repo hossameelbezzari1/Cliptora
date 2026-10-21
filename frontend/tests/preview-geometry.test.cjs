@@ -42,3 +42,14 @@ test('scale uses distance from center and rotation uses angle around center', ()
 test('reset values stay normalized to the canvas', () => {
   assert.deepEqual([resetTransform.x, resetTransform.y, resetTransform.width, resetTransform.height, resetTransform.scale, resetTransform.rotation], [0, 0, 100, 100, 1, 0])
 })
+
+test('crop can hide left, top, right and bottom edges without exceeding the visible source', () => {
+  const { calculateCropMargin } = exportsFromGeometry
+  assert.equal(calculateCropMargin('left', 0, 0, 10, 100), 10)
+  assert.equal(calculateCropMargin('right', 0, 0, -10, 100), 10)
+  assert.equal(calculateCropMargin('top', 15, 0, 20, 100), 35)
+  assert.equal(calculateCropMargin('bottom', 0, 0, -20, 100), 20)
+  assert.equal(calculateCropMargin('left', 80, 12, 50, 100), 83)
+  assert.equal(calculateCropMargin('right', 5, 90, -25, 100), 5)
+  assert.equal(calculateCropMargin('left', 20, 10, -80, 100), 0)
+})
