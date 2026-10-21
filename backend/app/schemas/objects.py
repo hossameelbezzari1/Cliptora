@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class UserOut(BaseModel):
@@ -84,6 +84,11 @@ class ClipProperties(BaseModel):
     crop_right: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
     crop_top: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
     crop_bottom: float = Field(default=0, ge=0, le=95, allow_inf_nan=False)
+    effect_stack: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
+    animation_stack: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
+    repeat: dict[str, Any] | None = None
+    shape_kind: str | None = Field(default=None, max_length=40)
+    follow_target_id: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode='after')
     def crop_bounds(self):

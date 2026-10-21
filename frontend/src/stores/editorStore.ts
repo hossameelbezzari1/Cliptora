@@ -7,6 +7,7 @@ export type DragItem =
   | { kind: 'clip'; clipId: string; offset: number; duration: number }
   | { kind: 'media'; mediaId: number; duration: number }
   | { kind: 'text'; duration: number }
+  | { kind: 'shape'; shape: string; duration: number }
 
 export const MIN_CLIP = 0.1
 export const MAX_TIME = 14400
@@ -50,12 +51,14 @@ type Store = {
   selectClip: (id: string | null) => void; selectTrack: (id: string | null) => void
   startDrag: (item: DragItem | null) => void
   changeTracks: (fn: (tracks: Track[]) => Track[]) => void
-  addTrack: () => void; duplicateTrack: (id:string) => void; patchTrack: (id:string, patch:Partial<Track>) => void; renameTrack: (id: string, name: string) => void
+  addTrack: (insertion?: 'top' | 'bottom') => void; duplicateTrack: (id:string) => void; patchTrack: (id:string, patch:Partial<Track>) => void; renameTrack: (id: string, name: string) => void
+  moveTrack: (id:string, direction:'up'|'down') => void; reorderTrack: (id:string, targetId:string, above:boolean) => void
   toggleTrack: (id: string, key: 'hidden' | 'muted' | 'locked') => void; removeTrack: (id: string) => void
   addMediaClip: (media: MediaAsset, duration: number) => void
-  addMediaClipAt: (media: MediaAsset, duration: number, targetId: string | null, start: number) => boolean
-  addTextClip: () => void; addTextClipAt: (targetId: string | null, start: number) => boolean
-  moveClip: (clipId: string, targetId: string | null, start: number) => boolean
+  addMediaClipAt: (media: MediaAsset, duration: number, targetId: string | null, start: number, insertion?: 'top'|'bottom') => boolean
+  addTextClip: () => void; addTextClipAt: (targetId: string | null, start: number, insertion?: 'top'|'bottom') => boolean
+  addShapeClip: (shape: string) => boolean; addShapeClipAt: (targetId: string | null, start: number, shape: string, insertion?: 'top'|'bottom') => boolean
+  moveClip: (clipId: string, targetId: string | null, start: number, insertion?: 'top'|'bottom') => boolean
   trimClip: (clipId: string, edge: 'left' | 'right', delta: number, pixelsPerSecond: number) => boolean
   patchClip: (id: string, patch: Partial<Clip>) => void; patchProps: (id: string, patch: Partial<ClipProperties>) => void
   duplicateClip: (id:string) => void; splitClip: (id:string, time:number) => boolean
@@ -86,7 +89,17 @@ export const useEditor = create<Store>((set, get) => ({
     if (updated === s.tracks) return s
     return { tracks: normalize(updated), past: [...s.past.slice(-49), structuredClone(s.tracks)], future: [], dirty: s.dirty + 1 }
   }),
-  addTrack: () => get().changeTracks(ts => ts.length < MAX_LAYERS ? [...ts, layer(nextLayerName(ts), ts.length)] : ts),
+  // The array is stored bottom -> top (positions ascending). Timeline displays it in reverse.
+  // Manual layer controls can add above or below the full layer stack.
+  addTrack: (insertion = 'top') => {
+    const tracks = get().tracks
+    if (tracks.length >= MAX_LAYERS) return
+    const fresh = layer(nextLayerName(tracks), tracks.length)
+    get().changeTracks(ts => ts.length < MAX_LAYERS ? (insertion === 'top' ? [...ts, fresh] : [fresh, ...ts]) : ts)
+    if (get().tracks.some(t => t.client_id === fresh.client_id)) {
+      set({ selectedTrackId: fresh.client_id, selectedClipId: null })
+    }
+  },
   patchTrack: (id, patch) => get().changeTracks(ts => ts.map(t => t.client_id === id ? { ...t, ...patch } : t)),
   duplicateTrack: id => get().changeTracks(ts => {
     if (ts.length >= MAX_LAYERS) return ts
@@ -96,6 +109,25 @@ export const useEditor = create<Store>((set, get) => ({
     copy.client_id = uid(); copy.name = `${copy.name} copy`.slice(0, 100)
     copy.clips = copy.clips.map(c => ({ ...c, client_id: uid(), props: {...c.props, attached_to: null} }))
     return [...ts.slice(0, i + 1), copy, ...ts.slice(i + 1)]
+  }),
+  // 'Up' and 'down' are defined by the visible top-to-bottom Timeline order.
+  moveTrack: (id, direction) => get().changeTracks(ts => {
+    const from = ts.findIndex(t => t.client_id === id)
+    const to = from + (direction === 'up' ? 1 : -1)
+    if (from < 0 || ts[from].locked || to < 0 || to >= ts.length) return ts
+    const next = [...ts]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    return next
+  }),
+  reorderTrack: (id, targetId, above) => get().changeTracks(ts => {
+    if (id === targetId) return ts
+    const from = ts.findIndex(t => t.client_id === id)
+    if (from < 0 || ts[from].locked || !ts.some(t => t.client_id === targetId)) return ts
+    const next = [...ts]
+    const [moving] = next.splice(from, 1)
+    const target = next.findIndex(t => t.client_id === targetId)
+    next.splice(target + (above ? 1 : 0), 0, moving)
+    return next.every((t, i) => t === ts[i]) ? ts : next
   }),
   renameTrack: (id, name) => {
     const clean = name.trim().slice(0, 100)
@@ -109,12 +141,16 @@ export const useEditor = create<Store>((set, get) => ({
   },
   addMediaClip: (media, duration) => {
     const state = get()
-    const preferred = state.tracks.find(t => t.client_id === state.selectedTrackId && !t.locked) ?? [...state.tracks].reverse().find(t => !t.locked)
-    if (!preferred) return
-    const atEnd = Math.max(0, ...preferred.clips.map(c => c.start + c.duration))
-    get().addMediaClipAt(media, duration, preferred.client_id, atEnd)
+    const safeDuration = Math.max(MIN_CLIP, Math.min(duration, state.mediaDurations[media.id] || duration))
+    const at = roundTime(state.playhead)
+    const preferred = state.tracks.find(t => t.client_id === state.selectedTrackId)
+    const candidates = [preferred, ...[...state.tracks].reverse()].filter((t, i, a): t is Track => !!t && a.findIndex(other => other?.client_id === t.client_id) === i)
+    for (const track of candidates) {
+      if (canPlace(track, at, safeDuration) && get().addMediaClipAt(media, safeDuration, track.client_id, at)) return
+    }
+    if (state.tracks.length < MAX_LAYERS) get().addMediaClipAt(media, safeDuration, null, at, 'top')
   },
-  addMediaClipAt: (media, seconds, targetId, start) => {
+  addMediaClipAt: (media, seconds, targetId, start, insertion = 'bottom') => {
     const state = get()
     const duration = roundTime(clamp(seconds, MIN_CLIP, MAX_TIME))
     const source = state.mediaDurations[media.id]
@@ -131,7 +167,8 @@ export const useEditor = create<Store>((set, get) => ({
       if (!destinationId) {
         const fresh = layer(nextLayerName(ts), 0)
         destinationId = fresh.client_id
-        return [{ ...fresh, clips: [clip] }, ...ts]
+        const created = { ...fresh, clips: [clip] }
+        return insertion === 'top' ? [...ts, created] : [created, ...ts]
       }
       return ts.map(t => t.client_id === destinationId ? { ...t, clips: [...t.clips, clip] } : t)
     })
@@ -140,12 +177,37 @@ export const useEditor = create<Store>((set, get) => ({
   },
   addTextClip: () => {
     const state = get()
-    const track = state.tracks.find(t => t.client_id === state.selectedTrackId && !t.locked) ?? [...state.tracks].reverse().find(t => !t.locked)
-    if (!track) return
-    const at = canPlace(track, state.playhead, 5) ? state.playhead : Math.max(0, ...track.clips.map(c => c.start + c.duration))
-    get().addTextClipAt(track.client_id, at)
+    const at = roundTime(state.playhead)
+    const preferred = state.tracks.find(t => t.client_id === state.selectedTrackId)
+    const candidates = [preferred, ...[...state.tracks].reverse()].filter((t, i, a): t is Track => !!t && a.findIndex(other => other?.client_id === t.client_id) === i)
+    for (const track of candidates) {
+      if (canPlace(track, at, 5) && get().addTextClipAt(track.client_id, at)) return
+    }
+    if (state.tracks.length < MAX_LAYERS) get().addTextClipAt(null, at, 'top')
   },
-  addTextClipAt: (targetId, start) => {
+  addShapeClip: (shape) => {
+    const state = get()
+    const at = roundTime(state.playhead)
+    const preferred = state.tracks.find(t => t.client_id === state.selectedTrackId)
+    const candidates = [preferred, ...[...state.tracks].reverse()].filter((t, i, a): t is Track => !!t && a.findIndex(other => other?.client_id === t.client_id) === i)
+    for (const track of candidates) {
+      if (canPlace(track, at, 5) && get().addShapeClipAt(track.client_id, at, shape)) return true
+    }
+    return state.tracks.length < MAX_LAYERS ? get().addShapeClipAt(null, at, shape, 'top') : false
+  },
+  addShapeClipAt: (targetId, start, shape, insertion = 'bottom') => {
+    const before = get().dirty
+    if (!get().addTextClipAt(targetId, start, insertion) || get().dirty === before) return false
+    const id = get().selectedClipId
+    if (!id) return false
+    if (shape !== 'Text') {
+      const palette: Record<string, string> = { Rectangle:'#318bf6', Square:'#925aff', Circle:'#f74f79', Ellipse:'#22d39a', Triangle:'#ffb64d', Polygon:'#9b61ed', Star:'#ffd05e', Line:'#5acafa', Arrow:'#51dfae' }
+      get().patchProps(id, { shape_kind: shape, width: shape === 'Square' || shape === 'Circle' ? 25 : 45, height: shape === 'Square' || shape === 'Circle' ? 25 : 35, follow_target_id:undefined })
+      get().patchClip(id, { name:shape, text:'', color:palette[shape] ?? '#a580db' })
+    }
+    return true
+  },
+  addTextClipAt: (targetId, start, insertion = 'bottom') => {
     const state = get()
     const target = state.tracks.find(t => t.client_id === targetId)
     if (targetId && !target) return false
@@ -158,14 +220,15 @@ export const useEditor = create<Store>((set, get) => ({
       if (!destinationId) {
         const fresh = layer(nextLayerName(ts), 0)
         destinationId = fresh.client_id
-        return [{ ...fresh, clips: [clip] }, ...ts]
+        const created = { ...fresh, clips: [clip] }
+        return insertion === 'top' ? [...ts, created] : [created, ...ts]
       }
       return ts.map(t => t.client_id === destinationId ? { ...t, clips: [...t.clips, clip] } : t)
     })
     set({ selectedClipId: clip.client_id, selectedTrackId: destinationId, playhead: start })
     return true
   },
-  moveClip: (clipId, targetId, start) => {
+  moveClip: (clipId, targetId, start, insertion = 'bottom') => {
     const state = get()
     const source = state.tracks.find(t => t.clips.some(c => c.client_id === clipId))
     const clip = source?.clips.find(c => c.client_id === clipId)
@@ -180,7 +243,7 @@ export const useEditor = create<Store>((set, get) => ({
       if (!finalId) {
         const fresh = layer(nextLayerName(updated), 0)
         finalId = fresh.client_id
-        updated = [fresh, ...updated]
+        updated = insertion === 'top' ? [...updated, fresh] : [fresh, ...updated]
       }
       return updated.map(t => t.client_id === finalId ? { ...t, clips: [...t.clips, { ...clip, start: bounded }] } : t)
     })

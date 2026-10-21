@@ -1,3 +1,6 @@
+import { api } from '../../../lib/api'
+import { interpolateVariables, type VariableMap } from '../../../lib/variables'
+import { effectiveTimelineEnd, repeatOccurrences } from '../../../lib/repeat'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { Aperture, ArrowLeftToLine, ArrowRightToLine, Copy, Crop, FlipHorizontal, FlipVertical, Lock, Maximize2, Move, MousePointer2, Pause, Play, RotateCcw, RotateCw, Scaling, Scissors, Trash2, Type, Unlock, Volume2, VolumeX } from 'lucide-react'
 import { useEditor, MIN_CLIP } from '../../../stores/editorStore'
@@ -21,6 +24,17 @@ export function PreviewPanel({ project }: { project: Project }) {
   const tool = useEditor(s => s.previewTool)
   const setTool = useEditor(s => s.setPreviewTool)
   const [muted, setMuted] = useState(false)
+  const [globalVars,setGlobalVars] = useState<VariableMap>({})
+  const [clock,setClock] = useState(() => new Date())
+  useEffect(() => {
+    let mounted=true
+    void api<Array<{kind:string;name:string;payload:{type:string;value:unknown}}>>('/library?kind=variable')
+      .then(rows => { if(mounted) setGlobalVars(Object.fromEntries(rows.map(row=>[row.name,{type:row.payload.type as import('../../../lib/variables').VariableType,value:row.payload.value}]))) })
+      .catch(() => {})
+    const timer=window.setInterval(()=>setClock(new Date()),1000)
+    return ()=>{mounted=false;window.clearInterval(timer)}
+  },[])
+
   const [menu, setMenu] = useState<MenuState>(null)
   const viewport = useRef<HTMLDivElement>(null)
   const [space, setSpace] = useState({ width: 640, height: 360 })
@@ -42,20 +56,37 @@ export function PreviewPanel({ project }: { project: Project }) {
   const canvasWidth = Math.max(1, Math.min(Math.max(1, space.width - 12), Math.max(1, space.height - 12) * ratio))
   const canvasHeight = canvasWidth / ratio
   const active = useMemo(() => {
-    const present = (clip: Clip) => playhead >= clip.start - 0.0001 && playhead < clip.start + clip.duration - 0.0001
-    const visible: VisibleObject[] = [...tracks].reverse()
-      .filter(track => !track.hidden)
-      .flatMap(track => track.clips.filter(clip => clip.type !== 'audio' && present(clip)).map(clip => ({ clip, track })))
-    const audio = tracks.filter(track => !track.hidden)
-      .flatMap(track => track.clips.filter(clip => clip.type === 'audio' && present(clip)).map(clip => ({ clip, muted: muted || track.muted })))
-    const background = [...tracks].reverse().find(track => !track.hidden && track.background_color && track.background_color !== '#101214')?.background_color ?? '#08090a'
-    return { visible, audio, background }
-  }, [tracks, playhead, muted])
+    const allClips=tracks.flatMap(track=>track.clips)
+    const duration=effectiveTimelineEnd(allClips)
+    const timings=allClips.map(clip=>({id:clip.client_id,start:clip.start,duration:clip.duration}))
+    const liveContext:Record<string,unknown> = {
+      'project.id':project.id,'project.title':project.name,'project.name':project.name,
+      'project.created_at':project.created_at,'project.updated_at':project.updated_at,
+      'project.width':project.width,'project.height':project.height,
+      'project.resolution':`${project.width}×${project.height}`,'project.fps':project.fps,
+      'project.duration':duration,'project.layers_count':tracks.length,'project.clips_count':allClips.length,
+    }
+    const atPlayhead=(clip: Clip): Clip | null => {
+      const rules=clip.props?.repeat
+      const occurrences=repeatOccurrences({id:clip.client_id,start:clip.start,duration:clip.duration},rules,timings,duration,1000)
+      const instance=[...occurrences].reverse().find(item=>playhead>=item.start-0.0001 && playhead<item.start+item.duration-0.0001)
+      if(!instance) return null
+      const rendered={...clip,start:instance.start,duration:instance.duration}
+      if(rendered.type==='text')rendered.text=interpolateVariables(rendered.text||rendered.name,globalVars,liveContext,clock)
+      return rendered
+    }
+    // Tracks are stored bottom -> top; later DOM objects are painted above earlier ones.
+    const visible:VisibleObject[]=tracks.filter(track=>!track.hidden)
+      .flatMap(track=>track.clips.filter(clip=>clip.type!=='audio').map(clip=>({clip:atPlayhead(clip),track})).filter((item):item is VisibleObject=>item.clip!==null))
+    const audio=tracks.filter(track=>!track.hidden).flatMap(track=>track.clips.filter(clip=>clip.type==='audio').map(clip=>({clip:atPlayhead(clip),muted:muted||track.muted})).filter((item):item is {clip:Clip;muted:boolean}=>item.clip!==null))
+    const background=[...tracks].reverse().find(track=>!track.hidden && track.background_color && track.background_color!=='#101214')?.background_color??'#08090a'
+    return {visible,audio,background}
+  },[tracks,playhead,muted,globalVars,clock,project])
 
   const selected = tracks.flatMap(track => track.clips.map(clip => ({ track, clip })))
     .find(item => item.clip.client_id === selectedClipId)
   const selectionIsOnCanvas = active.visible.some(item => item.clip.client_id === selectedClipId)
-  const total = Math.max(30, ...tracks.flatMap(track => track.clips.map(clip => clip.start + clip.duration)))
+  const total = effectiveTimelineEnd(tracks.flatMap(track=>track.clips))
   const editable = !!selected && !selected.track.locked && !selected.clip.locked
 
   const choose = (clip: Clip) => {

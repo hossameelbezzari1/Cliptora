@@ -5,12 +5,12 @@ import { formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
 import type { Track, Clip } from '../../../types'
 import { ContextMenu, type MenuState, type ContextAction } from '../../ui/ContextMenu'
+import { effectiveTimelineEnd, repeatOccurrences, type Timing } from '../../../lib/repeat'
 
 const LABEL_W = 186
 const ROW_H = 62
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 140
-const DRAG_MIME = 'application/x-cliptora'
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
 const px = (n: number) => Math.round(n * 100) / 100
 
@@ -24,19 +24,18 @@ type Preview = {
   snapEdge: number | null
 }
 
-type DropProps = { backgroundColor?:string; trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
+type DropProps = { backgroundColor?:string; insertion?: 'top'|'bottom'; trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
 
 const clipKind = (dragging: DragItem, tracks: Track[]): Clip['type'] => {
-  if (dragging.kind === 'text') return 'text'
+  if (dragging.kind === 'text' || dragging.kind === 'shape') return 'text'
   if (dragging.kind === 'media') return useEditor.getState().media.find(m => m.id === dragging.mediaId)?.kind ?? 'video'
   return tracks.flatMap(t => t.clips).find(c => c.client_id === dragging.clipId)?.type ?? 'video'
 }
 
-function calculateDrop(event: DragEvent<HTMLDivElement>, dragging: DragItem, trackId: string | null, zoom: number) {
+function calculateDropPosition(clientX: number, left: number, dragging: DragItem, trackId: string | null, zoom: number) {
   const state = useEditor.getState()
-  const rect = event.currentTarget.getBoundingClientRect()
   const duration = dragging.duration
-  const raw = clamp((event.clientX - rect.left) / zoom - (dragging.kind === 'clip' ? dragging.offset : 0), 0, MAX_TIME - duration)
+  const raw = clamp((clientX - left) / zoom - (dragging.kind === 'clip' ? dragging.offset : 0), 0, MAX_TIME - duration)
   const clipId = dragging.kind === 'clip' ? dragging.clipId : undefined
   const startSnap = snapTime(raw, state.tracks, state.playhead, zoom, clipId)
   const endSnap = snapTime(raw + duration, state.tracks, state.playhead, zoom, clipId) - duration
@@ -60,26 +59,35 @@ function calculateDrop(event: DragEvent<HTMLDivElement>, dragging: DragItem, tra
   return { start: px(start), duration, valid, type: clipKind(dragging, state.tracks), gapStart, gapEnd, snapEdge } satisfies Preview
 }
 
-async function finishDrop(dragging: DragItem, drop: Preview, trackId: string | null) {
+function calculateDrop(event: DragEvent<HTMLDivElement>, dragging: DragItem, trackId: string | null, zoom: number) {
+  return calculateDropPosition(event.clientX,event.currentTarget.getBoundingClientRect().left,dragging,trackId,zoom)
+}
+
+async function finishDrop(dragging: DragItem, drop: Preview, trackId: string | null, insertion: 'top'|'bottom' = 'bottom') {
   if (!drop.valid) return
   const store = useEditor.getState()
-  if (dragging.kind === 'clip') store.moveClip(dragging.clipId, trackId, drop.start)
-  if (dragging.kind === 'text') store.addTextClipAt(trackId, drop.start)
+  if (dragging.kind === 'clip') store.moveClip(dragging.clipId, trackId, drop.start, insertion)
+  if (dragging.kind === 'text') store.addTextClipAt(trackId, drop.start, insertion)
+  if (dragging.kind === 'shape') store.addShapeClipAt(trackId, drop.start, dragging.shape, insertion)
   if (dragging.kind === 'media') {
     const media = store.media.find(m => m.id === dragging.mediaId)
     if (!media) return
     const { duration, measured } = await probeMediaDuration(media)
     if (measured) useEditor.getState().setMediaDuration(media.id, duration)
-    const inserted = useEditor.getState().addMediaClipAt(media, duration, trackId, drop.start)
-    if (!inserted) window.alert('Cannot drop here: the layer is locked, the clip overlaps another, or it exceeds the timeline length.')
+    const inserted = useEditor.getState().addMediaClipAt(media, duration, trackId, drop.start, insertion)
+    if (!inserted) {
+      const fallback=useEditor.getState()
+      if (fallback.tracks.length < MAX_LAYERS && drop.start + duration <= MAX_TIME && fallback.addMediaClipAt(media,duration,null,drop.start,insertion)) return
+      window.alert('Cannot drop here: not enough space, locked layers or timeline limit.')
+    }
   }
 }
 
-function DropLane({ trackId, zoom, preview, onPreview, children, backgroundColor }: DropProps & { children?: ReactNode }) {
+function DropLane({ trackId, zoom, preview, onPreview, children, backgroundColor, insertion = 'bottom' }: DropProps & { children?: ReactNode }) {
   const setDragging = useEditor(s => s.startDrag)
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     const dragging = useEditor.getState().dragging
-    if (!dragging || !e.dataTransfer.types.includes(DRAG_MIME)) return
+    if (!dragging) return
     e.preventDefault()
     e.dataTransfer.dropEffect = dragging.kind === 'clip' ? 'move' : 'copy'
     const position = calculateDrop(e, dragging, trackId, zoom)
@@ -95,15 +103,15 @@ function DropLane({ trackId, zoom, preview, onPreview, children, backgroundColor
   }
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     const dragging = useEditor.getState().dragging
-    if (!dragging || !e.dataTransfer.types.includes(DRAG_MIME)) return
+    if (!dragging) return
     e.preventDefault()
     e.stopPropagation()
     const final = calculateDrop(e, dragging, trackId, zoom)
     onPreview(null)
     setDragging(null)
-    void finishDrop(dragging, final, trackId)
+    void finishDrop(dragging, final, trackId, insertion)
   }
-  return <div data-clip-lane style={{backgroundColor:backgroundColor||'#101214'}} className="relative my-0.5 min-w-0 flex-1 rounded" onDragOver={onDragOver} onDragLeave={e => {
+  return <div data-clip-lane data-track-id={trackId??`new-${insertion}`} style={{backgroundColor:backgroundColor||'#101214'}} className="relative my-0.5 min-w-0 flex-1 rounded" onDragOver={onDragOver} onDragLeave={e => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) onPreview(null)
   }} onDrop={onDrop} onClick={() => useEditor.getState().selectTrack(trackId)}>
     {children}
@@ -130,12 +138,13 @@ export function TimelinePanel() {
   const playhead = useEditor(s => s.playhead)
   const setPlayhead = useEditor(s => s.setPlayhead)
   const addTrack = useEditor(s => s.addTrack)
+  const selectedTrackId = useEditor(s => s.selectedTrackId)
   const dragged = useEditor(s => s.dragging)
   const selectedClipId = useEditor(s => s.selectedClipId)
   const previewTool = useEditor(s => s.previewTool)
   const selected = tracks.flatMap(t => t.clips.map(c => ({clip:c,track:t}))).find(item => item.clip.client_id === selectedClipId)
   const cropAllowed = !!selected && !selected.clip.locked && !selected.track.locked && (selected.clip.type === 'video' || selected.clip.type === 'image')
-  const [pan, setPan] = useState({value:0,max:0,vertical:false})
+  const [pan, setPan] = useState({value:0,max:0,vertical:false,verticalValue:0,verticalMax:0})
   const [zoom, setZoom] = useState(23)
   const [menu, setMenu] = useState<MenuState>(null)
   const [previewByTrack, setPreviewByTrack] = useState<Record<string, Preview | null>>({})
@@ -143,17 +152,52 @@ export function TimelinePanel() {
   const timelineRoot = useRef<HTMLElement>(null)
   const manualZoom = useRef(false)
   const previousClipCount = useRef<number | null>(null)
+  const previousLayerCount = useRef<number | null>(null)
+  const pendingScrollTo = useRef<'top' | 'bottom' | null>(null)
+  const scrubbing = useRef<number | null>(null)
+  const [isScrubbing, setIsScrubbing] = useState(false)
+  const [reorderingLayerId, setReorderingLayerId] = useState<string | null>(null)
+  // New layers are above every existing layer, so reveal them immediately.
+  useEffect(() => {
+    const previous = previousLayerCount.current
+    previousLayerCount.current = tracks.length
+    if (previous !== null && tracks.length > previous && selectedTrackId) {
+      // Also reveal layers inserted automatically by library imports or drag/drop.
+      const target = tracks.find(t => t.client_id === selectedTrackId)
+      if (target && !target.clips.length && target.position === tracks.length - 1) {
+        requestAnimationFrame(() => { if (scroll.current) scroll.current.scrollTop = 0 })
+      }
+    }
+  }, [tracks.length, selectedTrackId, tracks])
+  // The explicit Add Layer controls must never leave the newly created layer off screen.
+  useEffect(() => {
+    const where = pendingScrollTo.current
+    if (!where) return
+    pendingScrollTo.current = null
+    const frame = requestAnimationFrame(() => {
+      const pane = scroll.current
+      if (!pane) return
+      pane.scrollTop = where === 'top' ? 0 : pane.scrollHeight
+      syncPan()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [tracks.length])
   function syncPan() {
     const pane=scroll.current
     if(!pane)return
     const value=Math.round(pane.scrollLeft)
     const max=Math.max(0,Math.ceil(pane.scrollWidth-pane.clientWidth))
-    const vertical=pane.scrollHeight > pane.clientHeight+2
-    setPan(old=>old.value===value&&old.max===max&&old.vertical===vertical?old:{value,max,vertical})
+    const verticalMax=Math.max(0,Math.ceil(pane.scrollHeight-pane.clientHeight))
+    const vertical=verticalMax>2
+    const verticalValue=Math.round(pane.scrollTop)
+    setPan(old=>old.value===value&&old.max===max&&old.vertical===vertical&&old.verticalValue===verticalValue&&old.verticalMax===verticalMax?old:{value,max,vertical,verticalValue,verticalMax})
   }
   function shiftScroll(amountX=0,amountY=0){scroll.current?.scrollBy({left:amountX,top:amountY,behavior:'smooth'})}
 
-  const maxEnd = Math.max(30, playhead + 8, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration)))
+  const timelineClips=tracks.flatMap(t=>t.clips)
+  const maxEnd = Math.max(30, playhead + 8, effectiveTimelineEnd(timelineClips))
+  const repeatTimings = useMemo<Timing[]>(()=>tracks.flatMap(t=>t.clips.map(c=>({id:c.client_id,start:c.start,duration:c.duration}))),[tracks])
+  const repeatProjectEnd = effectiveTimelineEnd(timelineClips)
   const duration = Math.min(MAX_TIME, Math.max(60, maxEnd + 16))
   const timelineWidth = duration * zoom
   useEffect(()=>{
@@ -172,6 +216,36 @@ export function TimelinePanel() {
   const zoomSlider = 100 * Math.log(zoom / MIN_ZOOM) / Math.log(MAX_ZOOM / MIN_ZOOM)
   const sliderToZoom = (value: number) => MIN_ZOOM * Math.pow(MAX_ZOOM / MIN_ZOOM, value / 100)
   const preview = (trackId: string | null, value: Preview | null) => setPreviewByTrack(s => ({ ...s, [trackId ?? 'new']: value }))
+  const pointerMoveClip = (dragItem: Extract<DragItem,{kind:'clip'}>, clientX:number, clientY:number, finish:boolean) => {
+    const pane=scroll.current
+    if (!pane) return
+    let hovered=document.elementFromPoint(clientX,clientY) as HTMLElement | null
+    let lane=hovered?.closest<HTMLElement>('[data-clip-lane]')
+    // Labels are valid layer targets as well. Use the associated lane's time origin.
+    if (!lane) lane=hovered?.closest<HTMLElement>('[data-timeline-track-row]')?.querySelector<HTMLElement>('[data-clip-lane]') ?? null
+    const targetAttr=lane?.dataset.trackId
+    if (!lane||!targetAttr) {
+      if (finish) {useEditor.getState().startDrag(null);setPreviewByTrack({})}
+      else setPreviewByTrack({})
+      return
+    }
+    const trackId=targetAttr.startsWith('new-')?null:targetAttr
+    const result=calculateDropPosition(clientX,lane.getBoundingClientRect().left,dragItem,trackId,zoom)
+    if (finish) {
+      useEditor.getState().startDrag(null)
+      setPreviewByTrack({})
+      if (result.valid) void finishDrop(dragItem,result,trackId,targetAttr==='new-top'?'top':'bottom')
+    } else {
+      if (useEditor.getState().dragging?.kind!=='clip') useEditor.getState().startDrag(dragItem)
+      setPreviewByTrack({[trackId??targetAttr]:result})
+      const rect=pane.getBoundingClientRect()
+      if (clientX>rect.right-30) pane.scrollLeft+=12
+      if (clientX<rect.left+LABEL_W+30) pane.scrollLeft-=12
+      if (clientY>rect.bottom-28) pane.scrollTop+=12
+      if (clientY<rect.top+62) pane.scrollTop-=12
+    }
+  }
+
   useEffect(() => { if (!dragged) setPreviewByTrack({}) }, [dragged])
 
   function zoomTo(next: number, anchorX?: number) {
@@ -188,16 +262,31 @@ export function TimelinePanel() {
     if (userInitiated) manualZoom.current = true
     const pane = scroll.current
     if (!pane) return
-    const content = Math.max(60, ...tracks.flatMap(t => t.clips.map(c => c.start + c.duration + 2)))
+    const content = Math.max(60, effectiveTimelineEnd(tracks.flatMap(t=>t.clips)) + 2)
     setZoom(clamp((pane.clientWidth - LABEL_W - 16) / content, MIN_ZOOM, MAX_ZOOM))
     pane.scrollLeft = 0
     requestAnimationFrame(syncPan)
   }
+  // A time jump (or dropping a clip at the cursor) must remain visible inside the timeline,
+  // without resizing the editor's other panels or changing browser zoom.
+  useEffect(()=>{
+    const pane=scroll.current
+    if(!pane)return
+    const visible=Math.max(1,pane.clientWidth-LABEL_W)
+    const x=playhead*zoom
+    if(x<pane.scrollLeft+5||x>pane.scrollLeft+visible-12){
+      pane.scrollLeft=Math.max(0,x-visible*.35)
+      syncPan()
+    }
+  },[playhead,zoom])
   useEffect(()=>{
     const pane=scroll.current
     if(!pane)return
     const wheel=(event:globalThis.WheelEvent)=>{
-      if(!event.shiftKey||event.ctrlKey||event.metaKey)return
+      if(event.ctrlKey||event.metaKey)return
+      // Shift + mouse wheel pans horizontally; ordinary wheel scrolls layers vertically.
+      // When hovering the ruler the mouse wheel pans horizontally without changing zoom.
+      if(!event.shiftKey && !(event.target instanceof Element && event.target.closest('[data-timeline-ruler]')))return
       event.preventDefault()
       pane.scrollLeft+=event.deltaY
     }
@@ -220,6 +309,11 @@ export function TimelinePanel() {
     root.addEventListener('wheel', handle, { passive: false })
     return () => root.removeEventListener('wheel', handle)
   }, [zoom])
+  const addLayerFromToolbar = (insertion: 'top' | 'bottom' = 'top') => {
+    if (useEditor.getState().tracks.length >= MAX_LAYERS) return
+    pendingScrollTo.current = insertion
+    addTrack(insertion)
+  }
   const clipCount = tracks.reduce((sum, track) => sum + track.clips.length, 0)
   // First populated timeline or first imported clip: fit without resizing other panels.
   useEffect(() => {
@@ -230,10 +324,43 @@ export function TimelinePanel() {
       return () => cancelAnimationFrame(id)
     }
   }, [clipCount])
-  function scrub(event: MouseEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setPlayhead(px(clamp((event.clientX - rect.left) / zoom, 0, MAX_TIME)))
+  // Pointer capture on the RULER means the orange marker follows the mouse in real time,
+  // even if the pointer leaves the ruler while the button stays down.
+  const scrubAt = (element: HTMLDivElement, clientX: number, followEdges: boolean) => {
+    const pane = scroll.current
+    if (pane && followEdges) {
+      const rect = pane.getBoundingClientRect()
+      const left = rect.left + LABEL_W + 16
+      const right = rect.right - 22
+      if (clientX < left) pane.scrollLeft = Math.max(0, pane.scrollLeft - Math.min(34, left - clientX + 8))
+      else if (clientX > right) pane.scrollLeft += Math.min(34, clientX - right + 8)
+    }
+    const rect = element.getBoundingClientRect()
+    setPlayhead(px(clamp((clientX - rect.left) / zoom, 0, MAX_TIME)))
   }
+  const beginScrub = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    useEditor.getState().setPlaying(false)
+    scrubbing.current = event.pointerId
+    setIsScrubbing(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+    scrubAt(event.currentTarget, event.clientX, false)
+  }
+  const moveScrub = (event: PointerEvent<HTMLDivElement>) => {
+    if (scrubbing.current !== event.pointerId) return
+    event.preventDefault()
+    scrubAt(event.currentTarget, event.clientX, true)
+  }
+  const endScrub = (event: PointerEvent<HTMLDivElement>) => {
+    if (scrubbing.current !== event.pointerId) return
+    scrubAt(event.currentTarget, event.clientX, false)
+    scrubbing.current = null
+    setIsScrubbing(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+  const cancelScrub = () => {scrubbing.current = null;setIsScrubbing(false)}
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
@@ -261,7 +388,8 @@ export function TimelinePanel() {
   return <><section ref={timelineRoot} className="relative flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]">
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
       <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
-      <button title="Add layer (optional)" disabled={tracks.length >= MAX_LAYERS} onClick={addTrack} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-3 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer</button>
+      <button title="Add a layer at the TOP of the stack" aria-label="Add top layer" disabled={tracks.length >= MAX_LAYERS} onClick={()=>addLayerFromToolbar('top')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer <ArrowUp size={12}/></button>
+      <button title="Add a layer at the BOTTOM of the stack" aria-label="Add bottom layer" disabled={tracks.length >= MAX_LAYERS} onClick={()=>addLayerFromToolbar('bottom')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer <ArrowDown size={12}/></button>
       <button aria-label="Crop selected video or image" aria-pressed={previewTool==='crop'} title="Crop selected image/video in Preview (drag green crop edges)" disabled={!cropAllowed} onClick={()=>{const store=useEditor.getState();store.setPreviewTool(previewTool==='crop'?'select':'crop');if(selected&&previewTool!=='crop')store.setPlayhead(selected.clip.start+Math.min(.02,selected.clip.duration/4))}} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${previewTool==='crop'?'bg-[#55377b] text-white':'bg-cl-panel-2 text-cl-muted hover:text-white'}`}><Crop size={15}/>Crop</button>
       <span className="hidden text-[10px] text-cl-muted 2xl:inline">Drag = move · Edges = trim · Right-click = menu</span>
       <div className="ml-auto flex items-center gap-2">
@@ -278,20 +406,37 @@ export function TimelinePanel() {
       <div style={{ width: LABEL_W + timelineWidth, minWidth: '100%' }} className="relative">
         <div className="sticky top-0 z-20 flex h-9 border-b border-white/5 bg-cl-panel">
           <div className="sticky left-0 z-30 flex shrink-0 items-center border-r border-white/5 bg-cl-panel px-3 text-[10px] text-cl-muted" style={{ width: LABEL_W }}>Time · {formatTime(duration)}</div>
-          <div className="relative h-full cursor-crosshair bg-[#212427]" style={{ width: timelineWidth }} onClick={scrub}>
-            {ticks.map(t => <div key={t} className="absolute bottom-0 top-1 border-l border-white/10" style={{ left: t * zoom }}><span className="relative left-1 text-[10px] tabular-nums text-cl-muted">{formatTime(t)}</span></div>)}
+          <div data-timeline-ruler className={`relative h-full touch-none select-none bg-[#212427] ${isScrubbing ? 'cursor-grabbing' : 'cursor-crosshair'}`} style={{ width: timelineWidth }}
+            onPointerDown={beginScrub} onPointerMove={moveScrub} onPointerUp={endScrub} onPointerCancel={cancelScrub} onLostPointerCapture={cancelScrub}
+            title="Click or drag the orange playhead to scrub Preview in real time">
+            {ticks.map(t => <div key={t} className="pointer-events-none absolute bottom-0 top-1 border-l border-white/10" style={{ left: t * zoom }}><span className="relative left-1 text-[10px] tabular-nums text-cl-muted">{formatTime(t)}</span></div>)}
+            <div aria-label="Drag playhead" aria-hidden="true" className="pointer-events-none absolute top-0 z-30 flex -translate-x-1/2 flex-col items-center" style={{ left: playhead * zoom }}>
+              <div className="h-[23px] w-[20px] rounded-b-[7px] rounded-t-[3px] bg-cl-orange shadow-[0_0_10px_#fe752699]"/>
+              <div className="h-[13px] w-[2px] bg-cl-orange"/>
+              {isScrubbing && <span className="absolute top-[22px] left-[18px] z-40 whitespace-nowrap rounded bg-[#17181e] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-[#ffc29e] shadow-lg">{formatTime(playhead)}</span>}
+            </div>
           </div>
         </div>
         <div className="relative">
-          <div aria-hidden className="pointer-events-none absolute bottom-0 top-0 z-10 w-[2px] bg-cl-orange shadow-[0_0_15px_#fe7526]" style={{ left: LABEL_W + playhead * zoom }}><span className="absolute -top-1 -left-2 h-6 w-4 rounded-md bg-cl-orange"/></div>
-          {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} zoom={zoom} timelineWidth={timelineWidth}
-            preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)} onMenu={setMenu}/>) }
-          {dragged && <div className="flex h-[66px] border-b border-dashed border-[#8752dc] bg-[#7547b3]/10">
-            <div className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff]" style={{ width: LABEL_W }}><Plus size={16}/>New layer on drop</div>
+          <div aria-hidden className="pointer-events-none absolute bottom-0 top-0 z-20 w-[2px] bg-cl-orange shadow-[0_0_15px_#fe7526]" style={{ left: LABEL_W + playhead * zoom }}/>
+
+          {/* Real top drop zone: visible ABOVE the first layer, not on the ruler. */}
+          {dragged && tracks.length < MAX_LAYERS && <div className="flex h-[52px] border-b border-dashed border-[#8752dc] bg-[#7547b3]/20">
+            <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff]" style={{ width: LABEL_W }}><Plus size={16}/>New top layer</div>
             <div style={{ width: timelineWidth }} className="flex min-w-0 flex-1">
-              <DropLane trackId={null} zoom={zoom} preview={previewByTrack.new ?? null} onPreview={value => preview(null, value)}>
+              <DropLane insertion="top" trackId={null} zoom={zoom} preview={previewByTrack['new-top'] ?? null} onPreview={value => preview('new-top', value)}>
                 <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#945fe2]/80"/>
               </DropLane>
+            </div>
+          </div>}
+          {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} layerDraggingId={reorderingLayerId} onLayerDragStart={setReorderingLayerId} onLayerDragEnd={() => setReorderingLayerId(null)} zoom={zoom} timelineWidth={timelineWidth} repeatTimings={repeatTimings} repeatProjectEnd={repeatProjectEnd} onPointerDrag={pointerMoveClip}
+            preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)} onMenu={setMenu}/>) }
+          {tracks.length < MAX_LAYERS && <div className={`flex border-b border-dashed border-[#8752dc]/60 ${dragged ? 'h-[62px] bg-[#7547b3]/20' : 'h-[48px] bg-[#1d1b23]'}`}>
+            <button type="button" aria-label="Add layer below all layers" title="Add layer at the bottom" onClick={()=>addLayerFromToolbar('bottom')} className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff] hover:bg-[#322543]" style={{ width: LABEL_W }}><Plus size={16}/>Layer below <ArrowDown size={13}/></button>
+            <div style={{ width: timelineWidth }} className="flex min-w-0 flex-1">
+              {dragged ? <DropLane insertion="bottom" trackId={null} zoom={zoom} preview={previewByTrack['new-bottom'] ?? null} onPreview={value => preview('new-bottom', value)}>
+                <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#945fe2]/80"/>
+              </DropLane> : <div className="flex flex-1 items-center px-3 text-[10px] text-cl-muted">Drag a clip here to create a layer below</div>}
             </div>
           </div>}
           {!tracks.length && !dragged && <div className="grid h-28 place-items-center text-xs text-cl-muted">Drag media here to begin editing.</div>}
@@ -302,19 +447,23 @@ export function TimelinePanel() {
       <button aria-label="Pan timeline left" title="Pan left" disabled={!pan.max||!pan.value} onClick={()=>shiftScroll(-180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowLeft size={13}/></button>
       <input aria-label="Timeline horizontal scroll" title="Pan timeline horizontally, independently of zoom" type="range" className="min-w-0 flex-1 accent-[#8952ce]" min={0} max={Math.max(1,pan.max)} step={1} disabled={!pan.max} value={Math.min(pan.value,Math.max(1,pan.max))} onChange={e=>{if(scroll.current){scroll.current.scrollLeft=Number(e.target.value);syncPan()}}}/>
       <button aria-label="Pan timeline right" title="Pan right" disabled={!pan.max||pan.value>=pan.max} onClick={()=>shiftScroll(180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowRight size={13}/></button>
-      <span className="hidden text-[10px] text-cl-muted sm:block">Shift + wheel: pan</span>
+      <span className="hidden text-[10px] text-cl-muted sm:block">Shift + wheel: horizontal</span>
       <div className="h-4 w-px bg-white/10"/>
-      <button aria-label="Scroll layers up" title="Scroll layers up" onClick={()=>shiftScroll(0,-120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowUp size={14}/></button>
-      <button aria-label="Scroll layers down" title="Scroll layers down" onClick={()=>shiftScroll(0,120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowDown size={14}/></button>
+      <button aria-label="Scroll layers up" title="Scroll layers up" disabled={!pan.verticalMax || pan.verticalValue <= 0} onClick={()=>shiftScroll(0,-120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowUp size={14}/></button>
+      <input aria-label="Timeline vertical scroll" title="Scroll through layers" type="range" className="w-12 accent-[#8952ce] sm:w-16" min={0} max={Math.max(1,pan.verticalMax)} step={1} disabled={!pan.verticalMax} value={Math.min(pan.verticalValue,Math.max(1,pan.verticalMax))} onChange={e=>{if(scroll.current){scroll.current.scrollTop=Number(e.target.value);syncPan()}}}/>
+      <button aria-label="Scroll layers down" title="Scroll layers down" disabled={!pan.verticalMax || pan.verticalValue >= pan.verticalMax} onClick={()=>shiftScroll(0,120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowDown size={14}/></button>
     </div>
   </section><ContextMenu menu={menu} onClose={()=>setMenu(null)}/></>
 }
 
-function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void; onMenu: (menu:MenuState)=>void }) {
+type PointerClipDrag = (item:Extract<DragItem,{kind:'clip'}>,x:number,y:number,finish:boolean)=>void
+function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPointerDrag, repeatTimings, repeatProjectEnd, layerDraggingId, onLayerDragStart, onLayerDragEnd }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void; onMenu: (menu:MenuState)=>void; onPointerDrag:PointerClipDrag; repeatTimings:Timing[];repeatProjectEnd:number; layerDraggingId:string|null;onLayerDragStart:(id:string)=>void;onLayerDragEnd:()=>void }) {
   const toggle = useEditor(s => s.toggleTrack)
   const remove = useEditor(s => s.removeTrack)
   const rename = useEditor(s => s.renameTrack)
   const selectTrack = useEditor(s => s.selectTrack)
+  const moveTrack = useEditor(s => s.moveTrack)
+  const reorderTrack = useEditor(s => s.reorderTrack)
   const active = useEditor(s => s.selectedTrackId)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(track.name)
@@ -325,6 +474,8 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu }: { 
     const actions:ContextAction[]=[
       {label:'Rename layer',onClick:()=>{setName(track.name);setEditing(true)}},
       {label:'Duplicate layer',onClick:()=>useEditor.getState().duplicateTrack(track.client_id)},
+      {label:'Move layer up',onClick:()=>moveTrack(track.client_id,'up'),disabled:track.locked||useEditor.getState().tracks.at(-1)?.client_id===track.client_id},
+      {label:'Move layer down',onClick:()=>moveTrack(track.client_id,'down'),disabled:track.locked||useEditor.getState().tracks[0]?.client_id===track.client_id},
       {label:track.muted?'Unmute layer':'Mute layer',onClick:()=>toggle(track.client_id,'muted')},
       {label:track.hidden?'Show layer':'Hide layer',onClick:()=>toggle(track.client_id,'hidden')},
       {label:track.locked?'Unlock layer':'Lock layer',onClick:()=>toggle(track.client_id,'locked')},
@@ -335,9 +486,25 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu }: { 
     ]
     onMenu({x:event.clientX,y:event.clientY,actions})
   }
-  return <div className="flex border-b border-white/5" style={{ height: ROW_H }}>
-    <div onContextMenu={showMenu} className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
-      <GripVertical size={13} className="shrink-0 text-cl-muted"/>
+  const [layerDropAbove, setLayerDropAbove] = useState<boolean | null>(null)
+  const handleLayerDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!layerDraggingId || layerDraggingId === track.client_id) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'move'
+    setLayerDropAbove(event.clientY < event.currentTarget.getBoundingClientRect().top + event.currentTarget.clientHeight / 2)
+  }
+  const handleLayerDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!layerDraggingId) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (layerDraggingId !== track.client_id) reorderTrack(layerDraggingId, track.client_id, layerDropAbove ?? true)
+    setLayerDropAbove(null)
+    onLayerDragEnd()
+  }
+  return <div data-timeline-track-row className="flex border-b border-white/5" style={{ height: ROW_H }}>
+    <div onContextMenu={showMenu} onDragOver={handleLayerDragOver} onDrop={handleLayerDrop} onDragLeave={()=>setLayerDropAbove(null)} className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${layerDropAbove !== null ? (layerDropAbove ? "border-t-2 border-t-[#b58cff]" : "border-b-2 border-b-[#b58cff]") : ""} ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
+      <span draggable={!track.locked} role="button" tabIndex={0} title="Drag to reorder layer (or use right-click → Move layer up/down)" aria-label={`Drag to reorder ${track.name}`} onDragStart={event=>{event.stopPropagation();event.dataTransfer.setData('application/x-cliptora-layer',track.client_id);event.dataTransfer.effectAllowed='move';onLayerDragStart(track.client_id)}} onDragEnd={()=>{setLayerDropAbove(null);onLayerDragEnd()}} className={`shrink-0 touch-none ${track.locked ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}><GripVertical size={13} className="text-cl-muted"/></span>
       <div className="mr-auto min-w-0 flex-1">
         {editing ? <input autoFocus aria-label="Layer name" maxLength={100} className="w-full rounded bg-[#30343a] px-1 text-[11px] outline-none focus:ring-1 focus:ring-[#b387fd]" value={name} onChange={e => setName(e.target.value)} onBlur={finish} onKeyDown={e => { if (e.key === 'Enter') finish(); if (e.key === 'Escape') { setName(track.name); setEditing(false) } }} onClick={e => e.stopPropagation()}/>
           : <button title="Double-click to rename layer" onDoubleClick={() => { setName(track.name); setEditing(true) }} className="block max-w-full truncate text-left text-[11px] font-bold text-[#d4c0ff]">{track.name}</button>}
@@ -352,17 +519,19 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu }: { 
     </div>
     <div className="flex" style={{ width: timelineWidth }}>
       <DropLane trackId={track.client_id} backgroundColor={track.background_color} zoom={zoom} preview={preview} onPreview={onPreview}>
-        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu}/>) }
+        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu} onPointerDrag={onPointerDrag}/>) }
+        {track.clips.flatMap(clip => clip.props?.repeat?.mode && clip.props.repeat.mode!=='none' ?
+          repeatOccurrences({id:clip.client_id,start:clip.start,duration:clip.duration},clip.props.repeat,repeatTimings,repeatProjectEnd,300)
+            .filter(item=>Math.abs(item.start-clip.start)>0.01).map(item=><button key={item.id} type="button" onClick={event=>{event.stopPropagation();useEditor.getState().selectClip(clip.client_id);useEditor.getState().setPlayhead(item.start)}} title={`${clip.name} · repeated at ${formatTime(item.start)}`} aria-label={`Repeated occurrence ${clip.name} at ${formatTime(item.start)}`} className="pointer-events-auto absolute inset-y-2 z-[1] truncate rounded-md border border-dashed border-[#b48aff]/70 bg-[#6e478d]/35 px-2 text-left text-[10px] text-[#dfc4ff] hover:bg-[#6e478d]/65" style={{left:item.start*zoom,width:Math.max(8,item.duration*zoom)}}>↻ {clip.name}</button>) : [])}
       </DropLane>
     </div>
   </div>
 }
 
-function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom: number; onMenu: (menu:MenuState)=>void }) {
+function ClipBar({ clip, track, zoom, onMenu, onPointerDrag }: { clip: Clip; track: Track; zoom: number; onMenu: (menu:MenuState)=>void;onPointerDrag:PointerClipDrag }) {
   const selected = useEditor(s => s.selectedClipId === clip.client_id)
   const selectClip = useEditor(s => s.selectClip)
   const rename = useEditor(s => s.patchClip)
-  const drag = useEditor(s => s.startDrag)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(clip.name)
   const [trimDraft, setTrimDraft] = useState<{ edge: 'left' | 'right'; delta: number } | null>(null)
@@ -401,11 +570,41 @@ function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom
     useEditor.getState().trimClip(clip.client_id, edge, difference, zoom)
     setTrimDraft(null)
   }
-  const startDrag = (event: DragEvent<HTMLDivElement>) => {
-    if (track.locked || clip.locked || editing || origin.current) { event.preventDefault(); return }
-    const rect = event.currentTarget.getBoundingClientRect()
-    const item: DragItem = { kind: 'clip', clipId: clip.client_id, duration: clip.duration, offset: clamp((event.clientX - rect.left) / zoom, 0, clip.duration) }
-    drag(item); event.dataTransfer.setData(DRAG_MIME, clip.client_id); event.dataTransfer.effectAllowed = 'move'
+  const suppressClick = useRef(false)
+  const startPointerDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button!==0 || track.locked || clip.locked || editing || origin.current) return
+    if ((event.target as HTMLElement).closest('[role="separator"],input,button')) return
+    const rect=event.currentTarget.getBoundingClientRect()
+    const item:Extract<DragItem,{kind:'clip'}>={kind:'clip',clipId:clip.client_id,duration:clip.duration,offset:clamp((event.clientX-rect.left)/zoom,0,clip.duration)}
+    const from={x:event.clientX,y:event.clientY}
+    let activated=false
+    const move=(next:globalThis.PointerEvent)=>{
+      if (!activated && Math.hypot(next.clientX-from.x,next.clientY-from.y)<5) return
+      activated=true
+      next.preventDefault()
+      onPointerDrag(item,next.clientX,next.clientY,false)
+    }
+    const finish=(next:globalThis.PointerEvent)=>{
+      window.removeEventListener('pointermove',move)
+      window.removeEventListener('pointerup',finish)
+      window.removeEventListener('pointercancel',cancel)
+      window.removeEventListener('blur',cancel)
+      if (activated) {
+        suppressClick.current=true
+        onPointerDrag(item,next.clientX,next.clientY,true)
+      }
+    }
+    const cancel=()=>{
+      window.removeEventListener('pointermove',move)
+      window.removeEventListener('pointerup',finish)
+      window.removeEventListener('pointercancel',cancel)
+      window.removeEventListener('blur',cancel)
+      useEditor.getState().startDrag(null)
+    }
+    window.addEventListener('pointermove',move,{passive:false})
+    window.addEventListener('pointerup',finish)
+    window.addEventListener('pointercancel',cancel)
+    window.addEventListener('blur',cancel)
   }
   const focusField=(field:string)=>{
     selectClip(clip.client_id)
@@ -431,6 +630,7 @@ function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom
       {label:clip.locked?'Unlock clip':'Lock clip',onClick:()=>store.patchClip(clip.client_id,{locked:!clip.locked}),disabled:track.locked},
       {label:'',divider:true},
       {label:'Set duration',onClick:()=>focusField('duration')},
+      {label:'Repeat / Linked Element…',onClick:()=>focusField('repeat_mode')},
       {label:'Start at…',onClick:()=>focusField('start')},
       {label:'End at…',onClick:()=>focusField('end')},
       {label:'Crop in Preview',onClick:()=>{selectClip(clip.client_id);useEditor.getState().setPreviewTool('crop');useEditor.getState().setPlayhead(clip.start+Math.min(.02,clip.duration/4))},disabled:isLocked || (clip.type!=='video'&&clip.type!=='image')},
@@ -450,16 +650,16 @@ function ClipBar({ clip, track, zoom, onMenu }: { clip: Clip; track: Track; zoom
     ]
     onMenu({x:e.clientX,y:e.clientY,actions})
   }
-  return <div role="button" tabIndex={track.locked || clip.locked ? -1 : 0} draggable={!track.locked && !clip.locked && !editing && !trimDraft} onDragStart={startDrag} onDragEnd={() => drag(null)}
-    onClick={e => { e.stopPropagation(); selectClip(clip.client_id); useEditor.getState().selectTrack(track.client_id) }}
+  return <div role="button" tabIndex={track.locked || clip.locked ? -1 : 0} onPointerDown={startPointerDrag}
+    onClick={e => { e.stopPropagation(); if(suppressClick.current){suppressClick.current=false;return} selectClip(clip.client_id); useEditor.getState().selectTrack(track.client_id) }}
     onKeyDown={e => { if (e.key === 'Enter') selectClip(clip.client_id); if (e.key === 'F2') { setName(clip.name); setEditing(true) } }}
     onDoubleClick={e => { e.stopPropagation(); if (!track.locked && !clip.locked) { setName(clip.name); setEditing(true) } }}
     onContextMenu={showClipMenu}
     title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · drag to move, drag edges to trim`}
     style={{ left: displayStart * zoom, width: Math.max(visualDuration * zoom, 8) }}
-    className={`group absolute inset-y-1 z-[2] flex min-w-0 items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
+    className={`group absolute inset-y-1 z-[2] flex min-w-0 select-none items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
     {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40"/>}
-    <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+    <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden select-none">
       {clip.type === 'video' ? <Video size={13} className="shrink-0"/> : clip.type === 'audio' ? <Music2 size={13} className="shrink-0"/> : clip.type === 'text' ? <Type size={13} className="shrink-0"/> : <ImageIcon size={13} className="shrink-0"/>}
       {editing ? <input autoFocus className="min-w-0 flex-1 bg-black/35 px-1 outline-none" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }}/>
         : <span className="truncate whitespace-nowrap">{clip.name}</span>}

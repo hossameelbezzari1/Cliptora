@@ -85,3 +85,7 @@ The editor now has explicit selection/move/resize/rotate/scale controls, an obje
 ## V2.4.1 Preview canvas update
 
 The editor now has explicit selection/move/resize/rotate/scale controls, an object picker, right-click actions within the Preview, keyboard nudging and a jump-to-clip action. See `PREVIEW_UPDATE_V2.4.1.md`.
+
+
+## Smart Library V3
+See [SMART_LIBRARY_V3.md](SMART_LIBRARY_V3.md) for the implemented features, limitations and non-destructive MySQL setup.

@@ -23,7 +23,7 @@ function syncMedia(element: HTMLMediaElement | null, clip: Clip, playhead: numbe
   if (!element) return
   const relative = clamp(playhead - clip.start, 0, clip.duration)
   const target = Math.max(0, clip.source_offset + (clip.props?.reversed ? Math.max(0, clip.duration - relative) : relative))
-  if (Number.isFinite(target) && Math.abs(element.currentTime - target) > 0.2) {
+  if (Number.isFinite(target) && Math.abs(element.currentTime - target) > (playing ? 0.18 : 0.025)) {
     try { element.currentTime = target } catch { /* Wait for media metadata */ }
   }
   element.muted = muted || !!clip.props?.audio_muted || !!clip.props?.reversed
@@ -81,6 +81,20 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
   const canCrop = (clip.type === 'image' || clip.type === 'video') && tool === 'crop'
   const activeTool: PointerGesture['tool'] = tool === 'resize' || tool === 'rotate' || tool === 'scale' ? tool : 'move'
   const cursor = locked ? 'cursor-not-allowed' : canCrop ? 'cursor-default' : activeTool === 'rotate' ? 'cursor-crosshair' : activeTool === 'resize' ? 'cursor-nwse-resize' : activeTool === 'scale' ? 'cursor-nesw-resize' : 'cursor-move'
+  const activeEffects=clip.props?.effect_stack??[]
+  const fx=(key:string,fallback:number)=>{
+    const effect=activeEffects.find(item=>item.name===key)
+    return effect ? Number((effect.parameters as Record<string,unknown> | undefined)?.amount ?? fallback) : fallback
+  }
+  const effectFilter=[
+    activeEffects.some(item=>item.name==='Brightness') ? `brightness(${0.5+fx('Brightness',0.5)})`: '',
+    activeEffects.some(item=>item.name==='Contrast') ? `contrast(${0.5+fx('Contrast',0.5)})`: '',
+    activeEffects.some(item=>item.name==='Saturation') ? `saturate(${fx('Saturation',1)})`: '',
+    activeEffects.some(item=>item.name==='Gaussian Blur') ? `blur(${Math.max(0,fx('Gaussian Blur',0.5))*15}px)`: '',
+    activeEffects.some(item=>item.name==='Black & White') ? 'grayscale(1)': '',
+    activeEffects.some(item=>item.name==='Sepia') ? 'sepia(1)': '',
+    activeEffects.some(item=>item.name==='Hue') ? `hue-rotate(${fx('Hue',0.5)*360}deg)`: '',
+  ].filter(Boolean).join(' ')
   const style: CSSProperties = {
     left: `${transform.x}%`, top: `${transform.y}%`,
     width: `${transform.width}%`, height: `${transform.height}%`,
@@ -178,9 +192,10 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
     onContextMenu={event => { event.preventDefault(); event.stopPropagation(); selectClip(clip.client_id); onContextMenu(event, clip) }}
     onKeyDown={event => { if (event.key === 'Enter') { selectClip(clip.client_id); event.stopPropagation() } }}
   >
-    <div className="pointer-events-none h-full w-full overflow-hidden" style={{clipPath: `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`}}>
+    <div className="pointer-events-none h-full w-full overflow-hidden" style={{filter:effectFilter||undefined,clipPath: `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`}}>
       {clip.type === 'video' ? <VideoSource clip={clip} playhead={playhead} playing={playing} muted={muted} />
         : clip.type === 'image' && clip.media_id ? <img className="h-full w-full object-contain" src={fileUrl(clip.media_id)} alt={clip.name} draggable={false} />
+        : clip.type === 'text' && clip.props?.shape_kind ? <div className="grid h-full w-full place-items-center"><div style={{backdropFilter:clip.props.shape_kind.includes('Blur Box')?'blur(12px)':undefined,backgroundColor:clip.props.shape_kind.includes('Blur Box')?'#ffffff10':clip.color,width:'100%',height:'100%',borderRadius:clip.props.shape_kind==='Circle'||clip.props.shape_kind==='Ellipse'?'50%':clip.props.shape_kind==='Rectangle'||clip.props.shape_kind==='Square'?'0%':'10%',clipPath:clip.props.shape_kind==='Triangle'?'polygon(50% 0, 100% 100%, 0 100%)':clip.props.shape_kind==='Star'?'polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)':undefined}} /></div>
         : clip.type === 'text' ? <div className="flex h-full w-full items-center justify-center whitespace-pre-wrap px-2 text-center font-display text-[clamp(10px,2vw,32px)] font-extrabold leading-snug" style={{ color: clip.color }}>{clip.text || clip.name}</div> : null}
     </div>
     {selected && <>

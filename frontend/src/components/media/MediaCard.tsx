@@ -11,6 +11,7 @@ export function MediaCard({ media, onAdd }: { media: MediaAsset; onAdd: (media: 
     const known = useEditor.getState().mediaDurations[media.id]
     startDrag({ kind: 'media', mediaId: media.id, duration: media.kind === 'image' ? 5 : known ?? 8 })
     event.dataTransfer.setData('application/x-cliptora', String(media.id))
+    event.dataTransfer.setData('text/plain', `cliptora:media:${media.id}`)
     event.dataTransfer.effectAllowed = 'copy'
     void probeMediaDuration(media).then(({ duration, measured }) => {
       if (measured) useEditor.getState().setMediaDuration(media.id, duration)

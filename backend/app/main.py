@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.security import CSRF_COOKIE, valid_csrf
-from app.api.v1 import auth,users,projects,timeline,media,ai_scripts
+from app.api.v1 import auth,users,projects,timeline,media,ai_scripts,library
 
 app=FastAPI(title='Cliptora API',version='2.0.0')
 # During development, Vite proxies same-origin /api/v1. CORS also supports explicit dev origin.
@@ -21,5 +21,5 @@ async def csrf_guard(request:Request,call_next):
 @app.get('/api/v1/health',tags=['Health'])
 def health(): return {'status':'ok','service':'cliptora-api','version':'2.0.0'}
 
-for router in (auth.router,users.router,projects.router,timeline.router,media.router,ai_scripts.router):
+for router in (auth.router,users.router,projects.router,timeline.router,media.router,ai_scripts.router,library.router):
     app.include_router(router,prefix='/api/v1')
