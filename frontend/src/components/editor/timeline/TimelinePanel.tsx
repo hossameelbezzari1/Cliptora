@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
-import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical, Crop, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical, Crop, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, MousePointer2, X } from 'lucide-react'
 import { useEditor, canPlace, snapTime, MAX_LAYERS, MIN_CLIP, MAX_TIME, type DragItem } from '../../../stores/editorStore'
 import { formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
 import type { Track, Clip } from '../../../types'
 import { ContextMenu, type MenuState, type ContextAction } from '../../ui/ContextMenu'
 import { effectiveTimelineEnd, repeatOccurrences, type Timing } from '../../../lib/repeat'
+import './timeline-scroll.css'
 
 const LABEL_W = 186
 const ROW_H = 62
@@ -25,6 +26,17 @@ type Preview = {
 }
 
 type DropProps = { backgroundColor?:string; insertion?: 'top'|'bottom'; trackId: string | null; zoom: number; preview: Preview | null; onPreview: (value: Preview | null) => void }
+
+type SelectionBox = { x: number; y: number; width: number; height: number }
+type MarqueeSession = {
+  pointerId: number
+  startX: number
+  startY: number
+  initialIds: string[]
+  additive: boolean
+  active: boolean
+}
+
 
 const clipKind = (dragging: DragItem, tracks: Track[]): Clip['type'] => {
   if (dragging.kind === 'text' || dragging.kind === 'shape') return 'text'
@@ -146,6 +158,7 @@ export function TimelinePanel() {
   const cropAllowed = !!selected && !selected.clip.locked && !selected.track.locked && (selected.clip.type === 'video' || selected.clip.type === 'image')
   const [pan, setPan] = useState({value:0,max:0,vertical:false,verticalValue:0,verticalMax:0})
   const [zoom, setZoom] = useState(23)
+  const [timelineCeiling, setTimelineCeiling] = useState<number | null>(null)
   const [menu, setMenu] = useState<MenuState>(null)
   const [previewByTrack, setPreviewByTrack] = useState<Record<string, Preview | null>>({})
   const scroll = useRef<HTMLDivElement>(null)
@@ -157,6 +170,114 @@ export function TimelinePanel() {
   const scrubbing = useRef<number | null>(null)
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [reorderingLayerId, setReorderingLayerId] = useState<string | null>(null)
+  // Local UI selection: only the primary clip goes to Clip Settings. Selecting
+  // several clips must never modify timeline records or trigger an autosave.
+  const [selectedClipIds, setSelectedClipIds] = useState<string[]>([])
+  const selectionIdsRef = useRef<string[]>([])
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null)
+  const marqueeSession = useRef<MarqueeSession | null>(null)
+  const selectionSurface = useRef<HTMLDivElement>(null)
+
+  const commitSelection = (ids: string[]) => {
+    const unique = [...new Set(ids)]
+    if (selectionIdsRef.current.join('\u0001') === unique.join('\u0001')) return
+    selectionIdsRef.current = unique
+    setSelectedClipIds(unique)
+    const editor = useEditor.getState()
+    if (unique.length > 0) editor.selectClip(unique[unique.length - 1])
+    else useEditor.setState({ selectedClipId: null })
+  }
+  const clickSelectClip = (id: string, additive: boolean) => {
+    const prev = selectionIdsRef.current
+    commitSelection(additive ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]) : [id])
+  }
+  const getMarqueePosition = (clientX: number, clientY: number) => {
+    const element = selectionSurface.current
+    if (!element) return {x:0,y:0}
+    const rect = element.getBoundingClientRect()
+    return {x: clientX - rect.left, y: clientY - rect.top}
+  }
+  // Coordinates are relative to the actual rows, not the time ruler. This
+  // makes the selection rectangle accurate after either axis has scrolled.
+  const startMarquee = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || marqueeSession.current || useEditor.getState().dragging) return
+    const target = event.target as HTMLElement
+    const lane = target.closest('[data-clip-lane]')
+    if (!lane || !lane.closest('[data-timeline-track-row]')) return
+    if (target.closest('button,input,textarea,[role="separator"]')) return
+    if (target.closest('[data-timeline-clip-id]')) return // clips still drag normally
+    const {x,y} = getMarqueePosition(event.clientX, event.clientY)
+    const additive = event.ctrlKey || event.metaKey || event.shiftKey
+    marqueeSession.current = {pointerId:event.pointerId,startX:x,startY:y,initialIds:selectionIdsRef.current,additive,active:false}
+    event.currentTarget.setPointerCapture(event.pointerId)
+    timelineRoot.current?.focus({preventScroll:true})
+  }
+  const moveMarquee = (event: PointerEvent<HTMLDivElement>) => {
+    const session = marqueeSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    const point = getMarqueePosition(event.clientX, event.clientY)
+    const moved = Math.hypot(point.x-session.startX, point.y-session.startY)
+    if (!session.active && moved < 4) return
+    session.active = true
+    event.preventDefault()
+    const box:SelectionBox = {
+      x:Math.min(session.startX,point.x), y:Math.min(session.startY,point.y),
+      width:Math.abs(point.x-session.startX),height:Math.abs(point.y-session.startY)
+    }
+    setSelectionBox(box)
+    const container = selectionSurface.current
+    if (!container) return
+    const outer = container.getBoundingClientRect()
+    const hit: string[]=[]
+    container.querySelectorAll<HTMLElement>('[data-timeline-clip-id]').forEach(el=>{
+      const rect=el.getBoundingClientRect()
+      const left=rect.left-outer.left, right=rect.right-outer.left
+      const top=rect.top-outer.top, bottom=rect.bottom-outer.top
+      if (left < box.x+box.width && right > box.x && top < box.y+box.height && bottom > box.y) {
+        const id=el.dataset.timelineClipId
+        if (id) hit.push(id)
+      }
+    })
+    commitSelection(session.additive ? [...session.initialIds,...hit] : hit)
+    // Keep the selection usable while crossing a crowded timeline.
+    const pane=scroll.current
+    if (pane) {
+      const bounds=pane.getBoundingClientRect()
+      const speed=12
+      if (event.clientY > bounds.bottom - 28) pane.scrollTop += speed
+      else if (event.clientY < bounds.top + 48) pane.scrollTop -= speed
+      if (event.clientX > bounds.right - 24) pane.scrollLeft += speed
+      else if (event.clientX < bounds.left + LABEL_W + 24) pane.scrollLeft -= speed
+    }
+  }
+  const endMarquee = (event: PointerEvent<HTMLDivElement>) => {
+    const session=marqueeSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (session.active) moveMarquee(event)
+    else if (!session.additive) commitSelection([])
+    marqueeSession.current=null
+    setSelectionBox(null)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+  const cancelMarquee = () => {
+    marqueeSession.current=null
+    setSelectionBox(null)
+  }
+  const deleteSelectedClips = () => {
+    const ids=selectionIdsRef.current
+    const editor=useEditor.getState()
+    // Skip locked clips/layers; the store also performs its own checks.
+    const deletable=ids.filter(id=>editor.tracks.some(t=>!t.locked && t.clips.some(c=>c.client_id===id && !c.locked)))
+    for(const id of deletable) useEditor.getState().removeClip(id)
+    commitSelection(ids.filter(id=>!deletable.includes(id)))
+  }
+  useEffect(() => {
+    const available=new Set(tracks.flatMap(t=>t.clips.map(c=>c.client_id)))
+    const kept=selectionIdsRef.current.filter(id=>available.has(id))
+    if (kept.length!==selectionIdsRef.current.length) commitSelection(kept)
+  },[tracks])
+
   // New layers are above every existing layer, so reveal them immediately.
   useEffect(() => {
     const previous = previousLayerCount.current
@@ -192,7 +313,7 @@ export function TimelinePanel() {
     const verticalValue=Math.round(pane.scrollTop)
     setPan(old=>old.value===value&&old.max===max&&old.vertical===vertical&&old.verticalValue===verticalValue&&old.verticalMax===verticalMax?old:{value,max,vertical,verticalValue,verticalMax})
   }
-  function shiftScroll(amountX=0,amountY=0){scroll.current?.scrollBy({left:amountX,top:amountY,behavior:'smooth'})}
+  function shiftScroll(amountX=0,amountY=0){const pane=scroll.current;if(!pane)return;pane.scrollLeft+=amountX;pane.scrollTop+=amountY;syncPan()}
 
   const timelineClips=tracks.flatMap(t=>t.clips)
   const maxEnd = Math.max(30, playhead + 8, effectiveTimelineEnd(timelineClips))
@@ -200,6 +321,32 @@ export function TimelinePanel() {
   const repeatProjectEnd = effectiveTimelineEnd(timelineClips)
   const duration = Math.min(MAX_TIME, Math.max(60, maxEnd + 16))
   const timelineWidth = duration * zoom
+
+  // Without an actual height constraint flex-1/overflow-auto does not create a
+  // scrollport: the whole Timeline grows with its rows and gets clipped by the
+  // workspace. Bound its physical height to its allocated parent/viewport.
+  useLayoutEffect(() => {
+    const host = timelineRoot.current
+    if (!host) return
+    let frame = 0
+    const update = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const top = host.getBoundingClientRect().top
+        const available = Math.max(164, Math.floor(window.innerHeight - top - 9))
+        setTimelineCeiling(previous => previous === available ? previous : available)
+      })
+    }
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
+    if (host.parentElement) observer?.observe(host.parentElement)
+    window.addEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
   useEffect(()=>{
     const pane=scroll.current
     if(!pane)return
@@ -282,13 +429,26 @@ export function TimelinePanel() {
   useEffect(()=>{
     const pane=scroll.current
     if(!pane)return
-    const wheel=(event:globalThis.WheelEvent)=>{
-      if(event.ctrlKey||event.metaKey)return
-      // Shift + mouse wheel pans horizontally; ordinary wheel scrolls layers vertically.
-      // When hovering the ruler the mouse wheel pans horizontally without changing zoom.
-      if(!event.shiftKey && !(event.target instanceof Element && event.target.closest('[data-timeline-ruler]')))return
+    const wheel = (event:globalThis.WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return // separate Ctrl+wheel zoom handler
+      // Explicitly update the scrollport. Relying on native wheel alone can
+      // accidentally scroll the editor page instead of its Timeline panel.
+      const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pane.clientHeight : 1
+      const deltaX = event.deltaX * factor
+      const deltaY = event.deltaY * factor
+      const onRuler = event.target instanceof Element && !!event.target.closest('[data-timeline-ruler]')
+      const horizontal = event.shiftKey || onRuler
+      const canScrollX = pane.scrollWidth > pane.clientWidth + 1
+      const canScrollY = pane.scrollHeight > pane.clientHeight + 1
+      if (!canScrollX && !canScrollY) return
       event.preventDefault()
-      pane.scrollLeft+=event.deltaY
+      if (horizontal) {
+        if (canScrollX) pane.scrollLeft += deltaX + deltaY
+      } else {
+        if (canScrollX && deltaX) pane.scrollLeft += deltaX
+        if (canScrollY && deltaY) pane.scrollTop += deltaY
+      }
+      syncPan()
     }
     pane.addEventListener('wheel',wheel,{passive:false})
     return()=>pane.removeEventListener('wheel',wheel)
@@ -365,7 +525,15 @@ export function TimelinePanel() {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
       if (target.closest('input,textarea,select,[contenteditable="true"]')) return
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const timelineFocused=!!timelineRoot.current?.contains(document.activeElement)
+      if (timelineFocused && (event.ctrlKey || event.metaKey) && event.key.toLowerCase()==='a') {
+        event.preventDefault()
+        commitSelection(useEditor.getState().tracks.flatMap(track=>track.clips.map(clip=>clip.client_id)))
+      } else if (event.key==='Escape' && (selectionIdsRef.current.length || marqueeSession.current)) {
+        event.preventDefault()
+        commitSelection([])
+        cancelMarquee()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         if (event.shiftKey) useEditor.getState().redo()
         else useEditor.getState().undo()
@@ -377,21 +545,30 @@ export function TimelinePanel() {
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
         if (useEditor.getState().clipboard) {event.preventDefault(); useEditor.getState().pasteClip()}
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
-        const selected = useEditor.getState().selectedClipId
-        if (selected) { event.preventDefault(); useEditor.getState().removeClip(selected) }
+        const ids=selectionIdsRef.current
+        if (ids.length) {
+          event.preventDefault()
+          deleteSelectedClips()
+        } else {
+          const selected = useEditor.getState().selectedClipId
+          if (selected) { event.preventDefault(); useEditor.getState().removeClip(selected) }
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  return <><section ref={timelineRoot} className="relative flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]">
+  return <><section ref={timelineRoot} tabIndex={-1} data-timeline-panel className="cliptora-timeline-panel relative flex h-full min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]" style={{ maxHeight: timelineCeiling === null ? '62dvh' : `${timelineCeiling}px` }}>
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
       <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
+      <button type="button" aria-pressed={selectionMode} title="Toggle selection mode (click clips or drag empty space to select multiple)" onClick={()=>setSelectionMode(value=>!value)} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs ${selectionMode?'border-[#a879f3] bg-[#6236a0] text-white':'border-white/10 bg-cl-panel-2 hover:bg-[#35383d]'}`}><MousePointer2 size={14}/>Select</button>
+      {selectedClipIds.length>0 && <span className="flex items-center gap-1 rounded-md bg-[#392552] px-2 py-1 text-[11px] text-[#d8baff]" aria-live="polite">{selectedClipIds.length} selected <button type="button" aria-label="Delete selected clips" title="Delete selected unlocked clips" onClick={deleteSelectedClips} className="rounded p-0.5 hover:bg-red-700/40"><Trash2 size={12}/></button><button type="button" aria-label="Clear clip selection" title="Clear selection (Esc)" onClick={()=>commitSelection([])} className="rounded p-0.5 hover:bg-white/15"><X size={12}/></button></span>}
+
       <button title="Add a layer at the TOP of the stack" aria-label="Add top layer" disabled={tracks.length >= MAX_LAYERS} onClick={()=>addLayerFromToolbar('top')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer <ArrowUp size={12}/></button>
       <button title="Add a layer at the BOTTOM of the stack" aria-label="Add bottom layer" disabled={tracks.length >= MAX_LAYERS} onClick={()=>addLayerFromToolbar('bottom')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15}/>Layer <ArrowDown size={12}/></button>
       <button aria-label="Crop selected video or image" aria-pressed={previewTool==='crop'} title="Crop selected image/video in Preview (drag green crop edges)" disabled={!cropAllowed} onClick={()=>{const store=useEditor.getState();store.setPreviewTool(previewTool==='crop'?'select':'crop');if(selected&&previewTool!=='crop')store.setPlayhead(selected.clip.start+Math.min(.02,selected.clip.duration/4))}} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${previewTool==='crop'?'bg-[#55377b] text-white':'bg-cl-panel-2 text-cl-muted hover:text-white'}`}><Crop size={15}/>Crop</button>
-      <span className="hidden text-[10px] text-cl-muted 2xl:inline">Drag = move · Edges = trim · Right-click = menu</span>
+      <span className="hidden text-[10px] text-cl-muted 2xl:inline">Drag empty space = select clips · Ctrl+click = multi-select · Esc = clear</span>
       <div className="ml-auto flex items-center gap-2">
         <button title="Zoom out" aria-label="Zoom out" onClick={() => zoomTo(zoom / 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Minus size={16}/></button>
         <input aria-label="Timeline zoom" type="range" min={0} max={100} step={1} value={zoomSlider} onChange={e => zoomTo(sliderToZoom(Number(e.target.value)))} className="w-16 accent-[#a87cf4] sm:w-24"/>
@@ -400,7 +577,7 @@ export function TimelinePanel() {
         <span className="w-16 text-right text-[10px] tabular-nums text-cl-muted">{zoom.toFixed(zoom < 10 ? 2 : 1)}px/s</span>
       </div>
     </div>
-    <div data-timeline-scroll ref={scroll} className="cliptora-timeline-scroll relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-auto overflow-y-auto overscroll-contain" onScroll={syncPan} onDragEnd={() => {
+    <div data-timeline-scroll ref={scroll} className="cliptora-timeline-scroll relative min-h-0 min-w-0 w-full max-w-full flex-1 overscroll-contain" style={{ flex: '1 1 0px', overflowX: 'scroll', overflowY: 'scroll' }} onScroll={syncPan} onDragEnd={() => {
       useEditor.getState().startDrag(null); setPreviewByTrack({})
     }}>
       <div style={{ width: LABEL_W + timelineWidth, minWidth: '100%' }} className="relative">
@@ -417,7 +594,8 @@ export function TimelinePanel() {
             </div>
           </div>
         </div>
-        <div className="relative">
+        <div ref={selectionSurface} data-timeline-selection-surface className="relative touch-pan-y" onPointerDown={startMarquee} onPointerMove={moveMarquee} onPointerUp={endMarquee} onPointerCancel={cancelMarquee} onLostPointerCapture={cancelMarquee}>
+          {selectionBox && <div aria-hidden="true" data-marquee-selection className="pointer-events-none absolute z-40 border border-[#80b7ff] bg-[#4b92ef]/25 shadow-[0_0_0_1px_#4789c733]" style={{left:selectionBox.x,top:selectionBox.y,width:selectionBox.width,height:selectionBox.height}}/>}
           <div aria-hidden className="pointer-events-none absolute bottom-0 top-0 z-20 w-[2px] bg-cl-orange shadow-[0_0_15px_#fe7526]" style={{ left: LABEL_W + playhead * zoom }}/>
 
           {/* Real top drop zone: visible ABOVE the first layer, not on the ruler. */}
@@ -429,7 +607,7 @@ export function TimelinePanel() {
               </DropLane>
             </div>
           </div>}
-          {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} layerDraggingId={reorderingLayerId} onLayerDragStart={setReorderingLayerId} onLayerDragEnd={() => setReorderingLayerId(null)} zoom={zoom} timelineWidth={timelineWidth} repeatTimings={repeatTimings} repeatProjectEnd={repeatProjectEnd} onPointerDrag={pointerMoveClip}
+          {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} selectedClipIds={selectedClipIds} onClipSelect={clickSelectClip} selectionMode={selectionMode} layerDraggingId={reorderingLayerId} onLayerDragStart={setReorderingLayerId} onLayerDragEnd={() => setReorderingLayerId(null)} zoom={zoom} timelineWidth={timelineWidth} repeatTimings={repeatTimings} repeatProjectEnd={repeatProjectEnd} onPointerDrag={pointerMoveClip}
             preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)} onMenu={setMenu}/>) }
           {tracks.length < MAX_LAYERS && <div className={`flex border-b border-dashed border-[#8752dc]/60 ${dragged ? 'h-[62px] bg-[#7547b3]/20' : 'h-[48px] bg-[#1d1b23]'}`}>
             <button type="button" aria-label="Add layer below all layers" title="Add layer at the bottom" onClick={()=>addLayerFromToolbar('bottom')} className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff] hover:bg-[#322543]" style={{ width: LABEL_W }}><Plus size={16}/>Layer below <ArrowDown size={13}/></button>
@@ -447,7 +625,7 @@ export function TimelinePanel() {
       <button aria-label="Pan timeline left" title="Pan left" disabled={!pan.max||!pan.value} onClick={()=>shiftScroll(-180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowLeft size={13}/></button>
       <input aria-label="Timeline horizontal scroll" title="Pan timeline horizontally, independently of zoom" type="range" className="min-w-0 flex-1 accent-[#8952ce]" min={0} max={Math.max(1,pan.max)} step={1} disabled={!pan.max} value={Math.min(pan.value,Math.max(1,pan.max))} onChange={e=>{if(scroll.current){scroll.current.scrollLeft=Number(e.target.value);syncPan()}}}/>
       <button aria-label="Pan timeline right" title="Pan right" disabled={!pan.max||pan.value>=pan.max} onClick={()=>shiftScroll(180)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowRight size={13}/></button>
-      <span className="hidden text-[10px] text-cl-muted sm:block">Shift + wheel: horizontal</span>
+      <span className="hidden whitespace-nowrap text-[10px] text-cl-muted lg:block">{pan.verticalMax > 0 ? 'Wheel: layers' : 'All layers visible'} · Shift+wheel: time</span>
       <div className="h-4 w-px bg-white/10"/>
       <button aria-label="Scroll layers up" title="Scroll layers up" disabled={!pan.verticalMax || pan.verticalValue <= 0} onClick={()=>shiftScroll(0,-120)} className="rounded p-1 text-cl-muted hover:bg-white/10"><ArrowUp size={14}/></button>
       <input aria-label="Timeline vertical scroll" title="Scroll through layers" type="range" className="w-12 accent-[#8952ce] sm:w-16" min={0} max={Math.max(1,pan.verticalMax)} step={1} disabled={!pan.verticalMax} value={Math.min(pan.verticalValue,Math.max(1,pan.verticalMax))} onChange={e=>{if(scroll.current){scroll.current.scrollTop=Number(e.target.value);syncPan()}}}/>
@@ -457,7 +635,7 @@ export function TimelinePanel() {
 }
 
 type PointerClipDrag = (item:Extract<DragItem,{kind:'clip'}>,x:number,y:number,finish:boolean)=>void
-function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPointerDrag, repeatTimings, repeatProjectEnd, layerDraggingId, onLayerDragStart, onLayerDragEnd }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void; onMenu: (menu:MenuState)=>void; onPointerDrag:PointerClipDrag; repeatTimings:Timing[];repeatProjectEnd:number; layerDraggingId:string|null;onLayerDragStart:(id:string)=>void;onLayerDragEnd:()=>void }) {
+function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPointerDrag, repeatTimings, repeatProjectEnd, layerDraggingId, onLayerDragStart, onLayerDragEnd, selectedClipIds, onClipSelect, selectionMode }: { track: Track; zoom: number; timelineWidth: number; preview: Preview | null; onPreview: (value: Preview | null) => void; onMenu: (menu:MenuState)=>void; onPointerDrag:PointerClipDrag; repeatTimings:Timing[];repeatProjectEnd:number; layerDraggingId:string|null;onLayerDragStart:(id:string)=>void;onLayerDragEnd:()=>void;selectedClipIds:string[];onClipSelect:(id:string,additive:boolean)=>void;selectionMode:boolean }) {
   const toggle = useEditor(s => s.toggleTrack)
   const remove = useEditor(s => s.removeTrack)
   const rename = useEditor(s => s.renameTrack)
@@ -519,17 +697,203 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPo
     </div>
     <div className="flex" style={{ width: timelineWidth }}>
       <DropLane trackId={track.client_id} backgroundColor={track.background_color} zoom={zoom} preview={preview} onPreview={onPreview}>
-        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu} onPointerDrag={onPointerDrag}/>) }
+        {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu} onPointerDrag={onPointerDrag} multiSelected={selectedClipIds.includes(clip.client_id)} hasMultiSelection={selectedClipIds.length>0} onClipSelect={onClipSelect} selectionMode={selectionMode}/>) }
         {track.clips.flatMap(clip => clip.props?.repeat?.mode && clip.props.repeat.mode!=='none' ?
           repeatOccurrences({id:clip.client_id,start:clip.start,duration:clip.duration},clip.props.repeat,repeatTimings,repeatProjectEnd,300)
-            .filter(item=>Math.abs(item.start-clip.start)>0.01).map(item=><button key={item.id} type="button" onClick={event=>{event.stopPropagation();useEditor.getState().selectClip(clip.client_id);useEditor.getState().setPlayhead(item.start)}} title={`${clip.name} · repeated at ${formatTime(item.start)}`} aria-label={`Repeated occurrence ${clip.name} at ${formatTime(item.start)}`} className="pointer-events-auto absolute inset-y-2 z-[1] truncate rounded-md border border-dashed border-[#b48aff]/70 bg-[#6e478d]/35 px-2 text-left text-[10px] text-[#dfc4ff] hover:bg-[#6e478d]/65" style={{left:item.start*zoom,width:Math.max(8,item.duration*zoom)}}>↻ {clip.name}</button>) : [])}
+            .filter(item=>Math.abs(item.start-clip.start)>0.01).map(item=><button key={item.id} type="button" onClick={event=>{event.stopPropagation();useEditor.getState().selectClip(clip.client_id);useEditor.getState().setPlayhead(item.start)}} title={`${clip.name} · repeated at ${formatTime(item.start)}`} aria-label={`Repeated occurrence ${clip.name} at ${formatTime(item.start)}`} className="pointer-events-auto absolute inset-y-2 z-[1] truncate rounded-md border border-dashed border-[#b48aff]/70 bg-[#6e478d]/35 px-2 text-left text-[10px] text-[#dfc4ff] hover:bg-[#6e478d]/65" style={{left:item.start*zoom,width:Math.max(8,item.duration*zoom)}}><TimelineClipVisual clip={clip} width={Math.max(8,item.duration*zoom)}/><span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-[#59327d]/95 px-1 py-0.5 text-[9px] font-bold text-white">↻</span></button>) : [])}
       </DropLane>
     </div>
   </div>
 }
 
-function ClipBar({ clip, track, zoom, onMenu, onPointerDrag }: { clip: Clip; track: Track; zoom: number; onMenu: (menu:MenuState)=>void;onPointerDrag:PointerClipDrag }) {
-  const selected = useEditor(s => s.selectedClipId === clip.client_id)
+
+/** Resolve existing Media Library URLs without relying on a particular optional thumbnail field. */
+function timelineMediaUrl(candidate: unknown): string | null {
+  if (typeof candidate === 'string') {
+    const url = candidate.trim()
+    if (!url || /^(?:javascript|file):/i.test(url)) return null
+    if (/^(?:https?:|blob:|data:image\/|data:video\/|data:audio\/)/i.test(url)) return url
+    if (url.startsWith('/')) return url
+    // Relative media endpoints are served by the existing Vite/FastAPI proxy.
+    if (/^(?:api\/|media\/|uploads\/|storage\/|assets\/)/.test(url)) return `/${url}`
+    return null
+  }
+  if (candidate && typeof candidate === 'object') {
+    const obj = candidate as Record<string, unknown>
+    return timelineMediaUrl(obj.url ?? obj.src ?? obj.href)
+  }
+  return null
+}
+
+function timelineMediaSources(clip: Clip, media: unknown) {
+  const asset = media && typeof media === 'object' ? media as Record<string, unknown> : {}
+  const props = clip.props as Record<string, unknown> | undefined
+  const pick = (...candidates: unknown[]) => {
+    for (const candidate of candidates) {
+      const url = timelineMediaUrl(candidate)
+      if (url) return url
+    }
+    return null
+  }
+  return {
+    poster: pick(asset.thumbnail_url, asset.thumbnailUrl, asset.poster_url, asset.poster,
+      asset.preview_url, asset.previewUrl, props?.thumbnail_url, props?.poster_url),
+    source: pick(asset.url, asset.file_url, asset.fileUrl, asset.media_url,
+      asset.playback_url, asset.stream_url, asset.download_url, asset.public_url,
+      asset.src, asset.path, props?.source_url, props?.media_url),
+  }
+}
+
+// Cache poster extraction across timeline instances so repeated clips do not decode
+// their videos independently on each React render.
+const timelinePosterCache = new Map<string, Promise<string | null>>()
+function extractTimelineVideoPoster(src: string, offset: number): Promise<string | null> {
+  const seek = Math.max(0, Math.round(offset * 2) / 2)
+  const key = `${src}#${seek}`
+  const cached = timelinePosterCache.get(key)
+  if (cached) return cached
+  const work = new Promise<string | null>(resolve => {
+    const video = document.createElement('video')
+    video.muted = true
+    video.preload = 'auto'
+    video.playsInline = true
+    video.crossOrigin = 'anonymous'
+    let completed = false
+    const finish = (value: string | null) => {
+      if (completed) return
+      completed = true
+      window.clearTimeout(timeout)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+      resolve(value)
+    }
+    const capture = () => {
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) return finish(null)
+      try {
+        const canvas = document.createElement('canvas')
+        const scale = Math.min(1, 240 / video.videoWidth, 140 / video.videoHeight)
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+        canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+        finish(canvas.toDataURL('image/webp', .72))
+      } catch { finish(null) } // e.g. remote media without CORS support
+    }
+    const timeout = window.setTimeout(() => finish(null), 6000)
+    video.onerror = () => finish(null)
+    video.onseeked = capture
+    video.onloadeddata = () => { if (video.currentTime === 0) capture() }
+    video.onloadedmetadata = () => {
+      const duration = Number.isFinite(video.duration) ? video.duration : 0
+      const target = Math.min(seek || .12, Math.max(0, duration - .06))
+      if (target <= .02 && video.readyState >= 2) capture()
+      else {
+        try { video.currentTime = target } catch { finish(null) }
+      }
+    }
+    video.src = src
+    video.load()
+  })
+  // Cache positive results. A failed poster can be retried after media finishes uploading.
+  timelinePosterCache.set(key, work)
+  void work.then(image => { if (!image) timelinePosterCache.delete(key) })
+  if (timelinePosterCache.size > 160) timelinePosterCache.delete(timelinePosterCache.keys().next().value!)
+  return work
+}
+
+function useTimelineVideoPoster(src: string | null, offset: number, enabled: boolean) {
+  const [poster, setPoster] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    setPoster(null)
+    if (enabled && src) void extractTimelineVideoPoster(src, offset).then(url => { if (!cancelled) setPoster(url) })
+    return () => { cancelled = true }
+  }, [src, offset, enabled])
+  return poster
+}
+
+const timelineShapePreview = (shape: string, color: string) => {
+  const common = {fill:color, stroke:'rgba(255,255,255,.65)', strokeWidth:1.25}
+  switch (shape.toLowerCase()) {
+    case 'rectangle': return <rect x="12" y="17" width="76" height="46" rx="5" {...common}/>
+    case 'square': return <rect x="28" y="9" width="46" height="46" rx="4" {...common}/>
+    case 'circle': return <circle cx="50" cy="38" r="30" {...common}/>
+    case 'ellipse': return <ellipse cx="50" cy="38" rx="43" ry="24" {...common}/>
+    case 'triangle': return <path d="M50 5 L94 67 L6 67 Z" {...common}/>
+    case 'polygon': return <polygon points="27,10 71,10 95,38 71,66 27,66 5,38" {...common}/>
+    case 'star': return <polygon points="50,4 62,29 90,30 70,49 77,72 50,57 23,72 30,49 10,30 38,29" {...common}/>
+    case 'arrow': return <path d="M8 38 H85 M64 17 L87 38 L64 59" fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+    case 'line': return <path d="M7 38 H93" fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"/>
+    default: return <rect x="15" y="15" width="70" height="45" rx="9" {...common}/>
+  }
+}
+
+/** All clip kinds use one noninteractive visual so dragging, trim and marquee remain intact. */
+function TimelineClipVisual({clip, width}: {clip: Clip; width: number}) {
+  const media = useEditor(s => clip.media_id == null ? undefined : s.media.find(a => String(a.id) === String(clip.media_id)))
+  const sources = useMemo(() => timelineMediaSources(clip, media), [clip, media])
+  const [imageFailed, setImageFailed] = useState(false)
+  const artRef = useRef<HTMLDivElement>(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    const element = artRef.current
+    if (!element) return
+    if (typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    const observer = new IntersectionObserver(entries => {
+      setInView(entries.some(entry => entry.isIntersecting))
+    }, {root: element.closest('[data-timeline-scroll]'), rootMargin:'180px 250px'})
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const frame = useTimelineVideoPoster(sources.poster ? null : sources.source, clip.source_offset ?? 0, clip.type === 'video' && inView)
+  const picture = clip.type === 'image' ? (sources.poster || sources.source) : (sources.poster || frame)
+  useEffect(() => { setImageFailed(false) }, [picture])
+  const shape = clip.type === 'text' ? clip.props?.shape_kind : undefined
+  const shapeName = typeof shape === 'string' ? shape : null
+  const color = clip.color || '#b690ff'
+  const tiles = Math.min(20, Math.max(1, Math.ceil(width / 96)))
+  const label = clip.type === 'text' ? (clip.text?.trim() || clip.name) : clip.name
+  // Audio waveform is a visual type cue, not a claim of sampled peaks. Media
+  // backends providing actual waveform samples can supply those in media.waveform_peaks.
+  const data = media as unknown as Record<string, unknown> | undefined
+  const peaks = Array.isArray(data?.waveform_peaks) ? data.waveform_peaks : null
+  const bars = Array.from({length: 42}, (_, i) => {
+    const value = peaks && typeof peaks[i % peaks.length] === 'number' ? Number(peaks[i % peaks.length])
+      : Math.abs(Math.sin(i * 1.29) * .57 + Math.sin(i * .61) * .25 + .2)
+    return Math.max(10, Math.min(90, value * 90))
+  })
+  return <div ref={artRef} data-timeline-artwork={clip.type} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-md">
+    {(clip.type === 'image' || clip.type === 'video') && picture && !imageFailed
+      ? <div className="absolute inset-0 flex opacity-90">
+          {Array.from({length:tiles}, (_, i) => <img key={i} src={picture} loading="lazy" draggable={false}
+            onError={() => setImageFailed(true)} alt="" className="h-full min-w-0 flex-1 object-cover"
+            style={{width: `${100 / tiles}%`, maxWidth:'100%', borderRight: '1px solid rgba(0,0,0,.18)'}}/>) }
+        </div>
+      : null}
+    {(clip.type === 'image' || clip.type === 'video') && (!picture || imageFailed) && <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-[#344a6b] to-[#1b3049] text-white/50">
+      {clip.type === 'video' ? <Video size={27}/> : <ImageIcon size={27}/>}
+    </div>}
+    {clip.type === 'audio' && <div className="absolute inset-0 flex items-center justify-around gap-[2px] bg-[#124457]/90 px-3">
+      {bars.map((peak, index)=><span key={index} className="w-[3px] min-w-[2px] max-w-[5px] flex-1 rounded-full bg-[#51d4f2]/85" style={{height:`${peak}%`}}/>)}
+    </div>}
+    {clip.type === 'text' && shapeName && <div className="absolute inset-0 flex items-center justify-center bg-[#142432]/90">
+      {shapeName.toLowerCase().includes('blur') ? <div className="relative h-4/5 w-4/5 rounded-md border border-white/35 bg-white/10 shadow-[inset_0_0_18px_#c6b4f8] backdrop-blur-lg"/>
+        : <svg viewBox="0 0 100 76" className="h-[92%] max-h-[65px] w-[110px] max-w-[70%] drop-shadow-lg">{timelineShapePreview(shapeName,color)}</svg>}
+    </div>}
+    {clip.type === 'text' && !shapeName && <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[linear-gradient(110deg,#07566e,#1a7fa0_55%,#0e455a)] px-5 text-center">
+      <span className="max-h-full overflow-hidden text-[clamp(10px,1.1vw,17px)] font-bold leading-tight tracking-wide text-white/85 drop-shadow-md">{clip.text?.trim() || 'Aa'}</span>
+    </div>}
+    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10"/>
+    <div className="absolute bottom-1 left-2 right-2 flex min-w-0 items-center gap-1 rounded-sm text-[10px] font-semibold text-white drop-shadow-[0_1px_2px_#000]">
+      {clip.type === 'video' ? <Video size={12} className="shrink-0"/> : clip.type === 'audio' ? <Music2 size={12} className="shrink-0"/> : clip.type === 'text' ? <Type size={12} className="shrink-0"/> : <ImageIcon size={12} className="shrink-0"/>}
+      <span className="truncate">{label}</span>
+    </div>
+  </div>
+}
+
+function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasMultiSelection, onClipSelect, selectionMode }: { clip: Clip; track: Track; zoom: number; onMenu: (menu:MenuState)=>void;onPointerDrag:PointerClipDrag;multiSelected:boolean;hasMultiSelection:boolean;onClipSelect:(id:string,additive:boolean)=>void;selectionMode:boolean }) {
+  const primarySelected = useEditor(s => s.selectedClipId === clip.client_id)
+  const selected = hasMultiSelection ? multiSelected : primarySelected
   const selectClip = useEditor(s => s.selectClip)
   const rename = useEditor(s => s.patchClip)
   const [editing, setEditing] = useState(false)
@@ -572,7 +936,7 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag }: { clip: Clip; tra
   }
   const suppressClick = useRef(false)
   const startPointerDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button!==0 || track.locked || clip.locked || editing || origin.current) return
+    if (selectionMode || event.button!==0 || track.locked || clip.locked || editing || origin.current) return
     if ((event.target as HTMLElement).closest('[role="separator"],input,button')) return
     const rect=event.currentTarget.getBoundingClientRect()
     const item:Extract<DragItem,{kind:'clip'}>={kind:'clip',clipId:clip.client_id,duration:clip.duration,offset:clamp((event.clientX-rect.left)/zoom,0,clip.duration)}
@@ -650,20 +1014,17 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag }: { clip: Clip; tra
     ]
     onMenu({x:e.clientX,y:e.clientY,actions})
   }
-  return <div role="button" tabIndex={track.locked || clip.locked ? -1 : 0} onPointerDown={startPointerDrag}
-    onClick={e => { e.stopPropagation(); if(suppressClick.current){suppressClick.current=false;return} selectClip(clip.client_id); useEditor.getState().selectTrack(track.client_id) }}
-    onKeyDown={e => { if (e.key === 'Enter') selectClip(clip.client_id); if (e.key === 'F2') { setName(clip.name); setEditing(true) } }}
+  return <div data-timeline-clip-id={clip.client_id} aria-selected={selected} role="button" tabIndex={track.locked || clip.locked ? -1 : 0} onPointerDown={startPointerDrag}
+    onClick={e => { e.stopPropagation(); if(suppressClick.current){suppressClick.current=false;return} onClipSelect(clip.client_id, selectionMode || e.ctrlKey || e.metaKey || e.shiftKey); useEditor.getState().selectTrack(track.client_id) }}
+    onKeyDown={e => { if (e.key === 'Enter' || e.key===' ') { e.preventDefault();onClipSelect(clip.client_id,e.ctrlKey || e.metaKey || e.shiftKey || selectionMode) };  if (e.key === 'F2') { setName(clip.name); setEditing(true) } }}
     onDoubleClick={e => { e.stopPropagation(); if (!track.locked && !clip.locked) { setName(clip.name); setEditing(true) } }}
     onContextMenu={showClipMenu}
-    title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · drag to move, drag edges to trim`}
+    title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · Ctrl+click to multi-select · drag to move`}
     style={{ left: displayStart * zoom, width: Math.max(visualDuration * zoom, 8) }}
-    className={`group absolute inset-y-1 z-[2] flex min-w-0 select-none items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-white/90 shadow-[0_0_15px_#a968f655]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
+    className={`group absolute inset-y-1 z-[2] flex min-w-0 select-none items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-[#b9d7ff] shadow-[0_0_16px_#77a9ef99]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
     {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40"/>}
-    <span className="ml-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden select-none">
-      {clip.type === 'video' ? <Video size={13} className="shrink-0"/> : clip.type === 'audio' ? <Music2 size={13} className="shrink-0"/> : clip.type === 'text' ? <Type size={13} className="shrink-0"/> : <ImageIcon size={13} className="shrink-0"/>}
-      {editing ? <input autoFocus className="min-w-0 flex-1 bg-black/35 px-1 outline-none" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }}/>
-        : <span className="truncate whitespace-nowrap">{clip.name}</span>}
-    </span>
+    <TimelineClipVisual clip={clip} width={Math.max(8, visualDuration * zoom)}/>
+    {editing && <input autoFocus className="relative z-20 ml-2 min-w-0 flex-1 rounded bg-black/75 px-1.5 py-1 text-white outline-none ring-1 ring-white/30" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }}/>}
     {trimDraft && <span className="pointer-events-none z-10 ml-auto whitespace-nowrap rounded bg-black/70 px-1 text-[10px] tabular-nums">{visualDuration.toFixed(2)}s</span>}
     {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip end" title="Drag to trim end / change duration" onPointerDown={beginTrim('right')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 right-0 z-10 w-[9px] cursor-ew-resize rounded-r-md bg-black/15 hover:bg-white/40"/>}
   </div>

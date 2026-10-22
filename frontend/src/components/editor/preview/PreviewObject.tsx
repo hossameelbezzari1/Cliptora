@@ -1,3 +1,4 @@
+import { PreviewShape } from './PreviewShape'
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject, type MouseEvent } from 'react'
 import { Move, RotateCw, Scaling, Maximize2, LockKeyhole } from 'lucide-react'
 import { useEditor } from '../../../stores/editorStore'
@@ -195,7 +196,7 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
     <div className="pointer-events-none h-full w-full overflow-hidden" style={{filter:effectFilter||undefined,clipPath: `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`}}>
       {clip.type === 'video' ? <VideoSource clip={clip} playhead={playhead} playing={playing} muted={muted} />
         : clip.type === 'image' && clip.media_id ? <img className="h-full w-full object-contain" src={fileUrl(clip.media_id)} alt={clip.name} draggable={false} />
-        : clip.type === 'text' && clip.props?.shape_kind ? <div className="grid h-full w-full place-items-center"><div style={{backdropFilter:clip.props.shape_kind.includes('Blur Box')?'blur(12px)':undefined,backgroundColor:clip.props.shape_kind.includes('Blur Box')?'#ffffff10':clip.color,width:'100%',height:'100%',borderRadius:clip.props.shape_kind==='Circle'||clip.props.shape_kind==='Ellipse'?'50%':clip.props.shape_kind==='Rectangle'||clip.props.shape_kind==='Square'?'0%':'10%',clipPath:clip.props.shape_kind==='Triangle'?'polygon(50% 0, 100% 100%, 0 100%)':clip.props.shape_kind==='Star'?'polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)':undefined}} /></div>
+        : clip.type === 'text' && clip.props?.shape_kind ? <PreviewShape shape={clip.props.shape_kind} color={clip.color ?? '#a580db'}/>
         : clip.type === 'text' ? <div className="flex h-full w-full items-center justify-center whitespace-pre-wrap px-2 text-center font-display text-[clamp(10px,2vw,32px)] font-extrabold leading-snug" style={{ color: clip.color }}>{clip.text || clip.name}</div> : null}
     </div>
     {selected && <>

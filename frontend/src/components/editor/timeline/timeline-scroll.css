@@ -1,0 +1,43 @@
+/* CLIPTORA Timeline V3.0.6: a bounded flex item with its OWN two-axis scroller.
+   Deliberately visible, even if the global dark-theme CSS hides scrollbars. */
+.cliptora-timeline-panel {
+  height: 100%;
+  min-height: 0;
+  max-height: 62dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+.cliptora-timeline-scroll {
+  display: block;
+  flex: 1 1 0px;
+  min-height: 0 !important;
+  min-width: 0;
+  overflow-x: scroll !important;
+  overflow-y: scroll !important;
+  overscroll-behavior: contain;
+  scrollbar-width: auto !important;
+  scrollbar-color: #8850cf #17191d !important;
+  scrollbar-gutter: stable;
+}
+.cliptora-timeline-scroll::-webkit-scrollbar {
+  display: block !important;
+  width: 12px !important;
+  height: 12px !important;
+  background: #17191d !important;
+}
+.cliptora-timeline-scroll::-webkit-scrollbar-thumb {
+  background: #8850cf !important;
+  border: 2px solid #17191d !important;
+  border-radius: 10px !important;
+}
+.cliptora-timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a878f4 !important;
+}
+.cliptora-timeline-scroll::-webkit-scrollbar-track {
+  background: #17191d !important;
+}
+.cliptora-timeline-scroll::-webkit-scrollbar-corner {
+  background: #17191d !important;
+}
