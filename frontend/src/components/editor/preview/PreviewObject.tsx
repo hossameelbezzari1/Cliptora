@@ -68,6 +68,12 @@ export function AudioSource({ clip, playhead, playing, muted }: { clip: Clip; pl
 const commonHandle = 'absolute z-30 flex h-[19px] w-[19px] items-center justify-center rounded-[5px] border border-[#51247e] bg-white text-[#51247e] shadow-[0_1px_7px_#0009] hover:scale-110'
 
 export function PreviewObject({ clip, playing, playhead, muted, selected, locked, tool, onContextMenu }: Props) {
+  // Fixed visual stacking: selecting a clip never moves its pixels over upper layers.
+  // The layer position is used only for the z-index; selection remains visual handles only.
+  const layerPosition = useEditor(s => {
+    const index = s.tracks.findIndex(track => track.clips.some(item => item.client_id === clip.client_id))
+    return index < 0 ? 0 : (s.tracks[index].position ?? index)
+  })
   const selectClip = useEditor(s => s.selectClip)
   const selectTrack = useEditor(s => s.selectTrack)
   const setPlaying = useEditor(s => s.setPlaying)
@@ -82,6 +88,12 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
   const canCrop = (clip.type === 'image' || clip.type === 'video') && tool === 'crop'
   const activeTool: PointerGesture['tool'] = tool === 'resize' || tool === 'rotate' || tool === 'scale' ? tool : 'move'
   const cursor = locked ? 'cursor-not-allowed' : canCrop ? 'cursor-default' : activeTool === 'rotate' ? 'cursor-crosshair' : activeTool === 'resize' ? 'cursor-nwse-resize' : activeTool === 'scale' ? 'cursor-nesw-resize' : 'cursor-move'
+  // Read user-configured blur amount from Clip Settings. Keep compatibility with
+  // both property keys used by older CLIPTORA versions (0–100, percentage).
+  const shapeProps = clip.props as (ClipProperties & { blur_strength?: number; blurStrength?: number }) | undefined
+  const blurValue = Number(shapeProps?.blur_strength ?? shapeProps?.blurStrength ?? 16)
+  const blurStrength = Number.isFinite(blurValue) ? clamp(blurValue, 0, 100) : 16
+  const isBlur = clip.type === 'text' && /blur|mosaic|pixel/i.test(String(clip.props?.shape_kind ?? ''))
   const activeEffects=clip.props?.effect_stack??[]
   const fx=(key:string,fallback:number)=>{
     const effect=activeEffects.find(item=>item.name===key)
@@ -102,6 +114,8 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
     opacity: transform.opacity,
     transform: `rotate(${transform.rotation}deg) scale(${transform.scale * (transform.flip_x ? -1 : 1)}, ${transform.scale * (transform.flip_y ? -1 : 1)})`,
     transformOrigin: 'center center',
+    // Element order comes from Timeline tracks, never the selection state.
+    zIndex: layerPosition + 1,
   }
 
   function begin(event: PointerEvent<HTMLDivElement>) {
@@ -183,7 +197,7 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
     aria-label={`Select ${label}`}
     title={locked ? `${clip.name} (locked)` : `${clip.name} — click to select, drag to ${activeTool}`}
     style={style}
-    className={`group absolute touch-none select-none outline-none ${cursor} ${selected ? 'z-30' : 'z-10'}`}
+    className={`group absolute touch-none select-none outline-none ${cursor}`}
     onPointerDown={begin}
     onPointerMove={move}
     onPointerUp={finish}
@@ -193,10 +207,15 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
     onContextMenu={event => { event.preventDefault(); event.stopPropagation(); selectClip(clip.client_id); onContextMenu(event, clip) }}
     onKeyDown={event => { if (event.key === 'Enter') { selectClip(clip.client_id); event.stopPropagation() } }}
   >
-    <div className="pointer-events-none h-full w-full overflow-hidden" style={{filter:effectFilter||undefined,clipPath: `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`}}>
+    <div className="pointer-events-none h-full w-full overflow-hidden" style={{
+      // Applying filter to a transparent Blur overlay would create a backdrop root
+      // and clip the pixels we want to sample from layers below.
+      filter: isBlur ? undefined : (effectFilter || undefined),
+      clipPath: `inset(${crop.top}% ${crop.right}% ${crop.bottom}% ${crop.left}%)`,
+    }}>
       {clip.type === 'video' ? <VideoSource clip={clip} playhead={playhead} playing={playing} muted={muted} />
         : clip.type === 'image' && clip.media_id ? <img className="h-full w-full object-contain" src={fileUrl(clip.media_id)} alt={clip.name} draggable={false} />
-        : clip.type === 'text' && clip.props?.shape_kind ? <PreviewShape shape={clip.props.shape_kind} color={clip.color ?? '#a580db'}/>
+        : clip.type === 'text' && clip.props?.shape_kind ? <PreviewShape shape={clip.props.shape_kind} color={clip.color ?? '#a580db'} blurStrength={blurStrength}/>
         : clip.type === 'text' ? <div className="flex h-full w-full items-center justify-center whitespace-pre-wrap px-2 text-center font-display text-[clamp(10px,2vw,32px)] font-extrabold leading-snug" style={{ color: clip.color }}>{clip.text || clip.name}</div> : null}
     </div>
     {selected && <>

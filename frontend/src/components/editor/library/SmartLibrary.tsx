@@ -56,20 +56,21 @@ export function SmartLibrary({active}:{active:Tab}) {
  const visibleSaved=visible.filter(item=>['component','group'].includes(item.kind))
  const showBuiltin=componentCategory!=='Saved'
  const showSaved=componentCategory==='All'||componentCategory==='Saved'
- return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 text-xs text-white">
-  <header className="mb-3 flex items-center justify-between gap-2"><strong className="text-sm">{active==='components'?'Components':active==='variables'?'Variables':active==='animations'?'Animations':'Effects'}</strong><button className={button} onClick={()=>void refresh()}>Refresh</button></header>
+ return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 text-xs text-white">
+  <header className="mb-3 flex shrink-0 items-center justify-between gap-2"><strong className="text-sm">{active==='components'?'Components':active==='variables'?'Variables':active==='animations'?'Animations':'Effects'}</strong><button className={button} onClick={()=>void refresh()}>Refresh</button></header>
   {error&&<p role="alert" className="mb-3 rounded bg-red-900/30 p-2 text-red-300">{error}</p>}
   {active==='components'&&<>
-   <p className="mb-3 text-[11px] leading-5 text-[#9ba3ad]">Visual components · Click a card to add it to the Timeline. Save your own components in MySQL for future projects.</p>
-   <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-[#343944] bg-[#121519] px-2.5 py-2">
+   
+   <div className="mb-2 flex min-w-0 shrink-0 items-center gap-2 rounded-lg border border-[#343944] bg-[#121519] px-2.5 py-2">
      <Search size={15} className="shrink-0 text-[#8d94a1]"/>
      <input value={search} onChange={event=>setSearch(event.target.value)} aria-label="Search components" placeholder="Search components..." className="w-full min-w-0 bg-transparent text-xs text-white outline-none placeholder:text-[#777f8e]"/>
      {search&&<button type="button" onClick={()=>setSearch('')} className="text-[#8e97a3] hover:text-white" aria-label="Clear search">×</button>}
    </div>
-   <div className="mb-2 flex min-w-0 gap-1 overflow-x-auto pb-1" aria-label="Component categories">
-     {(['All','Text','Shapes','Blur','Saved'] as const).map(category=><button key={category} type="button" aria-pressed={componentCategory===category} onClick={()=>setComponentCategory(category)} className={`shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${componentCategory===category?'bg-[#7847d5] text-white':'bg-[#252830] text-[#afb5bf] hover:bg-[#343442] hover:text-white'}`}>{category==='Saved'?'My Components':category}</button>)}
-   </div>
-   <div className="mb-2 flex items-center justify-between gap-2">
+   {/* Avoid flex shrink collapsing category tabs when the sidebar contains many cards. */}
+   <nav className="mb-3 flex min-h-[36px] w-full shrink-0 flex-wrap items-center gap-1.5" aria-label="Component categories">
+     {(['All','Text','Shapes','Blur','Saved'] as const).map(category=><button key={category} type="button" aria-pressed={componentCategory===category} onClick={()=>setComponentCategory(category)} className={`inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 text-[11px] font-semibold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ae83ff] ${componentCategory===category?'bg-[#7847d5] text-white':'bg-[#252830] text-[#c4c8d1] hover:bg-[#343442] hover:text-white'}`}>{category==='Saved'?'My Components':category}</button>)}
+   </nav>
+   <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
      <span className="truncate text-[11px] text-[#8e98a4]">{componentCategory==='Saved'?'Your reusable library':`${visibleShapes.length} elements available`}</span>
      <div className="flex shrink-0 items-center gap-1" aria-label="Component display options">
        <button type="button" aria-pressed={cardSize==='compact'} onClick={()=>setCardSize(s=>s==='compact'?'comfortable':'compact')} title="Toggle card size" className="rounded p-1.5 text-[#a0a6b0] hover:bg-[#30343d] hover:text-white"><Shapes size={14}/></button>
@@ -95,7 +96,7 @@ export function SmartLibrary({active}:{active:Tab}) {
          </div>
        </div>
      })}
-     {!visibleShapes.length && componentCategory!=='Saved'&&<p className="rounded-lg border border-dashed border-[#363c46] p-4 text-center text-[11px] text-[#a5abb5]">No matching elements.</p>}
+     {!visibleShapes.length&&<p className="rounded-lg border border-dashed border-[#363c46] p-4 text-center text-[11px] text-[#a5abb5]">No matching elements.</p>}
    </>}
    {showSaved&&<>
    <div className="mt-1 mb-2 flex items-center gap-2"><Boxes size={15} className="text-[#b78afc]"/><h3 className="text-xs font-semibold">My Components</h3><span className="rounded bg-[#252830] px-1.5 text-[10px] text-[#a1a5ae]">{visibleSaved.length}</span></div>
@@ -134,7 +135,7 @@ export function SmartLibrary({active}:{active:Tab}) {
    <p className="my-2 text-[#a0a6b0]">Create compound custom preset: save selected clip's configured stack.</p>
    <div className="flex gap-1"><input className={`${fields} min-w-0 flex-1`} placeholder="My custom preset" value={name} onChange={e=>setName(e.target.value)}/><button className={button} disabled={!selected||!name.trim()} onClick={()=>void save(active==='effects'?'effect':'animation',name,{name,stack:active==='effects'?selected?.props?.effect_stack??[]:selected?.props?.animation_stack??[]},null)}>Save</button></div>
   </>}
-  {active!=='components'&&<div className="mt-3 border-t border-[#30343b] pt-2"><strong>Saved library</strong>{visible.filter(item=>active==='components'?['component','group'].includes(item.kind):active==='variables'?item.kind==='variable':item.kind===active.slice(0,-1)).map(item=><div className="mt-2 flex items-center gap-2 rounded bg-[#24272e] p-2" key={item.id}><span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>{active!=='variables'&&<button className={button} onClick={()=>apply(item)}>Apply</button>}<button className={button} onClick={()=>void remove(item)}>×</button></div>)}</div>}
+  {active!=='components'&&<div className="mt-3 border-t border-[#30343b] pt-2"><strong>Saved library</strong>{visible.filter(item=>active==='variables'?item.kind==='variable':item.kind===active.slice(0,-1)).map(item=><div className="mt-2 flex items-center gap-2 rounded bg-[#24272e] p-2" key={item.id}><span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>{active!=='variables'&&<button className={button} onClick={()=>apply(item)}>Apply</button>}<button className={button} onClick={()=>void remove(item)}>×</button></div>)}</div>}
 
  </section>
 }

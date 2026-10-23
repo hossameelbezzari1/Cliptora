@@ -12,3 +12,4 @@ storage/exports/
 storage/thumbnails/
 storage/transcripts/
 .DS_Store
+/backend/commands.env

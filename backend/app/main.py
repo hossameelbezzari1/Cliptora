@@ -23,3 +23,7 @@ def health(): return {'status':'ok','service':'cliptora-api','version':'2.0.0'}
 
 for router in (auth.router,users.router,projects.router,timeline.router,media.router,ai_scripts.router,library.router):
     app.include_router(router,prefix='/api/v1')
+
+# CLIPTORA COMMANDS MODULE V3.1
+from app.api.v1.commands import router as cliptora_commands_router
+app.include_router(cliptora_commands_router, prefix="/api/v1")

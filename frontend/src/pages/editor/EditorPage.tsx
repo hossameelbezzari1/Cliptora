@@ -26,5 +26,5 @@ export function EditorPage(){const {id}=useParams();const projectId=Number(id);c
    center={<PreviewPanel project={project}/>}
    right={<InspectorPanel/>}
    timeline={<TimelinePanel/>}
- />{error&&<div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200"><button className="float-right ml-3" aria-label="Dismiss" onClick={()=>setError(null)}>×</button>{error instanceof Error?error.message:String(error)}</div>}</EditorLayout>
+ />{Boolean(error)&&<div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200"><button className="float-right ml-3" aria-label="Dismiss" onClick={()=>setError(null)}>×</button>{error instanceof Error?error.message:String(error)}</div>}</EditorLayout>
 }
