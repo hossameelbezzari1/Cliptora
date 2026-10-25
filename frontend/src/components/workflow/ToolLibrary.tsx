@@ -1,13 +1,11 @@
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import { ChevronDown, Search, X, Zap } from 'lucide-react'
-import { card, iconFor, toneFor } from './workflowUI'
+import { iconFor, toneFor } from './workflowUI'
 
 export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
   const {
     setLibraryOpen, catalog, nodeSearch, setNodeSearch, toolSearchRef,
-    nodeGroup, setNodeGroup, groups, templates, definitions, activeId,
-    versions, working, visibleCatalog, openTemplate, openDefinition,
-    restoreVersion, addNode,
+    nodeGroup, setNodeGroup, groups, visibleCatalog, addNode,
   } = studio
 
   return (
@@ -46,39 +44,6 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-5 [scrollbar-width:thin]">
-        {!nodeSearch && nodeGroup === 'All' && (
-          <div className="mb-5 space-y-4">
-            {!!templates.length && <section>
-              <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-[#929292]">Start from template</h3>
-              <div className="space-y-1.5">{templates.map(template => (
-                <button key={template.key} type="button" onClick={() => openTemplate(template)} className={`${card} w-full p-2.5 text-left hover:border-violet-300 hover:bg-violet-50/30`}>
-                  <span className="block text-xs font-semibold text-[#2c2c2c]">{template.name}</span>
-                  <span className="mt-1 block text-[10px] leading-relaxed text-[#888]">{template.description}</span>
-                </button>
-              ))}</div>
-            </section>}
-            {!!definitions.length && <section>
-              <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-[#929292]">Saved workflows</h3>
-              <div className="space-y-1">{definitions.map(definition => (
-                <button key={definition.id} type="button" onClick={() => openDefinition(definition)} className={`block w-full truncate rounded-lg border px-3 py-2 text-left text-xs font-medium ${activeId === definition.id ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-[#ededed] bg-white text-[#555] hover:bg-[#f8f8f8]'}`}>
-                  {definition.name}
-                </button>
-              ))}</div>
-              {!!activeId && versions.length > 1 && (
-                <div className="mt-2 space-y-1 rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#858585]">Version history</p>
-                  {versions.slice(0, 5).map(version => (
-                    <button key={version.id} type="button" disabled={working || version.version === definitions.find(item => item.id === activeId)?.version} onClick={() => void restoreVersion(version.version)} className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] text-[#555] hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">
-                      <span>v{version.version}</span><span>{new Date(version.created_at).toLocaleString()}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>}
-            <div className="h-px bg-[#ececec]" />
-          </div>
-        )}
-
         {groups.map(group => {
           const items = visibleCatalog.filter(item => item.group === group)
           if (!items.length) return null

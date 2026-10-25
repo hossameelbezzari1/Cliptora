@@ -254,3 +254,4 @@
 [2026-10-25 14:42:16] WARNING  cliptora.http: [request:a28d71514a15] PATCH /api/v1/library/1 -> 422 (18 ms)
 [2026-10-25 14:42:16] WARNING  cliptora.http: [request:cbef6ca7382c] PATCH /api/v1/library/2 -> 404 (12 ms)
 [2026-10-25 14:42:20] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 17:49:26] WARNING  cliptora.http: [request:ac8631e7c282] POST /api/v1/workflows/2/definitions -> 422 (25 ms)

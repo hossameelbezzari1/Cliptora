@@ -344,7 +344,7 @@ export function useWorkflowStudio({ projectId, initialWorkflowId = null, onSaved
 
   return {
     projectId, onClose,
-    catalog, templates, definitions, sources, runs, versions,
+    catalog, templates, definitions, sources, runs, versions, setVersions,
     activeId, setActiveId, name, setName, nodes, setNodes,
     selectedId, setSelectedId, jsonEditor, setJsonEditor, jsonError, setJsonError,
     sourceId, setSourceId, run, setRun, working, error, setError, message, setMessage,

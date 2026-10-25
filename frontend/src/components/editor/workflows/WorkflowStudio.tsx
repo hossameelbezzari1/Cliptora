@@ -1,1 +1,1 @@
-export { WorkflowStudio, default } from '../../workflow'
+export { WorkflowStudio, default } from '../../workflow/WorkflowStudio'
