@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.security import CSRF_COOKIE, valid_csrf
 from app.api.v1 import auth,users,projects,timeline,media,ai_scripts,library
+from app.core.app_logging import install_cliptora_logging
 
 app=FastAPI(title='Cliptora API',version='2.0.0')
 # During development, Vite proxies same-origin /api/v1. CORS also supports explicit dev origin.
@@ -27,3 +28,5 @@ for router in (auth.router,users.router,projects.router,timeline.router,media.ro
 # CLIPTORA COMMANDS MODULE V3.1
 from app.api.v1.commands import router as cliptora_commands_router
 app.include_router(cliptora_commands_router, prefix="/api/v1")
+
+install_cliptora_logging(app)
