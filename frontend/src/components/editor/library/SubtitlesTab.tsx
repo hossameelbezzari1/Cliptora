@@ -3,7 +3,6 @@ import { Captions, ChevronDown, ChevronLeft, FileUp, Grid2X2, List, MoreVertical
 import { fileUrl } from '../../../lib/api'
 import { useEditor } from '../../../stores/editorStore'
 import type { MediaAsset } from '../../../types'
-import { mediaName } from './mediaLibraryUtils'
 import { SubtitleEditorPanel } from './SubtitleEditorPanel'
 import { useSubtitlesLibrary } from './useSubtitlesLibrary'
 import { shortTime, type SubtitleCue, type SubtitleKind, type SubtitleStyle } from './subtitleUtils'

@@ -13,4 +13,17 @@ Docs: http://127.0.0.1:8000/docs
 
 Routes: Auth (cookie sessions and CSRF), Projects, Timeline, Media (private files), Profile, AI Scripts.
 
+## Workflow processing
+
+Install FFmpeg/FFprobe on `PATH` and the Python requirements. Local development uses
+FastAPI background tasks. For durable production jobs, start Redis, set
+`WORKFLOW_QUEUE=celery` and `REDIS_URL`, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -m celery -A app.workers.celery_app:celery_app worker --loglevel=INFO --pool=solo
+```
+
+`faster-whisper` downloads the selected model on first transcription. OpenAI nodes
+require `OPENAI_API_KEY`; offline text heuristics remain available without an AI key.
+
 Important: password reset returns a **development-only** token; email delivery is not implemented. Video encoding/export, speech-to-text transcription and direct model API execution are not implemented in this release. Keep the Vite development proxy for same-origin browser requests.

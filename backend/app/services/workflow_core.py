@@ -18,7 +18,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-MAX_NODES = 28
+MAX_NODES = 100
 MAX_CUTS = 36
 MAX_TARGET_SECONDS = 1800
 NODE_TYPES: dict[str, dict[str, Any]] = {
@@ -37,7 +37,8 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
 
 
 def _n(id: str, kind: str, depends: list[str] | None = None, settings: dict | None = None) -> dict:
-    return {"id": id, "type": kind, "depends_on": depends or [], "when": "always", "settings": settings if settings is not None else dict(NODE_TYPES[kind]["settings"])}
+    return {"id": id, "type": kind, "depends_on": depends or [], "when": "always", "retry_limit": 1,
+            "cache": True, "settings": settings if settings is not None else dict(NODE_TYPES[kind]["settings"])}
 
 
 def preset_templates() -> list[dict]:
@@ -62,6 +63,14 @@ def preset_templates() -> list[dict]:
         {"key": "mini-animation", "name": "Mini Animation", "description": "Script → editable scenes → animation keyframes; use the editor for final rendering", "nodes": [
             _n("storyboard", "animation.storyboard", [], {"script": "Your first scene.\nYour second scene.", "scene_seconds": 4}),
             _n("keyframes", "animation.keyframes", ["storyboard"], {"preset": "fade-pop"}),
+        ]},
+        {"key": "podcast", "name": "Podcast Clips", "description": "Podcast video → word timestamps → strongest segments → captions → editable clips", "nodes": [
+            _n("probe", "media.probe"), _n("audio", "audio.extract", ["probe"]),
+            _n("words", "audio.transcribe", ["audio"], {"model": "small", "language": None}),
+            _n("moments", "ai.highlights", ["words"], {"mode": "offline", "target_duration": 120, "strategy": "podcast_clips"}),
+            _n("cuts", "timeline.cut_plan", ["moments", "probe"], {"padding": 0.12}),
+            _n("captions", "caption.generate", ["words", "moments"], {"max_words": 4, "style": "karaoke"}),
+            _n("render", "video.render", ["cuts", "probe"], {"enabled": False, "aspect_ratio": "9:16"}),
         ]},
     ]
 
@@ -88,7 +97,23 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
         settings = node.get("settings", {})
         if not isinstance(settings, dict) or len(json.dumps(settings, ensure_ascii=False)) > 200_000:
             raise ValueError(f"Settings too large for {ident}")
-        by_id[ident] = {"id": ident, "type": kind, "depends_on": deps, "settings": settings, "when": node.get("when", "always")}
+        position = node.get("position", {})
+        if not isinstance(position, dict):
+            raise ValueError(f"Invalid canvas position for {ident}")
+        try:
+            x, y = float(position.get("x", 0)), float(position.get("y", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid canvas position for {ident}") from exc
+        if not math.isfinite(x) or not math.isfinite(y) or abs(x) > 100_000 or abs(y) > 100_000:
+            raise ValueError(f"Invalid canvas position for {ident}")
+        retry_limit = node.get("retry_limit", 1)
+        if not isinstance(retry_limit, int) or not 0 <= retry_limit <= 5:
+            raise ValueError(f"Retry limit for {ident} must be between 0 and 5")
+        if not isinstance(node.get("cache", True), bool):
+            raise ValueError(f"Cache setting for {ident} must be boolean")
+        by_id[ident] = {"id": ident, "type": kind, "depends_on": deps, "settings": settings,
+                        "when": node.get("when", "always"), "retry_limit": retry_limit,
+                        "cache": node.get("cache", True), "position": {"x": round(x, 2), "y": round(y, 2)}}
     for ident, node in by_id.items():
         if ident in node["depends_on"] or any(d not in by_id for d in node["depends_on"]):
             raise ValueError(f"Missing or self dependency for {ident}")
@@ -433,13 +458,35 @@ def run_graph(nodes: list[dict], source: Path | None, workspace: Path, update: C
             summary[node["id"]] = {"state": "skipped", "type": node["type"]}
             update(int(100 * (index + 1) / len(ordered)), node["id"], summary)
             continue
-        result = call_node(node, deps, source, workspace)
         artifact = workspace / f"{node['id']}.json"
+        checkpoint = workspace / f".{node['id']}.sha256"
+        source_fingerprint = None if source is None else {"path": str(source), "size": source.stat().st_size, "mtime": source.stat().st_mtime_ns}
+        fingerprint = hashlib.sha256(json.dumps({"node": node, "deps": deps, "source": source_fingerprint}, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        result = None
+        cached = False
+        if node.get("cache", True) and artifact.is_file() and checkpoint.is_file() and checkpoint.read_text(encoding="ascii") == fingerprint:
+            try:
+                result = json.loads(artifact.read_text(encoding="utf-8"))
+                cached = True
+            except (OSError, ValueError):
+                result = None
+        attempts = 0
+        last_error: Exception | None = None
+        while result is None and attempts <= node.get("retry_limit", 1):
+            attempts += 1
+            try:
+                result = call_node(node, deps, source, workspace)
+            except Exception as exc:
+                last_error = exc
+        if result is None:
+            raise RuntimeError(f"Node {node['id']} failed after {attempts} attempt(s): {last_error}") from last_error
         target = workspace / f".{node['id']}.tmp"
-        target.write_text(json.dumps(result, ensure_ascii=False, allow_nan=False), encoding="utf-8")
-        target.replace(artifact)
+        if not cached:
+            target.write_text(json.dumps(result, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+            target.replace(artifact)
+            checkpoint.write_text(fingerprint, encoding="ascii")
         outputs[node["id"]] = result
-        public = {"state": "completed", "type": node["type"], "artifact": True}
+        public = {"state": "completed", "type": node["type"], "artifact": True, "cached": cached, "attempts": attempts}
         for key in ("output_duration", "target_duration", "language", "method"):
             if key in result:
                 public[key] = result[key]

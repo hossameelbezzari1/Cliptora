@@ -2,6 +2,7 @@
 import importlib.util
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 TARGET = Path(__file__).resolve().parents[1] / 'app/services/workflow_core.py'
@@ -62,5 +63,23 @@ class WorkflowEngineTests(unittest.TestCase):
             plan=json.loads((Path(workspace)/'cuts.json').read_text())['cut_plan']
             self.assertTrue(len(plan)>0)
             self.assertEqual(plan[0]['timeline_start'],0)
+
+    def test_retry_and_checkpoint_cache(self):
+        nodes = core.preset_templates()[2]['nodes']
+        original = core.call_node
+        calls = {'count': 0}
+        def flaky(node, outputs, source, workdir):
+            calls['count'] += 1
+            if calls['count'] == 1:
+                raise RuntimeError('temporary provider failure')
+            return original(node, outputs, source, workdir)
+        with tempfile.TemporaryDirectory() as workspace:
+            with patch.object(core, 'call_node', side_effect=flaky):
+                first = core.run_graph(nodes, None, Path(workspace), lambda *_: None)
+            self.assertEqual(first['nodes']['storyboard']['attempts'], 2)
+            with patch.object(core, 'call_node', side_effect=AssertionError('checkpoint was not reused')):
+                second = core.run_graph(nodes, None, Path(workspace), lambda *_: None)
+            self.assertTrue(second['nodes']['storyboard']['cached'])
+            self.assertTrue(second['nodes']['keyframes']['cached'])
 
 if __name__ == '__main__': unittest.main()

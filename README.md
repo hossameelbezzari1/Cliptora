@@ -24,12 +24,12 @@ The backend runs on `http://127.0.0.1:8000` and is proxied through Vite via `/ap
 - Import MP4/WebM/MOV, JPG/PNG/WebP, MP3/WAV/OGG/M4A to private storage, then drag or insert as a clip into any layer. MP4/WebM have the best browser playback compatibility; MOV support varies by browser. Client probes source duration when possible, fallback eight seconds is editable.
 - Generic multi-layer timeline (three default), drag/drop clip movement, auto-create layers, resize/trim, zoom, snapping, rename, visibility, lock, mute, delete, undo/redo and autosave with revision conflict handling.
 - HTML5 mixed-layer media preview and basic timeline playback. Each layer can carry sound and visuals; video sound respects layer mute. Effects/export remain planned.
-- AI Studio: save script instructions, prepare transcript-only prompt, copy to preferred model, import/validate scene JSON and append non-destructive source-time clips. AI prompts do not perform visual analysis. The app does not call external AI APIs automatically.
+- AI Studio plus Dynamic Workflow Studio: build React Flow DAGs, version/duplicate/import/export definitions, run word-timed transcription, transcript-driven highlights, summaries, captions, non-destructive cut plans, animation storyboards and FFmpeg renders. See [Dynamic Workflows](docs/DYNAMIC_WORKFLOWS.md).
 - Layout styled using Tailwind v4 utility classes; dark UI follows provided visual reference. `src/components/ui` hosts shared controls; **no `features/` directory**.
 
 ## Not yet implemented
 
-Automatic Whisper transcription, Gemini/OpenAI execution, visual object editing, effects/transitions/animations, keyframe automation, advanced ripple editing, FFmpeg export, thumbnails for videos, reset email delivery and full production deployment are future phases. Buttons for unavailable tools are marked or disabled; no fake results or demo assets are passed off as real functionality.
+WhisperX alignment, Gemini/local-model adapters, hosted voice synthesis, microphone recording, GPU provisioning, advanced ripple editing, reset email delivery and full production deployment infrastructure require external services or future integration work. Buttons for unavailable tools are marked or disabled; no fake results or demo assets are passed off as real functionality.
 
 ## Commands
 

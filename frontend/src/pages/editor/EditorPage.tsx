@@ -22,7 +22,7 @@ export function EditorPage() {
   const { id } = useParams()
   const projectId = Number(id)
   const [project, setProject] = useState<Project | null>(null)
-  const [active, setActive] = useState<Tab>('media')
+  const [active, setActive] = useState<Tab>(() => new URLSearchParams(window.location.search).get('workflow') === '1' ? 'ai-scripts' : 'media')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
   const [saveStatus, setSaveStatus] = useState('saved')

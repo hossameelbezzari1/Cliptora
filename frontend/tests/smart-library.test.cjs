@@ -2,7 +2,7 @@ const assert=require('node:assert/strict')
 const test=require('node:test')
 const fs=require('node:fs')
 const Module=require('node:module')
-const ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript')
+const ts=require('typescript')
 function load(file){
  const source=fs.readFileSync(require('node:path').join(__dirname,'../src/lib',file),'utf8')
  const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText

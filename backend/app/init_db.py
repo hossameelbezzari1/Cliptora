@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 
 import app.models
+import app.api.v1.workflow_api  # Registers workflow tables with shared metadata.
 from app.core.config import settings
 from app.core.database import Base, engine
 

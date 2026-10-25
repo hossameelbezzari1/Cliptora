@@ -15,7 +15,7 @@ import type { MediaAsset } from '../../../types'
 export function LibraryPanel({ active }: { active: Tab }) {
   const { id } = useParams()
   const [busy, setBusy] = useState(false)
-  const [workflowOpen, setWorkflowOpen] = useState(false)
+  const [workflowOpen, setWorkflowOpen] = useState(() => new URLSearchParams(window.location.search).get('workflow') === '1')
   const [error, setError] = useState<unknown>(null)
   const media = useEditor(state => state.media)
   const setMedia = useEditor(state => state.setMedia)

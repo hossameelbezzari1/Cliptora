@@ -95,7 +95,7 @@ export function TransitionsTab({ library }: { library: SmartLibraryModel }) {
     const metadata = { ...transitionPayload(entry, config), name, from_clip_id: cut.outgoing.client_id, to_clip_id: cut.incoming.client_id }
     // Persist metadata on the outgoing clip using the existing timeline state. Rendering this
     // metadata requires a separate timeline compositor/export-engine implementation.
-    const stack = (cut.outgoing.props?.effect_stack ?? []) as Array<Record<string, unknown>>
+    const stack = cut.outgoing.props?.effect_stack ?? []
     const remaining = stack.filter(element => element.preset_type !== 'transition' || element.to_clip_id !== cut.incoming.client_id)
     state.patchProps(cut.outgoing.client_id, { effect_stack: [...remaining, metadata] })
     setMessage(`Settings attached to the cut: ${cut.outgoing.name} → ${cut.incoming.name}. Rendering requires engine support.`)

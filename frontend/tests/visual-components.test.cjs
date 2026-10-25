@@ -6,7 +6,11 @@ const path = require('node:path')
 const srcRoot = path.resolve(__dirname, '../src')
 const catalog = fs.readFileSync(path.resolve(srcRoot, 'lib/catalog.ts'), 'utf8')
 const cards = fs.readFileSync(path.resolve(srcRoot, 'components/editor/library/ComponentThumbnail.tsx'), 'utf8')
-const library = fs.readFileSync(path.resolve(srcRoot, 'components/editor/library/SmartLibrary.tsx'), 'utf8')
+const libraryDir = path.resolve(srcRoot, 'components/editor/library')
+const library = fs.readdirSync(libraryDir)
+  .filter(name => name.endsWith('.tsx') || name.endsWith('.ts'))
+  .map(name => fs.readFileSync(path.join(libraryDir, name), 'utf8'))
+  .join('\n')
 
 test('Every built-in shape is still declared in catalogue', () => {
   for (const name of ['Text', 'Rectangle', 'Square', 'Circle', 'Ellipse', 'Triangle', 'Line', 'Arrow', 'Star', 'Polygon', 'Blur Box', 'Directional Blur Box', 'Mosaic Blur Box']) {
@@ -34,7 +38,7 @@ test('All 3 photographic blur assets are valid, optimized WebP images', () => {
 })
 
 test('Search, category filters, layout modes and existing saving actions remain', () => {
-  for (const token of ['Search components...', 'componentCategory', 'componentView', 'cardSize', 'Save selected clip', "save('folder'", "save('component'", 'addShape(shape)']) {
+  for (const token of ['Search components and saved elements', 'componentCategory', 'componentView', 'cardSize', 'Save selected clip', "save('folder'", "save('component'", 'addShape(shape)']) {
     assert.ok(library.includes(token), `${token} missing`)
   }
 })

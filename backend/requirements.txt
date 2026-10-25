@@ -6,3 +6,8 @@ pydantic-settings>=2.5,<3
 argon2-cffi>=23.1,<26
 python-multipart>=0.0.12,<1
 python-dotenv>=1,<2
+# Optional production workflow workers. The API remains usable for workflow
+# authoring without them; executions require Redis when WORKFLOW_QUEUE=celery.
+celery[redis]>=5.4,<6
+redis>=5,<7
+faster-whisper>=1.1,<2

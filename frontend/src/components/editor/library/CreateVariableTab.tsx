@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Braces, Check, ClipboardCopy, Database, Plus, Save, Variable } from 'lucide-react'
+import { Braces, Check, ClipboardCopy, Database, Plus, Save } from 'lucide-react'
 import type { VariableType } from '../../../lib/variables'
 import { variableTypes, type SmartLibraryModel } from './useSmartLibrary'
 

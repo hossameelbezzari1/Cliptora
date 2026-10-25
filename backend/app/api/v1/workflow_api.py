@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,14 +22,14 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import BigInteger, DateTime, Integer, String, Text, inspect, select, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, inspect, select, text
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base, SessionLocal, engine, get_db
 from app.core.security import current_user
-from app.models import User
-from app.services.workflow_core import NODE_TYPES, preset_templates, run_graph, validate_workflow
+from app.models import MediaAsset, User
+from app.services.workflow_core import NODE_TYPES, preset_templates, probe, run_graph, validate_workflow
 
 router = APIRouter(prefix="/workflows", tags=["Dynamic Workflows"])
 _schema_lock = Lock()
@@ -57,6 +58,7 @@ class WorkflowDefinition(Base):
     project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     nodes_json: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), "mysql"), nullable=False)
+    current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
@@ -68,6 +70,7 @@ class WorkflowSource(Base):
     project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     filename: Mapped[str] = mapped_column(String(200), nullable=False)
     stored_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    media_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
@@ -89,6 +92,19 @@ class WorkflowRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class WorkflowVersion(Base):
+    __tablename__ = "workflow_versions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflow_definitions.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    nodes_json: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), "mysql"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    __table_args__ = (UniqueConstraint("workflow_id", "version", name="uq_workflow_version"),)
+
+
 def ensure_schema() -> None:
     global _schema_ready
     if _schema_ready:
@@ -97,8 +113,16 @@ def ensure_schema() -> None:
         if _schema_ready:
             return
         try:
-            tables = [WorkflowDefinition.__table__, WorkflowSource.__table__, WorkflowRun.__table__]
+            tables = [WorkflowDefinition.__table__, WorkflowSource.__table__, WorkflowRun.__table__, WorkflowVersion.__table__]
             Base.metadata.create_all(bind=engine, tables=tables, checkfirst=True)
+            columns = {column["name"] for column in inspect(engine).get_columns("workflow_definitions")}
+            if "current_version" not in columns:
+                with engine.begin() as connection:
+                    connection.execute(text("ALTER TABLE workflow_definitions ADD COLUMN current_version INT NOT NULL DEFAULT 1"))
+            source_columns = {column["name"] for column in inspect(engine).get_columns("workflow_sources")}
+            if "media_id" not in source_columns:
+                with engine.begin() as connection:
+                    connection.execute(text("ALTER TABLE workflow_sources ADD COLUMN media_id INT NULL"))
             for table in tables:
                 if not inspect(engine).has_table(table.name):
                     raise RuntimeError(f"Missing table {table.name}")
@@ -113,7 +137,7 @@ def wf_db(db: Session = Depends(get_db)) -> Session:
 
 
 def authorize(db: Session, project_id: int, user_id: int) -> None:
-    found = db.execute(text("SELECT id FROM projects WHERE id=:p AND user_id=:u"), {"p": project_id, "u": user_id}).first()
+    found = db.execute(text("SELECT id FROM projects WHERE id=:p AND owner_id=:u"), {"p": project_id, "u": user_id}).first()
     if found is None:
         raise HTTPException(404, "Project not found")
 
@@ -126,11 +150,16 @@ def owner(db: Session, model: Any, identifier: int, user_id: int, project_id: in
 
 
 def view_definition(row: WorkflowDefinition) -> dict:
-    return {"id": row.id, "name": row.name, "nodes": json.loads(row.nodes_json), "updated_at": row.updated_at.isoformat() if row.updated_at else None}
+    return {"id": row.id, "name": row.name, "nodes": json.loads(row.nodes_json), "version": row.current_version, "updated_at": row.updated_at.isoformat() if row.updated_at else None}
+
+
+def snapshot(db: Session, row: WorkflowDefinition) -> None:
+    db.add(WorkflowVersion(workflow_id=row.id, user_id=row.user_id, project_id=row.project_id,
+                           version=row.current_version, name=row.name, nodes_json=row.nodes_json))
 
 
 def view_source(row: WorkflowSource) -> dict:
-    return {"id": row.id, "filename": row.filename, "size_bytes": row.size_bytes, "created_at": row.created_at.isoformat() if row.created_at else None}
+    return {"id": row.id, "media_id": row.media_id, "filename": row.filename, "size_bytes": row.size_bytes, "created_at": row.created_at.isoformat() if row.created_at else None}
 
 
 def view_run(row: WorkflowRun) -> dict:
@@ -174,6 +203,8 @@ def create_definition(project_id: int, body: DefinitionBody, db: Session = Depen
         raise HTTPException(422, str(exc)) from exc
     row = WorkflowDefinition(user_id=user.id, project_id=project_id, name=body.name.strip(), nodes_json=json.dumps(nodes, ensure_ascii=False))
     db.add(row)
+    db.flush()
+    snapshot(db, row)
     db.commit()
     db.refresh(row)
     return view_definition(row)
@@ -187,7 +218,58 @@ def update_definition(project_id: int, definition_id: int, body: DefinitionBody,
         nodes = validate_workflow(body.nodes)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    row.name, row.nodes_json, row.updated_at = body.name.strip(), json.dumps(nodes, ensure_ascii=False), now()
+    next_json = json.dumps(nodes, ensure_ascii=False)
+    if row.name == body.name.strip() and row.nodes_json == next_json:
+        return view_definition(row)
+    row.current_version += 1
+    row.name, row.nodes_json, row.updated_at = body.name.strip(), next_json, now()
+    snapshot(db, row)
+    db.commit()
+    return view_definition(row)
+
+
+@router.post("/{project_id}/definitions/{definition_id}/duplicate", status_code=201)
+def duplicate_definition(project_id: int, definition_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+    authorize(db, project_id, user.id)
+    source = owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+    row = WorkflowDefinition(user_id=user.id, project_id=project_id,
+                             name=f"{source.name} (copy)"[:160], nodes_json=source.nodes_json)
+    db.add(row)
+    db.flush()
+    snapshot(db, row)
+    db.commit()
+    db.refresh(row)
+    return view_definition(row)
+
+
+@router.get("/{project_id}/definitions/{definition_id}/versions")
+def definition_versions(project_id: int, definition_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+    authorize(db, project_id, user.id)
+    owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+    rows = db.scalars(select(WorkflowVersion).where(
+        WorkflowVersion.workflow_id == definition_id,
+        WorkflowVersion.user_id == user.id,
+        WorkflowVersion.project_id == project_id,
+    ).order_by(WorkflowVersion.version.desc())).all()
+    return [{"id": item.id, "version": item.version, "name": item.name,
+             "nodes": json.loads(item.nodes_json), "created_at": item.created_at.isoformat()} for item in rows]
+
+
+@router.post("/{project_id}/definitions/{definition_id}/versions/{version}/restore")
+def restore_version(project_id: int, definition_id: int, version: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+    authorize(db, project_id, user.id)
+    row = owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+    old = db.scalar(select(WorkflowVersion).where(
+        WorkflowVersion.workflow_id == definition_id,
+        WorkflowVersion.version == version,
+        WorkflowVersion.user_id == user.id,
+        WorkflowVersion.project_id == project_id,
+    ))
+    if old is None:
+        raise HTTPException(404, "Workflow version not found")
+    row.current_version += 1
+    row.name, row.nodes_json, row.updated_at = old.name, old.nodes_json, now()
+    snapshot(db, row)
     db.commit()
     return view_definition(row)
 
@@ -230,7 +312,6 @@ async def upload_source(project_id: int, file: UploadFile = File(...), db: Sessi
         if amount < 1000:
             raise HTTPException(422, "Video file is empty or too small")
         # A mislabeled file cannot pass ffprobe. It is not interpreted as code.
-        from app.services.workflow_core import probe
         try:
             info = probe(path)
         except RuntimeError as exc:
@@ -247,6 +328,40 @@ async def upload_source(project_id: int, file: UploadFile = File(...), db: Sessi
         raise
     finally:
         await file.close()
+
+
+@router.post("/{project_id}/sources/from-media/{media_id}", status_code=201)
+def source_from_media(project_id: int, media_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+    """Create a workflow source from the owned Media Library without another upload."""
+    authorize(db, project_id, user.id)
+    media = db.scalar(select(MediaAsset).where(MediaAsset.id == media_id, MediaAsset.project_id == project_id))
+    if media is None or media.kind != "video":
+        raise HTTPException(404, "Video media asset not found")
+    origin = Path(media.disk_path).resolve()
+    if not origin.is_file():
+        raise HTTPException(404, "Media file is missing from storage")
+    ext = origin.suffix.lower()
+    stored = f"{uuid.uuid4().hex}{ext}"
+    destination_dir = project_dir(user.id, project_id) / "sources"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / stored
+    try:
+        try:
+            os.link(origin, destination)
+        except OSError:
+            shutil.copy2(origin, destination)
+        info = probe(destination)
+        if not info["width"] or not info["duration"]:
+            raise HTTPException(422, "Could not detect a video stream")
+        row = WorkflowSource(user_id=user.id, project_id=project_id, media_id=media.id, filename=media.name[:200],
+                             stored_name=stored, size_bytes=destination.stat().st_size)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return view_source(row)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
 
 
 def process_run(run_id: int) -> None:
@@ -310,8 +425,23 @@ def start_run(project_id: int, body: StartRun, background: BackgroundTasks, db: 
     db.add(row)
     db.commit()
     db.refresh(row)
-    background.add_task(process_run, row.id)
+    enqueue_run(row, background, db)
     return view_run(row)
+
+
+def enqueue_run(row: WorkflowRun, background: BackgroundTasks, db: Session) -> None:
+    if os.environ.get("WORKFLOW_QUEUE", "local").lower() == "celery":
+        try:
+            from app.workers.workflow_tasks import run_workflow
+            run_workflow.delay(row.id)
+        except Exception as exc:
+            row.state = "failed"
+            row.error = "Workflow queue is unavailable. Check Redis and the Celery worker."
+            row.finished_at = now()
+            db.commit()
+            raise HTTPException(503, row.error) from exc
+    else:
+        background.add_task(process_run, row.id)
 
 
 @router.get("/{project_id}/runs")
@@ -338,6 +468,21 @@ def cancel_run(project_id: int, run_id: int, db: Session = Depends(wf_db), user:
     elif row.state == "running":
         row.state = "cancelling"
         db.commit()
+    return view_run(row)
+
+
+@router.post("/{project_id}/runs/{run_id}/retry", status_code=202)
+def retry_run(project_id: int, run_id: int, background: BackgroundTasks, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+    authorize(db, project_id, user.id)
+    row = owner(db, WorkflowRun, run_id, user.id, project_id)
+    if row.state not in ("failed", "cancelled"):
+        raise HTTPException(409, "Only failed or cancelled runs can be retried")
+    row.state = "queued"
+    row.error = None
+    row.finished_at = None
+    row.current_node = None
+    db.commit()
+    enqueue_run(row, background, db)
     return view_run(row)
 
 
