@@ -9,7 +9,7 @@ import { EditorPage } from '../pages/editor/EditorPage'
 import { ProfilePage } from '../pages/profile/ProfilePage'
 import { AIStudioPage } from '../pages/ai-studio/AIStudioPage'
 import { SettingsPage } from '../pages/settings/SettingsPage'
-import { WorkflowPage } from '../pages/workflows/WorkflowPage'
+import { WorkflowPage } from '../pages/workflows'
 export function AppRouter(){return <Routes>
  <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
  <Route path="/login" element={<LoginPage/>}/><Route path="/register" element={<RegisterPage/>}/>
