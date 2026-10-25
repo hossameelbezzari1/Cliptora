@@ -242,3 +242,15 @@
 [2026-10-25 14:15:57] WARNING  cliptora.http: [request:c6fefd0086f2] PATCH /api/v1/library/1 -> 422 (13 ms)
 [2026-10-25 14:15:57] WARNING  cliptora.http: [request:b9a0b8f37232] PATCH /api/v1/library/2 -> 404 (11 ms)
 [2026-10-25 14:16:00] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 14:18:17] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 14:18:17] INFO     uvicorn.error: Started server process [3832]
+[2026-10-25 14:18:17] INFO     uvicorn.error: Waiting for application startup.
+[2026-10-25 14:18:17] INFO     uvicorn.error: Application startup complete.
+[2026-10-25 14:36:38] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 14:36:38] WARNING  cliptora.http: [request:9b629aabd080] PATCH /api/v1/library/1 -> 422 (21 ms)
+[2026-10-25 14:36:39] WARNING  cliptora.http: [request:c2b72a5e3adc] PATCH /api/v1/library/2 -> 404 (13 ms)
+[2026-10-25 14:36:44] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 14:42:15] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-25 14:42:16] WARNING  cliptora.http: [request:a28d71514a15] PATCH /api/v1/library/1 -> 422 (18 ms)
+[2026-10-25 14:42:16] WARNING  cliptora.http: [request:cbef6ca7382c] PATCH /api/v1/library/2 -> 404 (12 ms)
+[2026-10-25 14:42:20] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log

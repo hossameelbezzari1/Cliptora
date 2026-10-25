@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type DragEvent } from 'react'
 import {
   ArrowRight, AudioLines, Captions, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, Copy,
-  Download, Film, FolderOpen, Gauge, GitBranch, Home, Import, Layers3, LoaderCircle, Maximize2,
-  MoreHorizontal, Move3D, Play, Plus, Save, Scissors, Search, Settings, Settings2, Sparkles,
-  Subtitles, Trash2, Upload, WandSparkles, X, Zap,
+  Download, Film, FolderOpen, GitBranch, Import, LoaderCircle, Maximize2,
+  Move3D, Play, Plus, Save, Scissors, Search, Settings2, Sparkles,
+  Trash2, Upload, X, Zap,
 } from 'lucide-react'
 import { Background, Controls, Handle, Position, ReactFlow, type Connection, type Edge, type Node as FlowNode, type NodeProps, type ReactFlowInstance } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -27,7 +27,26 @@ const uid = (type: string, used: string[]) => {
   while (used.includes(name)) name = `${base}_${n++}`
   return name
 }
-const clone = (nodes: WorkflowNode[]) => nodes.map((node, index) => ({ ...node, settings: structuredClone(node.settings), depends_on: [...node.depends_on], position: node.position ?? { x: 80 + (index % 3) * 260, y: 60 + Math.floor(index / 3) * 150 } }))
+const clone = (nodes: WorkflowNode[]) => {
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  const memo = new Map<string, number>()
+  const depth = (id: string, visiting = new Set<string>()): number => {
+    if (memo.has(id)) return memo.get(id)!
+    if (visiting.has(id)) return 0
+    const node = byId.get(id)
+    if (!node?.depends_on.length) return 0
+    const next = new Set(visiting); next.add(id)
+    const value = 1 + Math.max(...node.depends_on.map(dep => depth(dep, next)))
+    memo.set(id, value); return value
+  }
+  const rows = new Map<number, number>()
+  return nodes.map(node => {
+    const column = depth(node.id)
+    const row = rows.get(column) ?? 0
+    rows.set(column, row + 1)
+    return { ...node, settings: structuredClone(node.settings), depends_on: [...node.depends_on], position: node.position ?? { x: 120 + column * 190, y: 80 + row * 160 } }
+  })
+}
 const preferredNode = (nodes: WorkflowNode[]) => nodes.find(node => node.type === 'ai.highlights')?.id ?? nodes[0]?.id ?? null
 const errorMessage = (err: unknown) => err instanceof Error ? err.message : String(err)
 const accentFor = (type: string) => type.startsWith('ai.') ? '#f34aa9' : type.startsWith('audio.') ? '#2a9dff' : type.startsWith('caption.') ? '#f6b72f' : type.startsWith('video.') ? '#ff457d' : type.startsWith('timeline.') ? '#20c997' : type.startsWith('animation.') ? '#9a55ff' : '#7057f5'
@@ -48,8 +67,8 @@ function StudioNodeCard({ data, selected }: NodeProps<StudioFlowNode>) {
   const accent = accentFor(data.nodeType)
   return <div className={`ws-node-card ${selected ? 'is-selected' : ''}`} style={{ '--node-accent': accent } as CSSProperties}>
     <Handle type="target" position={Position.Left} className="ws-handle"/>
-    <div className="ws-node-head"><span className="ws-node-icon">{iconFor(data.nodeType)}</span><strong>{data.label}</strong><span className={`ws-node-status ${data.status}`}>{data.status === 'done' ? <Check size={12}/> : data.status === 'running' ? <LoaderCircle size={12}/> : <Clock3 size={11}/>}</span></div>
-    <div className="ws-node-body"><span>{data.subtitle}</span><span>{data.meta}</span></div>
+    <div className="ws-node-tile"><span className="ws-node-icon">{iconFor(data.nodeType, 22)}</span><span className={`ws-node-status ${data.status}`}>{data.status === 'done' ? <Check size={12}/> : data.status === 'running' ? <LoaderCircle size={12}/> : <Clock3 size={11}/>}</span></div>
+    <strong className="ws-node-label">{data.label}</strong><small className="ws-node-caption">{data.status === 'running' ? 'Processing…' : data.status === 'done' ? data.meta : data.subtitle}</small>
     <Handle type="source" position={Position.Right} className="ws-handle"/>
   </div>
 }
@@ -76,7 +95,8 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
   const [page, setPage] = useState<Mode>('nodes')
   const [nodeSearch, setNodeSearch] = useState('')
   const [nodeGroup, setNodeGroup] = useState('All')
-  const [inspectorTab, setInspectorTab] = useState<'settings' | 'input' | 'output'>('settings')
+  const [inspectorTab, setInspectorTab] = useState<'settings' | 'wiring'>('settings')
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const editorMedia = useEditor(state => state.media)
   const fileInput = useRef<HTMLInputElement>(null)
   const importInput = useRef<HTMLInputElement>(null)
@@ -165,7 +185,7 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
     data: { label: catalog.find(item => item.type === node.type)?.label ?? node.type, nodeType: node.type, subtitle: node.depends_on.length ? `${node.depends_on.length} connected input${node.depends_on.length === 1 ? '' : 's'}` : 'Start workflow here', meta: count !== undefined ? `${String(count)} items` : node.when === 'always' ? 'Ready' : `If ${node.when}`, status },
     selected: selectedId === node.id,
   }}), [nodes, catalog, selectedId, run?.results, run?.state, run?.current_node])
-  const flowEdges = useMemo<Edge[]>(() => nodes.flatMap(node => node.depends_on.map(dep => ({ id: `${dep}:${node.id}`, source: dep, target: node.id, animated: run?.state === 'running' && run.current_node === node.id, style: { stroke: '#9467dc' } }))), [nodes, run?.state, run?.current_node])
+  const flowEdges = useMemo<Edge[]>(() => nodes.flatMap(node => node.depends_on.map(dep => ({ id: `${dep}:${node.id}`, source: dep, target: node.id, type: 'smoothstep', animated: run?.state === 'running' && run.current_node === node.id, style: { stroke: '#b8b8b8' } }))), [nodes, run?.state, run?.current_node])
   const connect = (connection: Connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return
     updateNode(connection.target, { depends_on: [...new Set([...(nodes.find(node => node.id === connection.target)?.depends_on ?? []), connection.source])] })
@@ -372,28 +392,28 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
   const source = sources.find(item => item.id === sourceId) ?? null
   const previewMedia = source?.media_id ? editorMedia.find(item => item.id === source.media_id) : null
   const completedNodes = Object.values(run?.results ?? {}).filter(item => item.state === 'completed').length
+  const downstream = selected ? nodes.filter(node => node.depends_on.includes(selected.id)) : []
+  const waitingNodes = Math.max(0, nodes.length - completedNodes)
 
   return <div className="ws-shell" aria-label="CLIPTORA Workflow Studio">
     <header className="ws-topbar">
-      <span className="ws-brand"><img src="/assets/logo.png" alt=""/><strong>Cliptora</strong></span>
-      <nav className="ws-breadcrumb" aria-label="Breadcrumb"><Home size={14}/><ChevronRight size={13}/><span>Projects</span><ChevronRight size={13}/><span>Project {projectId}</span><ChevronRight size={13}/><strong>Workflow Studio</strong></nav>
-      <span className="ws-save-state"><CheckCircle2 size={14}/> {activeId ? 'All changes saved' : 'Unsaved workflow'}</span>
+      <button type="button" className="ws-back" onClick={onClose}>Pipelines</button><ChevronRight size={17} className="ws-crumb-arrow"/>
+      <input className="ws-title-input" aria-label="Workflow name" value={name} onChange={event => setName(event.target.value)}/>
+      <span className="ws-run-id">{run ? `run_${String(run.id).padStart(5, '0')}` : activeId ? `workflow_${activeId}` : 'draft'}</span>
+      <span className="ws-owner-dot">C</span><span className="ws-time">CLIPTORA</span>
+      <div className="ws-run-summary"><span className="waiting"><Clock3 size={13}/>{waitingNodes}</span><span className="done"><Check size={13}/>{completedNodes}</span></div>
       <div className="ws-top-actions">
-        <button type="button" className="ws-icon-button" onClick={() => importInput.current?.click()} title="Import workflow"><Import size={15}/></button>
-        <button type="button" className="ws-primary" disabled={working || !nodes.length} onClick={() => void start()}>{working ? <LoaderCircle size={15} className="animate-spin"/> : <Play size={15}/>} Run Workflow</button>
-        <button type="button" className="ws-secondary" disabled={run?.state !== 'completed'} onClick={() => void downloadVideo()}><Upload size={15}/> Export Video</button>
-        <button type="button" className="ws-icon-button" onClick={exportWorkflow} title="Export workflow JSON"><MoreHorizontal size={17}/></button>
-        <button type="button" className="ws-avatar" onClick={onClose} aria-label="Close Workflow Studio">M</button>
+        <button type="button" className="ws-help" title="Workflow help"><CircleHelp size={19}/></button>
+        <button type="button" className="ws-add-task" onClick={() => setLibraryOpen(value => !value)}><Plus size={18}/> Add task</button>
+        <button type="button" className="ws-run-button" disabled={working || !nodes.length} onClick={() => void start()}>{working ? <LoaderCircle size={18} className="animate-spin"/> : <Play size={18}/>} Run</button>
+        <button type="button" className="ws-run-menu" title="Show runs" onClick={() => setPage(page === 'nodes' ? 'runs' : 'nodes')}><ChevronDown size={17}/></button>
       </div>
     </header>
     {error && <div role="alert" className="shrink-0 border-b border-red-900 bg-red-950/60 px-4 py-2 text-xs text-red-200">{error}<button className="ml-3 font-bold" onClick={() => setError(null)}>×</button></div>}
     {message && <div className="shrink-0 border-b border-[#293043] px-4 py-2 text-xs text-[#bfcce2]">{message}</div>}
     <div className="ws-body">
-      <aside className="ws-app-nav" aria-label="Editor navigation">
-        {[['Dashboard', Home], ['Media', Film], ['AI Studio', Sparkles], ['Subtitles', Subtitles], ['Components', Layers3], ['Effects', WandSparkles], ['Animations', Move3D], ['Workflow', GitBranch], ['Timeline', Gauge], ['Preview', Play], ['Export', Upload]].map(([label, Icon]) => <button key={String(label)} className={label === 'Workflow' ? 'active' : ''}><Icon size={17}/><span>{String(label)}</span></button>)}
-        <div className="ws-nav-spacer"/><button><Settings size={17}/><span>Settings</span></button><button><CircleHelp size={17}/><span>Help</span></button>
-      </aside>
-      <aside className="ws-node-library">
+      <aside className={`ws-node-library ${libraryOpen ? 'is-open' : ''}`}>
+        <button type="button" className="ws-library-close" onClick={() => setLibraryOpen(false)} aria-label="Close tool library"><X size={18}/></button>
         <div className="ws-panel-title"><strong>Tool Library</strong><span title={`${catalog.filter(item => item.status !== 'planned').length} enabled · ${catalog.filter(item => item.status === 'planned').length} planned`}><Zap size={13}/>{catalog.length}</span></div>
         <label className="ws-search"><Search size={14}/><input value={nodeSearch} onChange={event => setNodeSearch(event.target.value)} placeholder="Search nodes…"/></label>
         <div className="ws-filter-tabs">{['All', ...groups.slice(0, 4)].map(group => <button key={group} className={nodeGroup === group ? 'active' : ''} onClick={() => setNodeGroup(group)}>{group === 'Analysis' ? 'Video' : group === 'Creative' ? 'Edit' : group}</button>)}</div>
@@ -433,8 +453,8 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
             onNodeClick={(_, node) => { setSelectedId(node.id); setJsonEditor(JSON.stringify(nodes.find(item => item.id === node.id)?.settings ?? {}, null, 2)) }}
             onNodeDragStop={(_, node) => updateNode(node.id, { position: node.position })}
             onEdgesDelete={deleted => deleted.forEach(edge => updateNode(edge.target, { depends_on: (nodes.find(node => node.id === edge.target)?.depends_on ?? []).filter(id => id !== edge.source) }))}
-            onNodesDelete={deleted => deleted.forEach(node => removeNode(node.id))} fitView deleteKeyCode="Delete" colorMode="dark">
-            <Background color="#263041" gap={20} size={1}/><Controls showInteractive={false}/>
+            onNodesDelete={deleted => deleted.forEach(node => removeNode(node.id))} fitView deleteKeyCode="Delete" colorMode="light">
+            <Background color="#d9dde2" gap={24} size={1}/><Controls showInteractive={false}/>
           </ReactFlow>
         </div>
         <section className="ws-bottom-deck">
@@ -460,8 +480,8 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
         {runs.map(item => <button key={item.id} onClick={() => chooseRun(item)} className={`${card} mb-2 flex w-full items-center justify-between gap-2 px-3 py-3 text-left text-xs hover:border-[#7047aa]`}><span>Run #{item.id} · Workflow #{item.workflow_id}</span><span>{item.state} · {item.progress}%</span></button>)}
       </section>}
       <aside className="ws-inspector">
-        <div className="ws-inspector-head"><span style={{ background: selected ? accentFor(selected.type) : '#7256ee' }}>{selected ? iconFor(selected.type, 15) : <Settings2 size={15}/>}</span><div><strong>{selectedCatalog?.label ?? 'Node Settings'}</strong><small>{selected ? 'Configure this workflow node.' : 'Select a node on the canvas.'}</small></div><button onClick={() => setSelectedId(null)}><X size={14}/></button></div>
-        <div className="ws-inspector-tabs">{(['settings', 'input', 'output'] as const).map(tab => <button key={tab} className={inspectorTab === tab ? 'active' : ''} onClick={() => setInspectorTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div>
+        <div className="ws-inspector-head"><span style={{ background: selected ? accentFor(selected.type) : '#7256ee' }}>{selected ? iconFor(selected.type, 15) : <Settings2 size={15}/>}</span><div><strong>{selectedCatalog?.label ?? 'Task settings'}</strong>{selected ? <small className={`ws-status-pill ${run?.results?.[selected.id]?.state ?? 'waiting'}`}>{run?.results?.[selected.id]?.state ?? 'Waiting'}</small> : <small>Select a task on the canvas.</small>}</div><button onClick={() => setSelectedId(null)}><X size={14}/></button></div>
+        <div className="ws-inspector-tabs">{(['settings', 'wiring'] as const).map(tab => <button key={tab} className={inspectorTab === tab ? 'active' : ''} onClick={() => setInspectorTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div>
         {inspectorTab === 'settings' && <>
         <div className="ws-source-box"><p><FolderOpen size={15}/>Source Video</p>
           <select aria-label="Source video" value={sourceId ?? ''} onChange={e => setSourceId(e.target.value ? Number(e.target.value) : null)} className="w-full rounded-lg border border-[#414657] bg-[#1b202a] px-2 py-2 text-xs"><option value="">{hasVideoSource ? 'Select a video...' : 'Optional for this workflow'}</option>{sources.map(s => <option key={s.id} value={s.id}>{s.filename} ({Math.round(s.size_bytes / 1024 / 1024)} MB)</option>)}</select>
@@ -482,15 +502,19 @@ export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, o
             <label className="block text-[11px] text-[#9ea9b9]">Retry limit<input type="number" min={0} max={5} value={selected.retry_limit ?? 1} onChange={event => updateNode(selected.id, { retry_limit: Math.max(0, Math.min(5, Number(event.target.value) || 0)) })} className="mt-1 w-full rounded-lg border border-[#373d4d] bg-[#1b202a] p-2 text-xs text-white"/></label>
             <label className="flex items-center gap-2 text-[11px] text-[#9ea9b9]"><input type="checkbox" checked={selected.cache ?? true} onChange={event => updateNode(selected.id, { cache: event.target.checked })} className="accent-[#8c53e7]"/>Reuse matching checkpoint on retry</label>
             <div><p className="mb-2 text-xs text-[#a9b2c4]">Depends on (multiple allowed)</p>{nodes.filter(n => n.id !== selected.id).map(node => <label key={node.id} className="my-1 flex items-center gap-2 break-all text-[11px]"><input type="checkbox" checked={selected.depends_on.includes(node.id)} onChange={e => updateNode(selected.id, { depends_on: e.target.checked ? [...selected.depends_on, node.id] : selected.depends_on.filter(dep => dep !== node.id) })} className="accent-[#8c53e7]"/>{node.id}</label>)}</div>
-            <div><label htmlFor="workflow-node-settings" className="mb-2 block text-xs text-[#a9b2c4]">Node settings (JSON)</label><textarea id="workflow-node-settings" value={jsonEditor} onChange={e => { setJsonEditor(e.target.value); setJsonError(null) }} rows={12} spellCheck={false} className="w-full rounded-lg border border-[#353a4a] bg-[#0b0f16] p-3 font-mono text-[11px] text-[#d5e0e8] outline-none focus:border-purple-500"/>
+            <details className="ws-advanced"><summary>Advanced settings</summary><div><label htmlFor="workflow-node-settings" className="mb-2 block text-xs text-[#a9b2c4]">Node settings (JSON)</label><textarea id="workflow-node-settings" value={jsonEditor} onChange={e => { setJsonEditor(e.target.value); setJsonError(null) }} rows={12} spellCheck={false} className="w-full rounded-lg border border-[#353a4a] bg-[#0b0f16] p-3 font-mono text-[11px] text-[#d5e0e8] outline-none focus:border-purple-500"/>
               {jsonError && <p role="alert" className="my-2 text-xs text-red-300">{jsonError}</p>}
               <button className={`${btn} w-full`} onClick={applySettings}><CheckCircle2 size={14} className="mr-1 inline"/>Apply JSON Settings</button>
-            </div>
+            </div></details>
           </div> : <p className="text-xs text-[#9ba5b2]">Select a node to edit settings, dependencies or conditions.</p>}
         </> : <div className={`${card} p-3 text-xs text-[#aab1be]`}>Download each node's JSON to inspect exact word timestamps, AI highlights and cut plan. Editing can be done in the Timeline after review; there is no automatic destructive cut.</div>}
         </>}
-        {inspectorTab === 'input' && <div className="ws-io-panel"><h3>Connected inputs</h3>{selected?.depends_on.length ? selected.depends_on.map(id => <span key={id}><ArrowRight size={12}/>{id}</span>) : <p>This node starts without upstream input.</p>}</div>}
-        {inspectorTab === 'output' && <div className="ws-io-panel"><h3>Latest output</h3>{selected && run?.results?.[selected.id] ? Object.entries(run.results[selected.id]).map(([key, value]) => <span key={key}><strong>{key}</strong>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>) : <p>Run the workflow to inspect this node's output.</p>}</div>}
+        {inspectorTab === 'wiring' && <div className="ws-wiring">
+          <section><header><h3>Inputs</h3><CircleHelp size={16}/></header>{selected?.depends_on.length ? selected.depends_on.map(id => <div className="ws-wire" key={id}><span className="ws-wire-badge success">Input</span><label><GitBranch size={16}/><select value={id} onChange={event => updateNode(selected.id, { depends_on: [...selected.depends_on.filter(dep => dep !== id), event.target.value] })}>{nodes.filter(node => node.id !== selected.id).map(node => <option key={node.id} value={node.id}>{node.id}</option>)}</select></label></div>) : <p className="ws-nothing-wired">Nothing wired</p>}</section>
+          <section><header><h3>Outputs</h3><CircleHelp size={16}/></header>{downstream.length ? downstream.map(node => <div className="ws-wire" key={node.id}><span className="ws-wire-badge warning">Output</span><label><ArrowRight size={16}/><span>{node.id}</span></label></div>) : <p className="ws-nothing-wired">Nothing wired</p>}</section>
+          <section><header><h3>Attachments</h3><span className="ws-neutral-badge">Nothing wired</span></header></section>
+        </div>}
+        <div className="ws-inspector-footer"><button onClick={() => setSelectedId(null)}>Cancel</button><button disabled={!selected || working} onClick={() => void save()}>Save task</button></div>
       </aside>
     </div>
     <footer className="ws-legacy-footer">
