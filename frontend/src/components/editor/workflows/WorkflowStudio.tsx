@@ -14,7 +14,7 @@ import { mediaName } from '../library/mediaLibraryUtils'
 import type { WorkflowCatalogItem, WorkflowDefinition, WorkflowNode, WorkflowRun, WorkflowSource, WorkflowTemplate, WorkflowVersion } from './workflowTypes'
 import './WorkflowStudio.css'
 
-type Props = { projectId: number; onClose: () => void }
+type Props = { projectId: number; initialWorkflowId?: number | null; onSaved?: (workflow: WorkflowDefinition) => void | Promise<void>; onClose: () => void }
 type Mode = 'nodes' | 'runs'
 const CONDS: WorkflowNode['when'][] = ['always', 'has_video', 'has_transcript', 'ai_enabled']
 const card = 'rounded-xl border border-[#303441] bg-[#171a21]'
@@ -55,7 +55,7 @@ function StudioNodeCard({ data, selected }: NodeProps<StudioFlowNode>) {
 }
 const flowNodeTypes = { studio: StudioNodeCard }
 
-export function WorkflowStudio({ projectId, onClose }: Props) {
+export function WorkflowStudio({ projectId, initialWorkflowId = null, onSaved, onClose }: Props) {
   const [catalog, setCatalog] = useState<WorkflowCatalogItem[]>([])
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([])
   const [definitions, setDefinitions] = useState<WorkflowDefinition[]>([])
@@ -94,12 +94,18 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
       api<WorkflowRun[]>(`/workflows/${projectId}/runs`),
     ])
     setCatalog(catalogRows); setTemplates(templateRows); setDefinitions(definitionRows); setSources(sourceRows); setRuns(runRows)
-    if (!nodes.length && !activeId && templateRows[0]) {
+    const requested = initialWorkflowId ? definitionRows.find(item => item.id === initialWorkflowId) : null
+    if (requested) {
+      setActiveId(requested.id); setName(requested.name); setNodes(clone(requested.nodes)); setSelectedId(preferredNode(requested.nodes))
+      void api<WorkflowVersion[]>(`/workflows/${projectId}/definitions/${requested.id}/versions`).then(setVersions).catch(err => setError(errorMessage(err)))
+    } else if (initialWorkflowId) {
+      setError('Workflow not found or it does not belong to this project.')
+    } else if (!nodes.length && !activeId && templateRows[0]) {
       setName(templateRows[0].name); setNodes(clone(templateRows[0].nodes)); setSelectedId(preferredNode(templateRows[0].nodes))
     }
   // First load only; manually invoke refresh after changes so no unsaved state is discarded.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [projectId, initialWorkflowId])
 
   useEffect(() => {
     let disposed = false
@@ -137,7 +143,7 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
   }
   const addNode = (type: string, position?: { x: number; y: number }) => {
     const item = catalog.find(x => x.type === type)
-    if (!item || nodes.length >= 100) return
+    if (!item || item.status === 'planned' || nodes.length >= 100) return
     const id = uid(type, nodes.map(n => n.id))
     const next: WorkflowNode = { id, type, when: 'always', retry_limit: 1, cache: true, settings: structuredClone(item.settings), depends_on: [], position: position ?? { x: 80 + (nodes.length % 3) * 260, y: 60 + Math.floor(nodes.length / 3) * 150 } }
     setNodes(prev => [...prev, next]); setSelectedId(id)
@@ -191,6 +197,7 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
         : await api<WorkflowDefinition>(`/workflows/${projectId}/definitions`, { method: 'POST', body: JSON.stringify(data) })
       setActiveId(result.id)
       setDefinitions(previous => [result, ...previous.filter(item => item.id !== result.id)])
+      await onSaved?.(result)
       setMessage('Workflow saved to MySQL.')
       return result
     } catch (err) { setError(errorMessage(err)); return null }
@@ -366,7 +373,7 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
   const previewMedia = source?.media_id ? editorMedia.find(item => item.id === source.media_id) : null
   const completedNodes = Object.values(run?.results ?? {}).filter(item => item.state === 'completed').length
 
-  return <div className="ws-shell" role="dialog" aria-modal="true" aria-label="CLIPTORA Workflow Studio">
+  return <div className="ws-shell" aria-label="CLIPTORA Workflow Studio">
     <header className="ws-topbar">
       <span className="ws-brand"><img src="/assets/logo.png" alt=""/><strong>Cliptora</strong></span>
       <nav className="ws-breadcrumb" aria-label="Breadcrumb"><Home size={14}/><ChevronRight size={13}/><span>Projects</span><ChevronRight size={13}/><span>Project {projectId}</span><ChevronRight size={13}/><strong>Workflow Studio</strong></nav>
@@ -387,7 +394,7 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
         <div className="ws-nav-spacer"/><button><Settings size={17}/><span>Settings</span></button><button><CircleHelp size={17}/><span>Help</span></button>
       </aside>
       <aside className="ws-node-library">
-        <div className="ws-panel-title"><strong>Nodes</strong><span><Zap size={13}/><Maximize2 size={13}/></span></div>
+        <div className="ws-panel-title"><strong>Tool Library</strong><span title={`${catalog.filter(item => item.status !== 'planned').length} enabled · ${catalog.filter(item => item.status === 'planned').length} planned`}><Zap size={13}/>{catalog.length}</span></div>
         <label className="ws-search"><Search size={14}/><input value={nodeSearch} onChange={event => setNodeSearch(event.target.value)} placeholder="Search nodes…"/></label>
         <div className="ws-filter-tabs">{['All', ...groups.slice(0, 4)].map(group => <button key={group} className={nodeGroup === group ? 'active' : ''} onClick={() => setNodeGroup(group)}>{group === 'Analysis' ? 'Video' : group === 'Creative' ? 'Edit' : group}</button>)}</div>
         <div className="ws-library-meta">
@@ -401,7 +408,7 @@ export function WorkflowStudio({ projectId, onClose }: Props) {
         <div className="ws-node-list">{groups.map(group => {
           const items = visibleCatalog.filter(item => item.group === group)
           if (!items.length) return null
-          return <section key={group}><h3>{group}<ChevronDown size={13}/></h3>{items.map(item => <button draggable onDragStart={event => event.dataTransfer.setData('text/cliptora-node', item.type)} key={item.type} onClick={() => addNode(item.type)} className="ws-library-node"><span style={{ background: accentFor(item.type) }}>{iconFor(item.type, 16)}</span><span><strong>{item.label}</strong><small>{item.type.replace('.', ' · ')}</small></span></button>)}</section>
+          return <section key={group}><h3>{group}<ChevronDown size={13}/></h3>{items.map(item => <button disabled={item.status === 'planned'} draggable={item.status !== 'planned'} title={item.status === 'planned' ? 'Planned tool — executor not installed yet' : `Add ${item.label}`} onDragStart={event => event.dataTransfer.setData('text/cliptora-node', item.type)} key={item.type} onClick={() => addNode(item.type)} className="ws-library-node"><span style={{ background: accentFor(item.type) }}>{iconFor(item.type, 16)}</span><span><strong>{item.label}</strong><small>{item.status === 'planned' ? `${item.priority ?? 'P1'} · Planned` : item.type.replace('.', ' · ')}</small></span></button>)}</section>
         })}</div>
       </aside>
       {page === 'nodes' ? <section className="ws-workspace">

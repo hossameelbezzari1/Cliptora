@@ -29,7 +29,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.core.database import Base, SessionLocal, engine, get_db
 from app.core.security import current_user
 from app.models import MediaAsset, User
-from app.services.workflow_core import NODE_TYPES, preset_templates, probe, run_graph, validate_workflow
+from app.services.workflow_core import preset_templates, probe, run_graph, tool_catalog, validate_workflow
 
 router = APIRouter(prefix="/workflows", tags=["Dynamic Workflows"])
 _schema_lock = Lock()
@@ -179,7 +179,7 @@ class StartRun(BaseModel):
 
 @router.get("/catalog")
 def catalog(user: User = Depends(current_user)):
-    return [{"type": key, **value} for key, value in NODE_TYPES.items()]
+    return tool_catalog()
 
 
 @router.get("/templates")

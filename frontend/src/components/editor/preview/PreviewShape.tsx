@@ -145,6 +145,7 @@ function ShapeSvg({kind,color}: {kind:string;color:string}) {
 
 export function PreviewShape({shape,color='#a580db',blurStrength=16}:PreviewShapeProps) {
   const kind = shape.toLowerCase()
+  if (kind === 'empty element') return <div data-cl-preview-shape={shape} className="h-full w-full bg-transparent"/>
   const blurMode = kind.includes('mosaic') || kind.includes('pixel') ? 'mosaic'
     : kind.includes('directional') || kind.includes('motion') ? 'motion'
     : kind.includes('blur') ? 'gaussian' : null

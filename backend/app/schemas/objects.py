@@ -89,6 +89,8 @@ class ClipProperties(BaseModel):
     repeat: dict[str, Any] | None = None
     shape_kind: str | None = Field(default=None, max_length=40)
     follow_target_id: str | None = Field(default=None, max_length=64)
+    empty_element: bool = False
+    workflow_id: int | None = Field(default=None, ge=1)
 
     @model_validator(mode='after')
     def crop_bounds(self):

@@ -15,4 +15,4 @@ const effectGroups: Record<string, string[]> = {
 }
 export const animations: CatalogEntry[] = Object.entries(animationGroups).flatMap(([group,names]) => names.map(name => ({name,group,kind:'animation' as const,engine:'css' as const,parameters:['duration','delay','easing','loop']})))
 export const effects: CatalogEntry[] = Object.entries(effectGroups).flatMap(([group,names]) => names.map(name => ({name,group,kind:'effect' as const,engine: group==='Audio' ? 'ffmpeg' as const : 'canvas' as const,parameters: group==='Audio' ? ['amount','mix'] : ['amount','enabled']})))
-export const shapes = ['Text','Rectangle','Square','Circle','Ellipse','Triangle','Line','Arrow','Star','Polygon','Blur Box','Directional Blur Box','Mosaic Blur Box'] as const
+export const shapes = ['Empty Element','Text','Rectangle','Square','Circle','Ellipse','Triangle','Line','Arrow','Star','Polygon','Blur Box','Directional Blur Box','Mosaic Blur Box'] as const

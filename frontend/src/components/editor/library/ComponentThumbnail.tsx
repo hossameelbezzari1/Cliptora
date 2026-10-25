@@ -1,5 +1,5 @@
 import { useId, type CSSProperties } from 'react'
-import { AudioLines, Boxes, Film, FolderOpen, Image as ImageIcon, Layers3, Type } from 'lucide-react'
+import { AudioLines, Boxes, Film, FolderOpen, GitBranch, Image as ImageIcon, Layers3, Type } from 'lucide-react'
 
 /** These previews are illustrations, not separate editable canvases. The card itself adds the component. */
 export type ShapeName =
@@ -19,6 +19,11 @@ export function shapeCategory(name: string): 'Text' | 'Blur' | 'Shapes' {
 
 export function ComponentThumbnail({ name, compact = false }: { name: string; compact?: boolean }) {
   const gradientId = useId().replace(/:/g, '')
+  if (name === 'Empty Element') {
+    return <div className="flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-[#7654b5] bg-[radial-gradient(circle_at_center,_#302346_0%,_#171a21_72%)] text-[#c6a4ff]">
+      <GitBranch size={compact ? 25 : 31}/><span className="text-[9px] font-semibold tracking-wide">WORKFLOW</span>
+    </div>
+  }
   if (name in blurSource) {
     return <div className="relative h-full w-full overflow-hidden bg-[#2b2a34]">
       <img className="h-full w-full object-cover" loading="lazy" src={blurSource[name]} alt={`${name} preview: a person's face partially obscured by this blur`} />

@@ -11,6 +11,14 @@ core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(core)
 
 class WorkflowEngineTests(unittest.TestCase):
+    def test_tool_registry_separates_runnable_and_planned_tools(self):
+        catalog = core.tool_catalog()
+        self.assertEqual(len({item['type'] for item in catalog}), len(catalog))
+        self.assertEqual(sum(item['status'] == 'implemented' for item in catalog), len(core.NODE_TYPES))
+        self.assertEqual(sum(item['status'] == 'planned' for item in catalog), 108)
+        self.assertTrue(all(item['backend_executor'] for item in catalog if item['status'] == 'implemented'))
+        self.assertTrue(all(item['backend_executor'] is None for item in catalog if item['status'] == 'planned'))
+
     def test_templates_and_dag(self):
         for template in core.preset_templates():
             graph = core.validate_workflow(template['nodes'])

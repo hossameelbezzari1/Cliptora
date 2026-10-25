@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
-import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical, Crop, ArrowUp, ArrowDown, MousePointer2, X } from 'lucide-react'
+import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Plus, Trash2, Music2, Type, Video, Image as ImageIcon, Minus, Maximize2, GripVertical, Crop, ArrowUp, ArrowDown, MousePointer2, X, Copy, Pencil, Workflow } from 'lucide-react'
 import { useEditor, canPlace, snapTime, MAX_LAYERS, MIN_CLIP, MAX_TIME, type DragItem } from '../../../stores/editorStore'
-import { formatTime } from '../../../lib/api'
+import { api, formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
-import type { Track, Clip } from '../../../types'
+import type { Track, Clip, Timeline } from '../../../types'
+import type { WorkflowDefinition } from '../workflows/workflowTypes'
 import { ContextMenu, type MenuState, type ContextAction } from '../../ui/ContextMenu'
 import { effectiveTimelineEnd, repeatOccurrences, type Timing } from '../../../lib/repeat'
 import './timeline-scroll.css'
@@ -978,7 +979,45 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasM
         const store = useEditor.getState()
         const isLocked = track.locked || clip.locked
         const canMerge = !!clip.props?.attached_to || store.tracks.some(t => t.clips.some(c => c.props?.attached_to === clip.client_id))
+        const isEmptyElement = clip.props?.empty_element === true || clip.props?.shape_kind === 'Empty Element'
+        const workflowId = clip.props?.workflow_id ?? null
+        const workflowUrl = (id: number | 'new') => `/projects/${store.projectId}/workflows/${id}?element=${encodeURIComponent(clip.client_id)}`
+        const saveTimelineAndOpen = async (id: number | 'new', linkId?: number) => {
+            if (!store.projectId) return
+            try {
+                if (linkId) useEditor.getState().patchProps(clip.client_id, { workflow_id: linkId })
+                const current = useEditor.getState()
+                const saved = await api<Timeline>(`/projects/${store.projectId}/timeline`, {
+                    method: 'PUT', body: JSON.stringify({ revision: current.revision, tracks: current.tracks }),
+                })
+                current.markSaved(saved.revision)
+                window.location.assign(workflowUrl(id))
+            } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not open workflow.') }
+        }
+        const copyWorkflow = async () => {
+            if (!workflowId || !store.projectId) return
+            try {
+                const copy = await api<WorkflowDefinition>(`/workflows/${store.projectId}/definitions/${workflowId}/duplicate`, { method: 'POST' })
+                await saveTimelineAndOpen(copy.id, copy.id)
+            } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not copy workflow.') }
+        }
+        const deleteWorkflow = async () => {
+            if (!workflowId || !store.projectId || !window.confirm('Delete this workflow? Empty Elements linked to it will be unlinked.')) return
+            try {
+                await api<void>(`/workflows/${store.projectId}/definitions/${workflowId}`, { method: 'DELETE' })
+                useEditor.getState().changeTracks(tracks => tracks.map(item => ({ ...item, clips: item.clips.map(candidate =>
+                    candidate.props?.workflow_id === workflowId ? { ...candidate, props: { ...candidate.props, workflow_id: null } } : candidate,
+                ) })))
+            } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not delete workflow.') }
+        }
         const actions: ContextAction[] = [
+            ...(isEmptyElement ? [
+                { label: 'Copy workflow', icon: <Copy size={14}/>, onClick: () => { void copyWorkflow() }, disabled: !workflowId },
+                { label: 'Create workflow', icon: <Workflow size={14}/>, onClick: () => { void saveTimelineAndOpen('new') } },
+                { label: 'Edit workflow', icon: <Pencil size={14}/>, onClick: () => { if (workflowId) void saveTimelineAndOpen(workflowId) }, disabled: !workflowId },
+                { label: 'Delete workflow', icon: <Trash2 size={14}/>, danger: true, onClick: () => { void deleteWorkflow() }, disabled: !workflowId },
+                { label: '', divider: true },
+            ] satisfies ContextAction[] : []),
             { label: 'Rename', onClick: () => { setName(clip.name); setEditing(true) }, disabled: isLocked },
             { label: 'Duplicate', onClick: () => store.duplicateClip(clip.client_id), disabled: isLocked },
             { label: 'Cut clip', onClick: () => store.cutClip(clip.client_id), disabled: isLocked },

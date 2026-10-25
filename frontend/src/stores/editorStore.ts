@@ -205,6 +205,10 @@ export const useEditor = create<Store>((set, get) => ({
       get().patchProps(id, { shape_kind: shape, width: shape === 'Square' || shape === 'Circle' ? 25 : 45, height: shape === 'Square' || shape === 'Circle' ? 25 : 35, follow_target_id:undefined })
       get().patchClip(id, { name:shape, text:'', color:palette[shape] ?? '#a580db' })
     }
+    if (shape === 'Empty Element') {
+      get().patchProps(id, { shape_kind: shape, empty_element: true, workflow_id: null, width: 32, height: 22, opacity: 1 })
+      get().patchClip(id, { name: 'Empty Element', text: '', color: '#8b5cf6' })
+    }
     return true
   },
   addTextClipAt: (targetId, start, insertion = 'bottom') => {

@@ -35,6 +35,45 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
     "video.render": {"label": "Render Cut Video (FFmpeg)", "group": "Output", "settings": {"enabled": False, "aspect_ratio": "original"}},
 }
 
+# One declarative registry feeds the node picker. Entries without an executor are
+# intentionally visible as planned capabilities, but validation/run_graph only
+# accept NODE_TYPES. Adding a real tool means registering its schema here and
+# implementing its backend executor in call_node.
+PROPOSED_TOOL_GROUPS: dict[str, list[str]] = {
+    "Captions & Subtitles": ["Generate Captions", "Import SRT/VTT", "Export SRT/VTT", "Word-by-Word Captions", "Animated Captions", "Caption Styling", "Subtitle Translation", "Subtitle Alignment", "Karaoke Effect", "Subtitle Position", "Highlight Spoken Words", "Burn Subtitles"],
+    "Effects & Animations": ["Add Text", "Text Animation", "Keyframe Animation", "Transform", "Opacity Animation", "Motion Blur", "Blur Background", "Green Screen", "Color Correction", "LUT Filter", "Transitions", "Zoom & Pan", "Tracking", "Mask & Crop", "Shape Animation", "Particle Effect", "Apply Preset", "Animated Lower Third"],
+    "Voiceover & Music": ["Text to Speech", "AI Voiceover", "Voice Clone", "Record Microphone", "Teleprompter Script", "Voice Synchronization", "Add Background Music", "Find Music", "Audio Fade In/Out", "Volume Automation", "Audio Ducking", "Mix Audio Tracks", "Sound Effects", "Audio Crossfade"],
+    "Image & AI Generation": ["Generate Image", "Image to Video", "Text to Video", "Remove Background", "Upscale Image", "Upscale Video", "Inpaint Image", "Generate B-Roll", "Generate Thumbnail Art", "Object Detection", "Face Tracking", "Scene Detection", "AI Background Generation", "Animate Image"],
+    "AI Providers": ["OpenAI", "Google Gemini", "Anthropic Claude", "Ollama", "Hugging Face", "Local LLM", "Whisper / faster-whisper", "WhisperX", "ElevenLabs", "Custom OpenAI-Compatible API", "Generic REST AI Provider", "ComfyUI Workflow"],
+    "Apps & Integrations": ["Gmail", "Microsoft Outlook", "Microsoft Excel 365", "Google Sheets", "Google Drive", "OneDrive", "Dropbox", "YouTube", "TikTok API", "Instagram / Meta Graph API", "Telegram", "Discord", "Slack", "Notion", "Airtable", "WordPress", "AWS S3", "Cloudflare R2", "Supabase", "FTP / SFTP"],
+    "Developer & Custom Tools": ["HTTP Request", "Webhook", "Python Function", "Custom Plugin", "Plugin Registry", "JavaScript Sandbox", "Run Approved Command", "API Credentials", "OAuth Connection", "Custom Header Auth", "Environment Variables", "Input/Output Schema", "Test Connection", "Node Logs", "Execution Metrics", "Cache Results", "Versioned Tool", "Custom Tool Import"],
+}
+
+
+def tool_catalog() -> list[dict[str, Any]]:
+    implemented = [{
+        "type": key, **value, "status": "implemented", "priority": "P0",
+        "icon": key.split(".", 1)[0], "actions": ["run"],
+        "input_types": [], "output_types": ["json"],
+        "parameters_schema": value.get("settings", {}), "credentials": [],
+        "backend_executor": f"workflow_core.call_node:{key}",
+    } for key, value in NODE_TYPES.items()]
+    used_labels = {item["label"].casefold() for item in implemented}
+    proposed: list[dict[str, Any]] = []
+    for group, labels in PROPOSED_TOOL_GROUPS.items():
+        for label in labels:
+            if label.casefold() in used_labels:
+                continue
+            slug = re.sub(r"[^a-z0-9]+", ".", label.casefold()).strip(".")
+            proposed.append({
+                "type": f"planned.{slug}", "label": label, "group": group,
+                "settings": {}, "status": "planned", "priority": "P1",
+                "icon": group.casefold().replace(" & ", "."), "actions": [],
+                "input_types": [], "output_types": [], "parameters_schema": {},
+                "credentials": [], "backend_executor": None,
+            })
+    return implemented + proposed
+
 
 def _n(id: str, kind: str, depends: list[str] | None = None, settings: dict | None = None) -> dict:
     return {"id": id, "type": kind, "depends_on": depends or [], "when": "always", "retry_limit": 1,

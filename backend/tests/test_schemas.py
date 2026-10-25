@@ -55,3 +55,11 @@ def test_crop_properties_validate_and_preserve_edges():
             assert False, 'Crop outside allowable bounds was accepted.'
         except ValidationError:
             pass
+
+
+def test_empty_element_can_persist_workflow_link():
+    from app.schemas.objects import ClipIn
+    clip = ClipIn(client_id='empty-1', name='Empty Element', type='text', start=0, duration=5,
+                  props={'shape_kind': 'Empty Element', 'empty_element': True, 'workflow_id': 17})
+    assert clip.props.empty_element is True
+    assert clip.props.workflow_id == 17
