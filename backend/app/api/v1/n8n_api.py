@@ -6,8 +6,12 @@ metadata; n8n remains the source of truth for workflow nodes and credentials.
 from __future__ import annotations
 
 import hmac
+import hashlib
+import base64
 import json
+import secrets
 import subprocess
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -110,9 +114,9 @@ def empty_element(db: Session, project_id: int, element_id: str) -> Clip:
 
 def n8n_request(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
     config = settings()
-    api_key = config.n8n_api_key.strip()
+    api_key = config.effective_n8n_api_key
     if not api_key:
-        raise HTTPException(503, "N8N_API_KEY is not configured in backend/.env")
+        raise HTTPException(503, "The Docker n8n API key is not ready; restart the n8n-bootstrap service")
     url = f"{config.n8n_base_url.rstrip('/')}/api/v1{path}"
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     request = Request(url, data=body, method=method, headers={
@@ -153,10 +157,39 @@ class CreateLink(BaseModel):
     title: str = Field(default="CLIPTORA Workflow", min_length=2, max_length=160)
 
 
+class EditorSessionRequest(BaseModel):
+    editor_path: str = Field(pattern=r"^/n8n/(?:workflow/[A-Za-z0-9_-]+)?$")
+
+
+def _base64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def create_editor_session_token(user_id: int, editor_path: str) -> str:
+    secret = settings().cliptora_n8n_sso_secret.strip()
+    if len(secret) < 32:
+        raise HTTPException(503, "CLIPTORA n8n session bridge is not configured")
+    payload = {
+        "sub": str(user_id),
+        "exp": int(time.time()) + 45,
+        "jti": secrets.token_urlsafe(18),
+        "next": editor_path,
+    }
+    encoded = _base64url(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    signature = _base64url(hmac.new(secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256).digest())
+    return f"{encoded}.{signature}"
+
+
+@router.post("/editor-session")
+def editor_session(body: EditorSessionRequest, user: User = Depends(current_user)):
+    token = create_editor_session_token(user.id, body.editor_path)
+    return {"url": f"/n8n/rest/cliptora-sso?token={quote(token, safe='')}"}
+
+
 @router.get("/status")
 def integration_status(user: User = Depends(current_user)):
     config = settings()
-    configured = bool(config.n8n_api_key.strip())
+    configured = bool(config.effective_n8n_api_key)
     reachable = False
     try:
         with urlopen(f"{config.n8n_base_url.rstrip('/')}/healthz", timeout=2) as response:

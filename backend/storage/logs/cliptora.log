@@ -259,3 +259,21 @@
 [2026-10-26 00:15:45] INFO     uvicorn.error: Started server process [17652]
 [2026-10-26 00:15:45] INFO     uvicorn.error: Waiting for application startup.
 [2026-10-26 00:15:45] INFO     uvicorn.error: Application startup complete.
+[2026-10-26 12:49:51] ERROR    cliptora.http: [request:0693536873a4] POST /api/v1/n8n/projects/2/workflows -> 503 (36 ms)
+[2026-10-26 12:50:17] ERROR    cliptora.http: [request:607efd87e430] POST /api/v1/n8n/projects/2/workflows -> 503 (31 ms)
+[2026-10-26 13:05:51] ERROR    cliptora.http: [request:b51c69836b05] POST /api/v1/n8n/projects/2/workflows -> 503 (8 ms)
+[2026-10-26 13:06:02] ERROR    cliptora.http: [request:478440ad9e9b] POST /api/v1/n8n/projects/2/workflows -> 503 (16 ms)
+[2026-10-26 13:20:49] ERROR    cliptora.http: [request:0e2ed8fd99d2] POST /api/v1/n8n/projects/2/workflows -> 503 (100 ms)
+[2026-10-26 13:37:04] ERROR    cliptora.http: [request:9ef4ea7c45dd] POST /api/v1/n8n/projects/2/workflows -> 503 (26 ms)
+[2026-10-26 19:41:42] ERROR    cliptora.http: [request:62b36fb15d0b] POST /api/v1/n8n/projects/2/workflows -> 503 (117 ms)
+[2026-10-26 20:18:07] ERROR    cliptora.http: [request:00355d9a919e] POST /api/v1/n8n/projects/2/workflows -> 503 (26 ms)
+[2026-10-26 20:35:37] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-26 20:35:38] WARNING  cliptora.http: [request:55f48e4c58ff] GET /api/v1/n8n/tools/projects/1 -> 401 (6 ms)
+[2026-10-26 21:02:19] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-26 21:02:20] WARNING  cliptora.http: [request:9aa8576489a0] GET /api/v1/n8n/tools/projects/1 -> 401 (5 ms)
+[2026-10-26 22:00:18] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-26 22:00:21] WARNING  cliptora.http: [request:c5da3e2ed176] POST /api/v1/n8n/editor-session -> 422 (16 ms)
+[2026-10-26 22:00:21] WARNING  cliptora.http: [request:3e71d224e359] GET /api/v1/n8n/tools/projects/1 -> 401 (10 ms)
+[2026-10-26 22:39:47] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-26 22:39:49] WARNING  cliptora.http: [request:4777ac795965] POST /api/v1/n8n/editor-session -> 422 (12 ms)
+[2026-10-26 22:39:49] WARNING  cliptora.http: [request:eb0156603a5f] GET /api/v1/n8n/tools/projects/1 -> 401 (8 ms)

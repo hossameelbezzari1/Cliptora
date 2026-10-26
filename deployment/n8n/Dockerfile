@@ -17,6 +17,7 @@ COPY vendor/n8n ./
 
 ENV CI=true
 RUN --mount=type=cache,id=cliptora-n8n-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=cliptora-n8n-turbo,target=/src/n8n/.turbo \
     pnpm config set registry ${NPM_REGISTRY} && \
     pnpm config set store-dir /pnpm/store && \
     node scripts/ensure-zx.mjs && \
@@ -29,7 +30,11 @@ USER root
 RUN rm -rf /usr/local/lib/node_modules/n8n
 COPY --from=fork-builder /src/n8n/compiled /usr/local/lib/node_modules/n8n
 COPY integrations/n8n-nodes-cliptora /opt/cliptora-nodes
-RUN chown -R node:node /opt/cliptora-nodes
+COPY deployment/n8n/bootstrap-api-key.cjs /opt/cliptora/bootstrap-api-key.cjs
+# The repository is checked out on Windows. Normalize the executable launcher
+# because a CRLF shebang is interpreted as an executable named `node\r` on Linux.
+RUN sed -i 's/\r$//' /usr/local/lib/node_modules/n8n/bin/n8n && \
+    chown -R node:node /opt/cliptora-nodes /opt/cliptora
 ENV N8N_CUSTOM_EXTENSIONS=/opt/cliptora-nodes
 USER node
 

@@ -7,6 +7,7 @@ import { useEditor } from '../../stores/editorStore'
 import type { Project, Timeline } from '../../types'
 
 type N8nStatus = { configured: boolean; reachable: boolean; editor_path: string }
+type N8nEditorSession = { url: string }
 type N8nWorkflowLink = {
   id: number
   project_id: number
@@ -19,6 +20,10 @@ type N8nWorkflowLink = {
 }
 
 const errorMessage = (reason: unknown) => reason instanceof Error ? reason.message : String(reason)
+const createEditorSession = (editorPath: string) => api<N8nEditorSession>('/n8n/editor-session', {
+  method: 'POST',
+  body: JSON.stringify({ editor_path: editorPath }),
+})
 
 export function WorkflowPage() {
   const { id, workflowId: routeWorkflowId } = useParams()
@@ -36,6 +41,8 @@ export function WorkflowPage() {
   const [loading, setLoading] = useState(true)
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
+  const [editorTarget, setEditorTarget] = useState('')
+  const [editorUrl, setEditorUrl] = useState('')
   const creating = useRef(false)
 
   useEffect(() => {
@@ -78,10 +85,19 @@ export function WorkflowPage() {
         }
         if (disposed) return
         setLink(created)
+        const editorSession = await createEditorSession(created.editor_path)
+        if (disposed) return
+        setEditorTarget(created.editor_path)
+        setEditorUrl(editorSession.url)
         navigate(`/projects/${projectId}/workflows/${created.id}?element=${encodeURIComponent(elementId)}`, { replace: true })
       } else {
         const existing = await api<N8nWorkflowLink>(`/n8n/projects/${projectId}/workflows/${linkId}`)
-        if (!disposed) setLink(existing)
+        const editorSession = await createEditorSession(existing.editor_path)
+        if (!disposed) {
+          setLink(existing)
+          setEditorTarget(existing.editor_path)
+          setEditorUrl(editorSession.url)
+        }
       }
     }
     void openWorkflow().catch(reason => {
@@ -93,7 +109,29 @@ export function WorkflowPage() {
   }, [elementId, invalidLink, invalidProject, isNew, linkId, navigate, projectId])
 
   const pageError = invalidProject ? 'Invalid project.' : invalidLink ? 'Invalid workflow link.' : error
-  const editorUrl = link?.editor_path ?? status?.editor_path ?? '/n8n/'
+  const reloadEditor = async () => {
+    if (!editorTarget) return
+    setFrameLoaded(false)
+    setError('')
+    try {
+      const session = await createEditorSession(editorTarget)
+      setEditorUrl(session.url)
+      setFrameKey(key => key + 1)
+    } catch (reason) {
+      setError(errorMessage(reason))
+    }
+  }
+  const openEditorTab = () => {
+    if (!editorTarget) return
+    const popup = window.open('', '_blank')
+    if (popup) popup.opener = null
+    void createEditorSession(editorTarget).then(session => {
+      if (popup && !popup.closed) popup.location.replace(session.url)
+    }).catch(reason => {
+      if (popup && !popup.closed) popup.close()
+      setError(errorMessage(reason))
+    })
+  }
 
   return (
     <main className="fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden bg-[#f7f7f8] text-[#18181b]" aria-label="CLIPTORA n8n workflow workspace">
@@ -107,22 +145,22 @@ export function WorkflowPage() {
           <div className="truncate text-xs font-semibold">{link?.title ?? 'n8n Workflow'}</div>
           <div className="truncate text-[10px] text-[#71717a]">{link ? `CLIPTORA link ${link.id} · n8n ${link.status}` : 'Genuine self-hosted n8n editor'}</div>
         </div>
-        <button type="button" aria-label="Reload n8n editor" title="Reload n8n editor" onClick={() => { setFrameLoaded(false); setFrameKey(key => key + 1) }} className="grid size-8 place-items-center rounded-md text-[#52525b] hover:bg-[#f1f1f3] focus-visible:outline-2 focus-visible:outline-violet-600">
+        <button type="button" aria-label="Reload n8n editor" title="Reload n8n editor" onClick={() => void reloadEditor()} className="grid size-8 place-items-center rounded-md text-[#52525b] hover:bg-[#f1f1f3] focus-visible:outline-2 focus-visible:outline-violet-600">
           <RefreshCw size={15} />
         </button>
-        <a href={editorUrl} target="_blank" rel="noreferrer" title="Open the same n8n workflow in a separate tab" className="grid size-8 place-items-center rounded-md text-[#52525b] hover:bg-[#f1f1f3] focus-visible:outline-2 focus-visible:outline-violet-600">
+        <button type="button" onClick={openEditorTab} title="Open the same n8n workflow in a separate tab" className="grid size-8 place-items-center rounded-md text-[#52525b] hover:bg-[#f1f1f3] focus-visible:outline-2 focus-visible:outline-violet-600">
           <ExternalLink size={15} />
-        </a>
+        </button>
       </header>
       {!loading && status && (!status.reachable || !status.configured) && (
         <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
-          {!status.reachable ? 'n8n is not reachable. Start the CLIPTORA n8n Docker service, then reload this page.' : 'n8n is running, but FastAPI has no N8N_API_KEY. Sign in below, create an API key in n8n Settings, add it to backend/.env, and restart FastAPI.'}
+          {!status.reachable ? 'n8n is not reachable. Start the CLIPTORA Docker stack, then reload this page.' : 'n8n is running, but its automatic Docker API key is not ready. Restart the n8n-bootstrap and backend services.'}
         </div>
       )}
       {pageError && <div role="alert" className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800">{pageError}</div>}
       <section className="relative min-h-0 flex-1 bg-white" aria-label="n8n editor">
         {(loading || !frameLoaded) && <div className="absolute inset-0 z-10 animate-pulse bg-[#f4f4f5] p-5" aria-label="Loading n8n editor"><div className="mb-4 h-10 rounded-lg bg-[#e4e4e7]" /><div className="h-[calc(100%-3.5rem)] rounded-xl border border-[#e4e4e7] bg-white" /></div>}
-        {status?.reachable && <iframe key={frameKey} src={editorUrl} title="n8n workflow editor" className="h-full w-full border-0 bg-white" allow="clipboard-read; clipboard-write" onLoad={() => setFrameLoaded(true)} />}
+        {status?.reachable && editorUrl && <iframe key={frameKey} src={editorUrl} title="n8n workflow editor" className="h-full w-full border-0 bg-white" allow="clipboard-read; clipboard-write" onLoad={() => setFrameLoaded(true)} />}
       </section>
     </main>
   )

@@ -1,0 +1,139 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: cliptora-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-cliptora-local-db}
+      MYSQL_DATABASE: cliptora_v2
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - cliptora_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  n8n:
+    build:
+      context: .
+      dockerfile: deployment/n8n/Dockerfile
+    image: cliptora-n8n-fork:2.45.0
+    container_name: cliptora-n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_PATH: /n8n/
+      N8N_EDITOR_BASE_URL: http://localhost:5173/n8n/
+      N8N_WEBHOOK_URL: http://localhost:5173/n8n/
+      N8N_PROXY_HOPS: 1
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "true"
+      # Use n8n's sandboxed WASM engine. It avoids host-native binaries, which
+      # keeps this source-built image portable across Docker Desktop hosts.
+      N8N_EXPRESSION_ENGINE: quickjs
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_JWT_SECRET:-cliptora-local-n8n-jwt-secret-change-me}
+      CLIPTORA_N8N_SSO_SECRET: ${CLIPTORA_N8N_SSO_SECRET:-cliptora-local-sso-secret-change-me-32}
+      GENERIC_TIMEZONE: Africa/Casablanca
+      TZ: Africa/Casablanca
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - ${N8N_DATA_DIR:-C:/n8n}:/home/node/.n8n
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  n8n-bootstrap:
+    image: cliptora-n8n-fork:2.45.0
+    container_name: cliptora-n8n-bootstrap
+    restart: "no"
+    user: "0:0"
+    entrypoint: ["node", "/opt/cliptora/bootstrap-api-key.cjs"]
+    environment:
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_JWT_SECRET:-cliptora-local-n8n-jwt-secret-change-me}
+    volumes:
+      - ${N8N_DATA_DIR:-C:/n8n}:/home/node/.n8n
+      - cliptora_integration_secrets:/run/cliptora
+    depends_on:
+      n8n:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/backend/Dockerfile
+    image: cliptora-backend:local
+    container_name: cliptora-backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-cliptora-local-db}@mysql:3306/cliptora_v2?charset=utf8mb4
+      SECRET_KEY: ${CLIPTORA_SECRET_KEY:-cliptora-local-session-secret-change-me}
+      SESSION_DAYS: 14
+      MAX_UPLOAD_MB: 250
+      STORAGE_DIR: /workspace/storage
+      FRONTEND_ORIGIN: http://localhost:5173
+      N8N_BASE_URL: http://n8n:5678
+      N8N_EDITOR_PATH: /n8n
+      N8N_API_KEY_FILE: /run/cliptora/n8n_api_key
+      CLIPTORA_N8N_SERVICE_TOKEN: ${CLIPTORA_N8N_SERVICE_TOKEN:-cliptora-local-service-token-change-me}
+      CLIPTORA_N8N_SSO_SECRET: ${CLIPTORA_N8N_SSO_SECRET:-cliptora-local-sso-secret-change-me-32}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./storage:/workspace/storage
+      - cliptora_integration_secrets:/run/cliptora:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      n8n-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/frontend/Dockerfile
+    image: cliptora-frontend:local
+    container_name: cliptora-frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8000
+      N8N_URL: http://n8n:5678
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+      n8n:
+        condition: service_healthy
+      
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    container_name: cliptora-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+    depends_on:
+      - mysql
+
+volumes:
+  cliptora_mysql_data:
+  cliptora_integration_secrets:

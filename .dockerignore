@@ -11,7 +11,10 @@ backend/.env
 backend/.venv
 frontend/.env
 frontend/dist
-storage
+storage/media
+storage/exports
+storage/thumbnails
+storage/transcripts
 vendor/n8n/.git
 vendor/n8n/compiled
 vendor/n8n/dist

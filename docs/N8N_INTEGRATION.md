@@ -44,61 +44,49 @@ bypass login, alter frame headers, or implement token exchange. It uses n8n's `S
 protection as shipped. Vite serves `/n8n/` through a same-origin reverse proxy and strips the
 prefix only when forwarding upstream.
 
-## First-time setup (Windows/XAMPP)
+## Docker setup (Windows)
 
-Requirements: Docker Desktop, XAMPP MySQL, the normal CLIPTORA frontend/backend dependencies, and
-FFmpeg available on the Windows `PATH`.
+Docker Desktop is the only runtime requirement. MySQL, the Python/FastAPI backend, FFmpeg,
+the React/Vite frontend, the source-built n8n fork, and the API-key bootstrap all run in Docker.
 
-1. Compile and start the pinned CLIPTORA fork from the repository root:
+1. Build and start the complete stack from the repository root:
 
    ```powershell
-   .\scripts\build-n8n-fork.ps1
-   docker compose -f .\docker-compose.n8n.yml logs -f n8n
+   .\scripts\start-docker.ps1 -Build
    ```
 
    The first source build downloads the monorepo dependencies and can take several minutes. Later
-   builds reuse Docker's pnpm cache. Use `-NoCache` only when intentionally requesting a clean build.
-
-   The existing local n8n data is preserved at `C:\n8n`. Override it with `N8N_DATA_DIR` only when
-   intentionally choosing another persistent directory. The service binds only to
-   `127.0.0.1:5678`, avoiding Apache (80/443), MySQL (3306), Vite (5173), and FastAPI (8000).
-
-2. Start FastAPI and Vite normally:
+   builds reuse Docker's package caches. Ordinary later starts need no build flag:
 
    ```powershell
-   .\scripts\start-all.ps1
+   .\scripts\start-docker.ps1
    ```
 
-3. Open <http://localhost:5173/n8n/> and sign in to the existing n8n owner account. On a fresh data
-   directory, complete n8n's owner setup instead.
+   The existing local n8n data is preserved at `C:\n8n`. Override it with `N8N_DATA_DIR` only when
+   intentionally choosing another persistent directory. On the first run, if Docker's MySQL is
+   empty, the script imports the existing XAMPP `cliptora_v2` database automatically. Docker MySQL
+   is exposed on `127.0.0.1:3307`, so it does not collide with XAMPP on 3306.
 
-4. In n8n, open **Settings → API**, create an API key, and place it only in the ignored
-   `backend/.env` file:
+2. Open <http://localhost:5173/>. The workflow page embeds the editor through `/n8n/`.
 
-   ```dotenv
-   N8N_BASE_URL=http://127.0.0.1:5678
-   N8N_EDITOR_PATH=/n8n
-   N8N_API_KEY=paste-the-n8n-api-key-here
-   ```
+   The one-shot `n8n-bootstrap` service creates or reuses a scoped API key and writes it to a
+   Docker-only volume mounted read-only by FastAPI. No key needs to be copied into `backend/.env`,
+   frontend code, browser storage, or Git.
 
-   Restart FastAPI after changing `.env`. Never put this key in `frontend/.env`, React code, or
-   browser storage.
+3. In n8n, create a **CLIPTORA API** credential when using the CLIPTORA Video Tools node. Set:
 
-5. In n8n, create a **CLIPTORA API** credential. Set:
-
-   - API Base URL: `http://host.docker.internal:5173/api/v1`
-   - Service Token: the value of `CLIPTORA_N8N_SERVICE_TOKEN` in the ignored `backend/.env`
+   - API Base URL: `http://backend:8000/api/v1`
+   - Service Token: the `CLIPTORA_N8N_SERVICE_TOKEN` value from the ignored `.env.docker`
 
    The service token is checked with a constant-time comparison. Browser CSRF remains enforced for
    every ordinary CLIPTORA mutation; only the `/api/v1/n8n/tools/` machine API accepts bearer auth.
 
-6. Apply the additive schema explicitly for deployments that don't use `app.init_db`:
+To view logs or stop the stack:
 
-   ```powershell
-   Get-Content .\backend\migrations\20261026_n8n_integration.sql | C:\xampp\mysql\bin\mysql.exe -u root cliptora_v2
-   ```
-
-   In development, the same tables are created on first authenticated integration request.
+```powershell
+docker compose --env-file .env.docker logs -f
+docker compose --env-file .env.docker down
+```
 
 ## Workflow lifecycle
 
@@ -115,6 +103,18 @@ FFmpeg available on the Windows `PATH`.
 The old CLIPTORA React Flow editor remains in the source tree for backward compatibility, but is no
 longer rendered on the active Workflow Page. n8n supplies the only visible canvas, picker,
 configuration panel, credential UI, execution history, and logs.
+
+## Unified CLIPTORA session
+
+A user who is already authenticated in CLIPTORA enters the embedded n8n editor without a second
+login form. The Workflow Page requests a 45-second, HMAC-signed, one-time editor ticket from the
+authenticated FastAPI endpoint. The CLIPTORA n8n fork validates and consumes that ticket, issues its
+normal HTTP-only `n8n-auth` cookie, and redirects to the requested workflow.
+
+The browser never receives an n8n password or API key. The shared signing secret is available only
+to the backend and n8n containers; `scripts/start-docker.ps1` generates a random installation secret
+in `.env.docker` when one is missing. Opening n8n directly is not the supported entry point—open the
+Workflow Page from the authenticated CLIPTORA application.
 
 ## CLIPTORA Video Tools node
 
@@ -137,7 +137,7 @@ To add `Auto Subtitle Styler` or another tool:
    `integrations/n8n-nodes-cliptora/nodes/Cliptora/Cliptora.node.js`.
 3. Call the endpoint with media asset IDs and structured parameters, never client-supplied paths.
 4. Add backend lifecycle/error/auth tests.
-5. Run `docker compose -f .\docker-compose.n8n.yml up -d --build` and verify the operation through
+5. Run `.\scripts\start-docker.ps1 -Build` and verify the operation through
    n8n's Add Node and node-configuration interfaces.
 
 No second integration registry is needed. Official and supported community nodes continue to be
@@ -170,6 +170,6 @@ cd ..\backend
 .\.venv\Scripts\python.exe -m pytest tests -q
 
 cd ..
-docker compose -f .\docker-compose.n8n.yml config
-docker compose -f .\docker-compose.n8n.yml ps
+docker compose --env-file .env.docker config
+docker compose --env-file .env.docker ps
 ```

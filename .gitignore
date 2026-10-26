@@ -13,4 +13,5 @@ storage/thumbnails/
 storage/transcripts/
 .DS_Store
 /backend/commands.env
+/.env.docker
 /workflow-studio-*.png

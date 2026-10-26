@@ -10,6 +10,8 @@ def test_n8n_link_lifecycle_and_service_auth(tmp_path):
         from app.main import app
         from app.core.database import Base, engine
         from app.api.v1 import n8n_api
+        import base64, hashlib, hmac, json, time
+        from urllib.parse import parse_qs, urlparse
         Base.metadata.create_all(engine)
 
         workflows = {}
@@ -34,6 +36,24 @@ def test_n8n_link_lifecycle_and_service_auth(tmp_path):
                 'display_name':'n8n Tester','email':'n8n@example.com',
                 'password':'test-password-1234','password_confirmation':'test-password-1234'})
             assert registered.status_code == 201, registered.text
+            editor_session = client.post('/api/v1/n8n/editor-session', headers=headers, json={
+                'editor_path':'/n8n/workflow/wf-bridge-test'})
+            assert editor_session.status_code == 200, editor_session.text
+            session_url = editor_session.json()['url']
+            assert session_url.startswith('/n8n/rest/cliptora-sso?token=')
+            ticket = parse_qs(urlparse(session_url).query)['token'][0]
+            encoded, signature = ticket.split('.')
+            padding = '=' * (-len(signature) % 4)
+            supplied = base64.urlsafe_b64decode(signature + padding)
+            expected = hmac.new(b'test-sso-secret-that-is-longer-than-32-characters', encoded.encode(), hashlib.sha256).digest()
+            assert hmac.compare_digest(supplied, expected)
+            payload_padding = '=' * (-len(encoded) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(encoded + payload_padding))
+            assert payload['next'] == '/n8n/workflow/wf-bridge-test'
+            assert int(time.time()) < payload['exp'] <= int(time.time()) + 45
+            invalid_session = client.post('/api/v1/n8n/editor-session', headers=headers, json={
+                'editor_path':'https://attacker.example/'})
+            assert invalid_session.status_code == 422
             project = client.post('/api/v1/projects', headers=headers, json={'name':'Film','width':1920,'height':1080,'fps':30})
             assert project.status_code == 201, project.text
             project_id = project.json()['id']
@@ -75,6 +95,7 @@ def test_n8n_link_lifecycle_and_service_auth(tmp_path):
         'STORAGE_DIR': str(tmp_path / 'storage'),
         'N8N_API_KEY': 'test-key',
         'CLIPTORA_N8N_SERVICE_TOKEN': 'service-test-token',
+        'CLIPTORA_N8N_SSO_SECRET': 'test-sso-secret-that-is-longer-than-32-characters',
     }
     result = subprocess.run([sys.executable, '-c', code], cwd=root, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + '\n' + result.stderr
