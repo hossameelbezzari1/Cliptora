@@ -255,3 +255,7 @@
 [2026-10-25 14:42:16] WARNING  cliptora.http: [request:cbef6ca7382c] PATCH /api/v1/library/2 -> 404 (12 ms)
 [2026-10-25 14:42:20] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
 [2026-10-25 17:49:26] WARNING  cliptora.http: [request:ac8631e7c282] POST /api/v1/workflows/2/definitions -> 422 (25 ms)
+[2026-10-26 00:15:45] INFO     cliptora: Logging enabled: C:\xampp\htdocs\CLIPTORA\backend\storage\logs\cliptora.log
+[2026-10-26 00:15:45] INFO     uvicorn.error: Started server process [17652]
+[2026-10-26 00:15:45] INFO     uvicorn.error: Waiting for application startup.
+[2026-10-26 00:15:45] INFO     uvicorn.error: Application startup complete.

@@ -6,7 +6,7 @@ import { btn } from './workflowUI'
 import { flowNodeTypes, type StudioFlowNode } from './WorkflowNodeCard'
 import { WorkflowBottomDeck } from './WorkflowBottomDeck'
 
-export function WorkflowCanvas({ studio }: { studio: WorkflowStudioState }) {
+export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioState; onOpenNode?: (id: string) => void }) {
   const {
     templates, openTemplate, flow, setActiveId, setVersions, setName, setNodes,
     setSelectedId, working, nodes, importInput, importWorkflow, exportWorkflow,
@@ -59,6 +59,11 @@ export function WorkflowCanvas({ studio }: { studio: WorkflowStudioState }) {
           onNodeClick={(_, node) => {
             setSelectedId(node.id)
             setJsonEditor(JSON.stringify(nodes.find(item => item.id === node.id)?.settings ?? {}, null, 2))
+          }}
+          onNodeDoubleClick={(_, node) => {
+            setSelectedId(node.id)
+            setJsonEditor(JSON.stringify(nodes.find(item => item.id === node.id)?.settings ?? {}, null, 2))
+            onOpenNode?.(node.id)
           }}
           onNodeDragStop={(_, node) => updateNode(node.id, { position: node.position })}
           onEdgesDelete={deleted => deleted.forEach(edge => updateNode(edge.target, { depends_on: (nodes.find(node => node.id === edge.target)?.depends_on ?? []).filter(id => id !== edge.source) }))}
