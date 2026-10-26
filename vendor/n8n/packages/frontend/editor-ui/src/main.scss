@@ -1,0 +1,11 @@
+@use '@n8n/chat/css' as chat;
+@use '@/app/css' as app;
+
+/* Modified by CLIPTORA from n8n 2.45.0. See CLIPTORA_FORK.md. */
+:root {
+	--cliptora-brand: #7c3aed;
+	--background--brand: var(--cliptora-brand);
+	--background--brand--hover: #6d28d9;
+	--background--brand--active: #5b21b6;
+	--background--brand--focus: #8b5cf6;
+}

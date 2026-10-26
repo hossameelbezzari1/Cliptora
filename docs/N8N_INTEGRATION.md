@@ -1,9 +1,31 @@
 # CLIPTORA n8n integration
 
-CLIPTORA embeds the genuine self-hosted n8n editor at the existing React route
+CLIPTORA vendors and builds a genuine source fork of n8n at `vendor/n8n`, then embeds that
+self-hosted editor at the existing React route
 `/projects/:id/workflows/:workflowId?element=...`. n8n remains a separate service and owns
 workflow nodes, connections, credentials, executions, logs, and editor behavior. CLIPTORA owns
 only project/Timeline link metadata in `n8n_workflow_links`.
+
+## Fork source and branding
+
+The fork is pinned to upstream tag `n8n@2.45.0`, commit
+`7c79fd09a04e256a6b14bf29a40355a73a17d79d`. Its provenance and modification notice are in
+`vendor/n8n/CLIPTORA_FORK.md`; upstream license and copyright files remain in place.
+
+The Docker build compiles the checked-in monorepo and replaces the application payload in the
+runtime image. It does not run the upstream prebuilt application. CLIPTORA's private custom node is
+then added as a normal n8n extension.
+
+Branding entry points:
+
+- Browser title, metadata, and favicon: `vendor/n8n/packages/frontend/editor-ui/index.html`
+- Favicon artwork: `vendor/n8n/packages/frontend/editor-ui/public/static/cliptora-mark.svg`
+- Editor logo: `vendor/n8n/packages/frontend/@n8n/design-system/src/components/N8nLogo/`
+- Main brand color: `vendor/n8n/packages/frontend/editor-ui/src/main.scss`
+
+The React page uses a same-origin frame because the n8n editor is its own Vue application and
+runtime. This is a transport boundary, not a remote or fake editor: the code displayed inside it is
+the locally compiled fork in `vendor/n8n`.
 
 ## License boundary
 
@@ -17,21 +39,25 @@ customers without written licensing confirmation from n8n.
 - Sustainable Use License: <https://github.com/n8n-io/n8n/blob/master/LICENSE.md>
 - OEM deployment documentation: <https://docs.n8n.io/embed/>
 
-This integration does not remove n8n branding, bypass login, alter frame headers, or implement
-token exchange. It uses n8n's `SAMEORIGIN` protection as shipped. Vite serves `/n8n/` through a
-same-origin reverse proxy and strips the prefix only when forwarding upstream.
+This fork changes CLIPTORA-owned visual branding but does not remove upstream license notices,
+bypass login, alter frame headers, or implement token exchange. It uses n8n's `SAMEORIGIN`
+protection as shipped. Vite serves `/n8n/` through a same-origin reverse proxy and strips the
+prefix only when forwarding upstream.
 
 ## First-time setup (Windows/XAMPP)
 
 Requirements: Docker Desktop, XAMPP MySQL, the normal CLIPTORA frontend/backend dependencies, and
 FFmpeg available on the Windows `PATH`.
 
-1. Start or rebuild the pinned n8n 2.45.0 service from the repository root:
+1. Compile and start the pinned CLIPTORA fork from the repository root:
 
    ```powershell
-   docker compose -f .\docker-compose.n8n.yml up -d --build
+   .\scripts\build-n8n-fork.ps1
    docker compose -f .\docker-compose.n8n.yml logs -f n8n
    ```
+
+   The first source build downloads the monorepo dependencies and can take several minutes. Later
+   builds reuse Docker's pnpm cache. Use `-NoCache` only when intentionally requesting a clean build.
 
    The existing local n8n data is preserved at `C:\n8n`. Override it with `N8N_DATA_DIR` only when
    intentionally choosing another persistent directory. The service binds only to

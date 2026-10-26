@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: deployment/n8n/Dockerfile
-    image: cliptora-n8n:2.45.0
+    image: cliptora-n8n-fork:2.45.0
     container_name: n8n
     restart: unless-stopped
     ports:
