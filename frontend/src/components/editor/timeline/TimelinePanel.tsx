@@ -4,7 +4,6 @@ import { useEditor, canPlace, snapTime, MAX_LAYERS, MIN_CLIP, MAX_TIME, type Dra
 import { api, formatTime } from '../../../lib/api'
 import { probeMediaDuration } from '../../../lib/media'
 import type { Track, Clip, Timeline } from '../../../types'
-import type { WorkflowDefinition } from '../workflows/workflowTypes'
 import { ContextMenu, type MenuState, type ContextAction } from '../../ui/ContextMenu'
 import { effectiveTimelineEnd, repeatOccurrences, type Timing } from '../../../lib/repeat'
 import './timeline-scroll.css'
@@ -994,20 +993,28 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasM
                 window.location.assign(workflowUrl(id))
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not open workflow.') }
         }
+        type N8nWorkflowLink = { id: number; title: string }
         const copyWorkflow = async () => {
             if (!workflowId || !store.projectId) return
             try {
-                const copy = await api<WorkflowDefinition>(`/workflows/${store.projectId}/definitions/${workflowId}/duplicate`, { method: 'POST' })
+                const copy = await api<N8nWorkflowLink>(`/n8n/projects/${store.projectId}/workflows/${workflowId}/duplicate`, {
+                    method: 'POST', body: JSON.stringify({ element_client_id: clip.client_id, title: `${clip.name} Workflow (copy)` }),
+                })
                 await saveTimelineAndOpen(copy.id, copy.id)
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not copy workflow.') }
         }
         const deleteWorkflow = async () => {
-            if (!workflowId || !store.projectId || !window.confirm('Delete this workflow? Empty Elements linked to it will be unlinked.')) return
+            if (!workflowId || !store.projectId) return
+            const deleteUnderlying = window.confirm('Delete the underlying n8n workflow too?\n\nOK deletes it from n8n. Cancel lets you unlink it from this Empty Element instead.')
+            if (!deleteUnderlying && !window.confirm('Unlink the workflow from this Empty Element without deleting it from n8n?')) return
             try {
-                await api<void>(`/workflows/${store.projectId}/definitions/${workflowId}`, { method: 'DELETE' })
-                useEditor.getState().changeTracks(tracks => tracks.map(item => ({ ...item, clips: item.clips.map(candidate =>
-                    candidate.props?.workflow_id === workflowId ? { ...candidate, props: { ...candidate.props, workflow_id: null } } : candidate,
-                ) })))
+                await api<void>(`/n8n/projects/${store.projectId}/workflows/${workflowId}?delete_underlying=${deleteUnderlying}`, { method: 'DELETE' })
+                useEditor.getState().patchProps(clip.client_id, { workflow_id: null })
+                const current = useEditor.getState()
+                const saved = await api<Timeline>(`/projects/${store.projectId}/timeline`, {
+                    method: 'PUT', body: JSON.stringify({ revision: current.revision, tracks: current.tracks }),
+                })
+                current.markSaved(saved.revision)
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not delete workflow.') }
         }
         const actions: ContextAction[] = [

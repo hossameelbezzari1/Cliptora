@@ -1,0 +1,14 @@
+{
+  "name": "n8n-nodes-cliptora",
+  "version": "1.0.0",
+  "description": "Private n8n nodes for CLIPTORA video-processing services",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "nodes/Cliptora/Cliptora.node.js",
+  "files": ["credentials", "nodes"],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": ["credentials/CliptoraApi.credentials.js"],
+    "nodes": ["nodes/Cliptora/Cliptora.node.js"]
+  }
+}

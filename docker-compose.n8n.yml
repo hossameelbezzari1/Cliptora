@@ -1,0 +1,27 @@
+services:
+  n8n:
+    build:
+      context: .
+      dockerfile: deployment/n8n/Dockerfile
+    image: cliptora-n8n:2.45.0
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_PATH: /n8n/
+      N8N_EDITOR_BASE_URL: ${CLIPTORA_PUBLIC_ORIGIN:-http://localhost:5173}/n8n/
+      N8N_WEBHOOK_URL: ${CLIPTORA_PUBLIC_ORIGIN:-http://localhost:5173}/n8n/
+      N8N_PROXY_HOPS: 1
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "true"
+      GENERIC_TIMEZONE: Africa/Casablanca
+      TZ: Africa/Casablanca
+    volumes:
+      - ${N8N_DATA_DIR:-C:/n8n}:/home/node/.n8n

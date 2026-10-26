@@ -36,6 +36,7 @@ WhisperX alignment, Gemini/local-model adapters, hosted voice synthesis, microph
 - `frontend`: `npm run dev`, `npm run typecheck`, `npm run build`.
 - `backend`: `python -m app.init_db`, `python -m uvicorn app.main:app --reload`, `pytest` (requires `requirements-dev.txt`).
 - API docs: `http://127.0.0.1:8000/docs`.
+- Genuine n8n Workflow Page setup: [docs/N8N_INTEGRATION.md](docs/N8N_INTEGRATION.md).
 
 ## MySQL
 
