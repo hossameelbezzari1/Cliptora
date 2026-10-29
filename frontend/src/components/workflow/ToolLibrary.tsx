@@ -1,23 +1,20 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
   Bot,
   BriefcaseBusiness,
   ChevronDown,
-  ChevronsLeftRight,
+  Pencil,
+  Repeat2,
   CircleHelp,
   Clapperboard,
-  Code2,
   Database,
-  FileJson2,
   Film,
   FolderOpen,
   History,
-  GitBranch,
   Globe2,
   Layers3,
-  ListFilter,
   Mic2,
   PlayCircle,
   Search,
@@ -30,7 +27,7 @@ import {
 } from 'lucide-react'
 import type { WorkflowCatalogItem } from './workflowTypes'
 import type { WorkflowStudioState } from './useWorkflowStudio'
-import { iconFor } from './workflowUI'
+import { WorkflowToolIcon } from './WorkflowToolIcon'
 
 type CategoryId =
   | 'ai'
@@ -80,14 +77,14 @@ const PRIMARY_CATEGORIES: CategoryDefinition[] = [
     title: 'Data transformation',
     pageTitle: 'Data transformation',
     description: 'Manipulate, filter or convert data',
-    icon: ChevronsLeftRight,
+    icon: Pencil,
   },
   {
     id: 'flow',
     title: 'Flow',
     pageTitle: 'Flow',
     description: 'Branch, merge or loop the flow, etc.',
-    icon: GitBranch,
+    icon: Repeat2,
   },
   {
     id: 'core',
@@ -197,57 +194,8 @@ function sectionOf(category: CategoryId, item: WorkflowCatalogItem): string {
   return 'Available nodes'
 }
 
-/**
- * Real multicolour brand marks. Iconify's logos collection is SVG, not Lucide.
- * For a fully offline desktop build, copy these SVGs to /public/workflow-logos/
- * and change the BRAND_ASSET_BASE below to '/workflow-logos/'.
- * This UI never pretends an uninstalled connector is runnable.
- */
-const BRAND_ASSET_BASE = 'https://api.iconify.design/logos/'
-const BRANDS: Array<{ test: RegExp; file: string; label: string; letter: string; bg: string }> = [
-  { test: /gmail/, file: 'gmail', label: 'Gmail', letter: 'M', bg: '#ffffff' },
-  { test: /google[ ._-]?sheets|sheets/, file: 'google-sheets', label: 'Google Sheets', letter: 'S', bg: '#16a765' },
-  { test: /excel/, file: 'microsoft-excel', label: 'Microsoft Excel', letter: 'X', bg: '#107c41' },
-  { test: /google[ ._-]?drive/, file: 'google-drive', label: 'Google Drive', letter: 'D', bg: '#ffffff' },
-  { test: /gemini/, file: 'google-gemini', label: 'Google Gemini', letter: '✦', bg: '#796bdf' },
-  { test: /anthropic|claude/, file: 'anthropic-icon', label: 'Anthropic', letter: 'A', bg: '#d87859' },
-  { test: /openai|chatgpt/, file: 'openai-icon', label: 'OpenAI', letter: '◎', bg: '#161616' },
-  { test: /telegram/, file: 'telegram', label: 'Telegram', letter: '➤', bg: '#229ed9' },
-  { test: /notion/, file: 'notion-icon', label: 'Notion', letter: 'N', bg: '#191919' },
-  { test: /slack/, file: 'slack-icon', label: 'Slack', letter: 'S', bg: '#4a154b' },
-  { test: /youtube/, file: 'youtube-icon', label: 'YouTube', letter: '▶', bg: '#ff0033' },
-  { test: /discord/, file: 'discord-icon', label: 'Discord', letter: 'D', bg: '#5865f2' },
-  { test: /dropbox/, file: 'dropbox', label: 'Dropbox', letter: 'D', bg: '#0061ff' },
-  { test: /figma/, file: 'figma', label: 'Figma', letter: 'F', bg: '#ffffff' },
-  { test: /python/, file: 'python', label: 'Python', letter: 'Py', bg: '#316b9c' },
-  { test: /ffmpeg/, file: 'ffmpeg-icon', label: 'FFmpeg', letter: 'F', bg: '#25862a' },
-]
-
-function BrandLogo({ brand }: { brand: (typeof BRANDS)[number] }) {
-  const [failed, setFailed] = useState(false)
-  if (failed) {
-    return (
-      <span aria-label={brand.label} className="grid size-8 shrink-0 place-items-center rounded-[6px] text-[15px] font-extrabold text-white"
-        style={{ backgroundColor: brand.bg, color: brand.bg === '#ffffff' ? '#252525' : '#ffffff' }}>
-        {brand.letter}
-      </span>
-    )
-  }
-  return <img src={`${BRAND_ASSET_BASE}${brand.file}.svg`} alt={brand.label} loading="lazy" draggable={false}
-    onError={() => setFailed(true)} className="size-8 shrink-0 object-contain" />
-}
-
-function iconForTool(item: WorkflowCatalogItem): ReactNode {
-  const text = `${item.type} ${item.label}`.toLowerCase()
-  const brand = BRANDS.find(candidate => candidate.test.test(text))
-  if (brand) return <BrandLogo brand={brand} />
-  if (/json|data/.test(text)) return <FileJson2 size={26} className="text-[#b8b8b8]" />
-  if (/filter|limit/.test(text)) return <ListFilter size={26} className="text-[#b8b8b8]" />
-  if (/if|switch|flow|loop|merge/.test(text)) return <GitBranch size={26} className="text-[#b8b8b8]" />
-  if (/http|webhook/.test(text)) return <Globe2 size={26} className="text-[#b8b8b8]" />
-  if (/code/.test(text)) return <Code2 size={26} className="text-[#b8b8b8]" />
-  if (/database|mysql/.test(text)) return <Database size={26} className="text-[#b8b8b8]" />
-  return <span className="text-[#b8b8b8]">{iconFor(item.type, 26)}</span>
+function iconForTool(item: WorkflowCatalogItem) {
+  return <WorkflowToolIcon type={item.type} label={item.label} size={32} />
 }
 
 /** Discoverability-only entries: NEVER added to the execution registry. */
@@ -282,7 +230,7 @@ const SHOWCASE: Array<WorkflowCatalogItem & { description: string }> = [
 function rowText(item: WorkflowCatalogItem): string {
   const custom = (item as WorkflowCatalogItem & { description?: string }).description
   if (custom?.trim()) return custom
-  if (item.status === 'planned') return 'Backend executor not installed'
+  if (item.status !== 'implemented') return item.availability_reason ?? 'Backend executor not installed'
   const text = `${item.type} ${item.label}`.toLowerCase()
   if (/gmail/.test(text)) return 'Send and receive emails through Gmail'
   if (/excel/.test(text)) return 'Read, write and manage spreadsheets'
@@ -327,7 +275,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     setNodeSearch,
     toolSearchRef,
     addNode,
-    setNodes,
+    setNodesTransient,
     nodes,
     openTemplate,
   } = studio
@@ -371,19 +319,19 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
 
   function goBack() {
     if (page.kind === 'app') goCategory(page.parent)
-    else if (page.kind === 'templates') goCategory('ai')
+    else if (page.kind === 'templates') goHome()
     else if (page.kind === 'workflows' || page.kind === 'alltools') goHome()
     else goHome()
   }
 
   function goApp(item: WorkflowCatalogItem, parent: CategoryId) {
-    if (item.status === 'planned') return
+    if (item.status !== 'implemented') return
     setPage({ kind: 'app', type: item.type, parent })
     setNodeSearch('')
   }
 
   function addItem(item: WorkflowCatalogItem, action?: string) {
-    if (item.status === 'planned') return
+    if (item.status !== 'implemented') return
     if (item.actions?.length && action === undefined) {
       goApp(item, categoryOf(item))
       return
@@ -396,7 +344,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     if (action !== undefined) {
       const property = Object.prototype.hasOwnProperty.call(item.settings, 'action') &&
         !Object.prototype.hasOwnProperty.call(item.settings, 'operation') ? 'action' : 'operation'
-      setNodes(previous => previous.map(node => (
+      setNodesTransient(previous => previous.map(node => (
         node.type === item.type && !previousIds.has(node.id)
           ? { ...node, settings: { ...node.settings, [property]: action } }
           : node
@@ -406,7 +354,8 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
   }
 
   const renderTool = (item: WorkflowCatalogItem, category: CategoryId) => {
-    const disabled = item.status === 'planned'
+    const disabled = item.status !== 'implemented'
+    const statusLabel = item.status === 'unavailable' ? 'Unavailable' : 'Coming soon'
     return (
       <button
         key={item.type}
@@ -418,14 +367,14 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         }}
         onClick={() => item.actions?.length ? goApp(item, category) : addItem(item)}
         disabled={disabled}
-        title={disabled ? 'Available after backend plugin installation' : `Add ${item.label}`}
+        title={disabled ? (item.availability_reason ?? 'Backend executor not installed') : `Add ${item.label}`}
         className={`group flex w-full min-w-0 items-start gap-4 px-5 py-[17px] text-left transition-colors hover:bg-[#f8f8f9] focus-visible:bg-[#f6f2ff] disabled:cursor-not-allowed disabled:opacity-75 ${focusRing}`}
       >
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center" aria-hidden="true">{iconForTool(item)}</span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <strong className="block break-words text-[15px] font-medium leading-6 text-[#202020]">{item.label}</strong>
-            {disabled && <span className="rounded border border-[#e4e4e7] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#777]">Not installed</span>}
+            {disabled && <span className="rounded border border-[#e4e4e7] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#777]">{statusLabel}</span>}
           </span>
           <span className="mt-0.5 block break-words text-[13px] leading-5 text-[#575757]">{rowText(item)}</span>
         </span>
@@ -441,14 +390,14 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         key={category.id}
         type="button"
         onClick={() => goCategory(category.id)}
-        className={`group flex w-full items-start gap-4 px-5 py-[18px] text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}
+        className={`group flex w-full items-center gap-3 border-l-[2px] py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${category.id === 'ai' ? 'border-l-[#222222]' : 'border-l-transparent'} ${focusRing}`}
       >
-        <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Icon size={29} strokeWidth={1.7} /></span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[#bbbbbb]" aria-hidden="true"><Icon size={29} strokeWidth={1.8} /></span>
         <span className="min-w-0 flex-1">
-          <strong className="block text-[17px] font-medium leading-6 text-[#202020]">{category.title}</strong>
+          <strong className="block text-[16px] font-medium leading-6 text-[#202020]">{category.title}</strong>
           <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">{category.description}</span>
         </span>
-        <ArrowRight size={21} className="mt-2 shrink-0 text-[#777] transition-colors group-hover:text-[#8750ff]" />
+        <ArrowRight size={21} strokeWidth={1.8} className="shrink-0 text-[#777] transition-colors group-hover:text-[#8750ff]" />
       </button>
     )
   }
@@ -476,21 +425,21 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     : page.kind === 'app'
       ? currentApp?.label ?? 'Tool actions'
       : page.kind === 'templates'
-        ? 'AI Templates'
+        ? 'Workflow Templates'
         : page.kind === 'workflows'
           ? 'Saved Workflows'
           : page.kind === 'alltools'
             ? 'All Tools'
-        : currentCategory?.pageTitle ?? 'Tools'
+            : currentCategory?.pageTitle ?? 'Tools'
 
   return (
     <aside
       id="ws-tool-library"
       aria-label="Tool Library"
-      className="absolute inset-y-0 left-0 z-40 flex w-[min(400px,calc(100vw-20px))] shrink-0 flex-col overflow-hidden border-r border-[#e5e5e5] bg-white text-[#202020] shadow-[8px_0_28px_#00000018] lg:relative lg:z-auto lg:w-[360px] lg:shadow-none 2xl:w-[400px]"
+      className="absolute inset-y-0 left-0 z-40 flex w-[min(432px,calc(100vw-16px))] shrink-0 flex-col overflow-hidden border-r border-[#e5e5e5] bg-white text-[#202020] shadow-[8px_0_28px_#00000018] lg:relative lg:z-auto lg:w-[432px] lg:shadow-none 2xl:w-[432px]"
     >
       {/* n8n-style page title and back navigation */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-[#e8e8e8] bg-[#fafafa] px-5 py-4">
+      <div className={`group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-5 ${page.kind === 'category' && page.category === 'ai' ? 'min-h-[88px] py-3' : page.kind === 'app' ? 'min-h-[74px] py-3' : 'h-[62px]'}`}>
         {page.kind !== 'home' && (
           <button type="button" onClick={goBack} title="Back" aria-label="Back" className={`-ml-2 grid size-9 shrink-0 place-items-center rounded-md text-[#777] hover:bg-[#eeeeee] hover:text-[#222] ${focusRing}`}>
             <ArrowLeft size={25} strokeWidth={1.9} />
@@ -499,28 +448,28 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         {page.kind === 'category' && currentCategory && <currentCategory.icon size={26} className="shrink-0 text-[#b9b9b9]" strokeWidth={1.7} />}
         {page.kind === 'app' && currentApp && <div className="shrink-0">{iconForTool(currentApp)}</div>}
         <div className="min-w-0 flex-1">
-          <h2 className="break-words text-[23px] font-medium leading-tight tracking-[-0.025em] text-[#151515]">{pageTitle}</h2>
+          <h2 className="break-words text-[21px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
           {page.kind === 'category' && page.category === 'ai' && <p className="mt-2 text-[13px] leading-5 text-[#555]">Select an AI Node to add to your workflow</p>}
           {page.kind === 'app' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
         </div>
-        <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide Tool Library" title="Hide Tool Library" className={`-mr-2 grid size-8 shrink-0 place-items-center rounded-lg text-[#9b9b9b] hover:bg-[#ececec] hover:text-[#222] ${focusRing}`}><X size={18} /></button>
+        <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide Tool Library" title="Hide Tool Library" className={`-mr-2 grid size-8 shrink-0 place-items-center rounded-lg text-[#9b9b9b] opacity-0 transition-opacity hover:bg-[#ececec] hover:text-[#222] group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 ${focusRing}`}><X size={18} /></button>
       </div>
 
       {/* Search always uses the backend catalog, and is scoped to the active page. */}
-      <div className="shrink-0 bg-white px-4 pb-3 pt-[18px]">
-        <label className="flex p-2 items-center gap-3 rounded-lg border border-[#cecece] bg-white px-4 text-[#878787] shadow-sm transition-colors focus-within:border-[#8846ff] focus-within:ring-1 focus-within:ring-[#8846ff]">
-          <Search size={23} strokeWidth={2} className="shrink-0" />
-          <input
-            ref={toolSearchRef}
-            type="search"
-            value={nodeSearch}
-            onChange={event => setNodeSearch(event.target.value)}
-            placeholder={page.kind === 'app' ? 'Search actions...' : page.kind === 'templates' ? 'Search templates...' : page.kind === 'workflows' ? 'Search workflows...' : 'Search nodes...'}
-            aria-label={page.kind === 'app' ? 'Search actions' : page.kind === 'templates' ? 'Search templates' : page.kind === 'workflows' ? 'Search workflows' : 'Search nodes'}
-            className="min-w-0 w-full flex-1 border-0 bg-transparent text-[17px] leading-normal text-[#222] outline-none placeholder:text-[#898989]"
-          />
-        </label>
-      </div>
+
+      <label className="flex h-[45px] items-center gap-[9px] rounded-[6px] border border-[#cfcfcf] bg-white px-[14px] text-[#777777] shadow-[0_5px_15px_rgba(0,0,0,0.035)] transition-colors focus-within:border-[#8e26ff] focus-within:ring-1 focus-within:ring-[#8e26ff]">
+        <Search size={20} strokeWidth={2} className="shrink-0" />
+        <input
+          ref={toolSearchRef}
+          autoFocus
+          type="search"
+          value={nodeSearch}
+          onChange={event => setNodeSearch(event.target.value)}
+          placeholder={page.kind === 'app' ? 'Search actions...' : page.kind === 'templates' ? 'Search templates...' : page.kind === 'workflows' ? 'Search workflows...' : 'Search nodes...aaa'}
+          aria-label={page.kind === 'app' ? 'Search actions' : page.kind === 'templates' ? 'Search templates' : page.kind === 'workflows' ? 'Search workflows' : 'Search nodes'}
+          className="h-full min-w-0 w-full flex-1 border-0 bg-transparent p-0 text-[16px] leading-normal text-[#222] outline-none placeholder:text-[#777]"
+        />
+      </label>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8 [scrollbar-width:thin] [scrollbar-color:#d4d4d8_transparent]">
         {page.kind === 'home' && !isSearch && (
@@ -528,21 +477,32 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
             <nav aria-label="Node categories" className="pt-1">
               {PRIMARY_CATEGORIES.map(renderCategory)}
             </nav>
-            <div className="mx-5 my-4 border-t border-[#e6e6e6]" />
+            <div className="ml-5 mr-4 my-4 border-t border-[#dedede]" />
             {renderCategory(TRIGGER_CATEGORY)}
-            <div className="mx-5 my-4 border-t border-[#e6e6e6]" />
+            {templates.length > 0 && (
+              <button type="button" onClick={() => { setPage({ kind: 'templates' }); setNodeSearch('') }}
+                className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Layers3 size={29} strokeWidth={1.7} /></span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block text-[16px] font-medium leading-6 text-[#202020]">Workflow Templates</strong>
+                  <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Start with a ready-made set of connected nodes</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{templates.length}</span><ArrowRight size={21} /></span>
+              </button>
+            )}
+            <div className="mx-5 mb-4 mt-[76px] border-t border-[#e6e6e6]" />
             <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#969696]">CLIPTORA tools</p>
             {CLIPTORA_CATEGORIES.map(renderCategory)}
             <div className="mx-5 my-4 border-t border-[#e6e6e6]" />
             <button type="button" onClick={() => { setPage({ kind: 'workflows' }); setNodeSearch('') }}
-              className={`group flex w-full items-start gap-4 px-5 py-[18px] text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
+              className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><FolderOpen size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">Saved Workflows</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Open saved workflows and restore previous versions</span></span>
               <span className="mt-1 flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{definitions.length}</span><ArrowRight size={21} /></span>
             </button>
             <button type="button" onClick={() => { setPage({ kind: 'alltools' }); setNodeSearch(''); setNodeGroup('All') }}
-              className={`group flex w-full items-start gap-4 px-5 py-[18px] text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
+              className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Database size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">All tools</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Browse tools by their original backend groups</span></span>
@@ -555,19 +515,6 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
           <>
             <p className="px-5 pb-2 pt-3 text-[12px] text-[#777]">{filtered.length} matching nodes</p>
             {filtered.map(item => renderTool(item, categoryOf(item)))}
-          </>
-        )}
-
-        {page.kind === 'category' && page.category === 'ai' && !isSearch && templates.length > 0 && (
-          <>
-            <button type="button" onClick={() => { setPage({ kind: 'templates' }); setNodeSearch('') }} className={`group flex w-full items-start gap-4 border-b border-[#e6e6e6] px-5 py-[15px] text-left hover:bg-[#f8f8f9] ${focusRing}`}>
-              <span className="mt-1 grid size-9 shrink-0 place-items-center text-[#6f6f6f]"><Layers3 size={25} /></span>
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2"><strong className="text-[15px] font-medium text-[#202020]">AI Templates</strong><span className="rounded border border-[#dedede] bg-white px-1.5 py-0.5 text-[11px] font-medium text-[#555]">Recommended</span></span>
-                <span className="mt-0.5 block text-[13px] leading-5 text-[#555]">See what's possible and get started 5x faster</span>
-              </span>
-              <ArrowRight size={19} className="mt-2 text-[#777]" />
-            </button>
           </>
         )}
 
@@ -675,7 +622,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
           </>
         )}
 
-        {page.kind !== 'home' && page.kind !== 'templates' && filtered.length === 0 && !(page.kind === 'category' && page.category === 'ai' && templates.length > 0) && (
+        {page.kind !== 'home' && page.kind !== 'templates' && filtered.length === 0 && (
           <div className="mx-5 mt-5 rounded-xl border border-dashed border-[#dfdfdf] px-5 py-7 text-center">
             <CircleHelp size={23} className="mx-auto mb-2 text-[#b0b0b0]" />
             <p className="text-[13px] font-medium text-[#484848]">{isSearch ? 'No matching nodes' : 'No tools registered in this category'}</p>

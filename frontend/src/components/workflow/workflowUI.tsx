@@ -1,7 +1,7 @@
 import { AudioLines, Captions, Film, GitBranch, Move3D, Scissors, Sparkles } from 'lucide-react'
 import type { WorkflowNode } from './workflowTypes'
 
-export const CONDS: WorkflowNode['when'][] = ['always', 'has_video', 'has_transcript', 'ai_enabled']
+export const CONDS: WorkflowNode['when'][] = ['always', 'has_video', 'has_transcript', 'ai_enabled', 'condition_true', 'condition_false']
 export const card = 'rounded-xl border border-[#e5e7eb] bg-white shadow-sm'
 export const btn = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-xs font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-45'
 export const accent = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[#171717] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#333] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-45'

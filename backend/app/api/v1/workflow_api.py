@@ -29,7 +29,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.core.database import Base, SessionLocal, engine, get_db
 from app.core.security import current_user
 from app.models import MediaAsset, User
-from app.services.workflow_core import preset_templates, probe, run_graph, tool_catalog, validate_workflow
+from app.services.workflow_core import execution_nodes, preset_templates, probe, run_graph, tool_catalog, validate_workflow
 
 router = APIRouter(prefix="/workflows", tags=["Dynamic Workflows"])
 _schema_lock = Lock()
@@ -175,6 +175,7 @@ class DefinitionBody(BaseModel):
 class StartRun(BaseModel):
     workflow_id: int = Field(ge=1)
     source_id: int | None = Field(default=None, ge=1)
+    target_node_id: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,47}$")
 
 
 @router.get("/catalog")
@@ -416,12 +417,28 @@ def process_run(run_id: int) -> None:
 def start_run(project_id: int, body: StartRun, background: BackgroundTasks, db: Session = Depends(wf_db), user: User = Depends(current_user)):
     authorize(db, project_id, user.id)
     definition = owner(db, WorkflowDefinition, body.workflow_id, user.id, project_id)
-    if body.source_id is not None:
-        owner(db, WorkflowSource, body.source_id, user.id, project_id)
-    nodes = json.loads(definition.nodes_json)
-    if body.source_id is None and any(node["type"] in ("media.probe", "audio.extract", "video.render") and node.get("when") != "has_video" for node in nodes):
+    try:
+        nodes = execution_nodes(json.loads(definition.nodes_json), body.target_node_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    node_source_ids = {
+        node.get("settings", {}).get("source_id") for node in nodes
+        if node.get("type") == "core.video_source" and node.get("settings", {}).get("source_id") is not None
+    }
+    if len(node_source_ids) > 1:
+        raise HTTPException(422, "A workflow can use only one Source Video")
+    node_source_id = next(iter(node_source_ids), None)
+    if node_source_id is not None and (not isinstance(node_source_id, int) or node_source_id < 1):
+        raise HTTPException(422, "Source Video has an invalid source")
+    if body.source_id is not None and node_source_id is not None and body.source_id != node_source_id:
+        raise HTTPException(422, "Run source does not match the Source Video node")
+    source_id = node_source_id if node_source_id is not None else body.source_id
+    if source_id is not None:
+        owner(db, WorkflowSource, source_id, user.id, project_id)
+    if source_id is None and any(node["type"] in ("core.video_source", "media.probe", "audio.extract", "video.render") and node.get("when") != "has_video" for node in nodes):
         raise HTTPException(422, "This workflow requires a source video. Upload/select one first")
-    row = WorkflowRun(user_id=user.id, project_id=project_id, workflow_id=definition.id, source_id=body.source_id, workflow_json=definition.nodes_json, results_json="{}")
+    row = WorkflowRun(user_id=user.id, project_id=project_id, workflow_id=definition.id, source_id=source_id,
+                      workflow_json=json.dumps(nodes, ensure_ascii=False), results_json="{}")
     db.add(row)
     db.commit()
     db.refresh(row)

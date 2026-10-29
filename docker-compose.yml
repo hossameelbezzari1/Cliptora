@@ -88,6 +88,9 @@ services:
       N8N_API_KEY_FILE: /run/cliptora/n8n_api_key
       CLIPTORA_N8N_SERVICE_TOKEN: ${CLIPTORA_N8N_SERVICE_TOKEN:-cliptora-local-service-token-change-me}
       CLIPTORA_N8N_SSO_SECRET: ${CLIPTORA_N8N_SSO_SECRET:-cliptora-local-sso-secret-change-me-32}
+      CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS: ${CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CLIPTORA_OPENAI_MODEL: ${CLIPTORA_OPENAI_MODEL:-gpt-4o-mini}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

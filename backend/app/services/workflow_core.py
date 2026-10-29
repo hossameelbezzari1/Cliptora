@@ -7,14 +7,18 @@ and checked by the API. FFmpeg and faster-whisper are optional system dependenci
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import math
 import os
 import re
+import socket
 import subprocess
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
@@ -22,6 +26,75 @@ MAX_NODES = 100
 MAX_CUTS = 36
 MAX_TARGET_SECONDS = 1800
 NODE_TYPES: dict[str, dict[str, Any]] = {
+    "core.manual_trigger": {"label": "Manual Trigger", "group": "Triggers", "settings": {}},
+    "core.video_source": {
+        "label": "Source Video", "group": "Video & Media", "settings": {"source_id": None},
+        "actions": [],
+        "parameters_schema": {"type": "object", "properties": {
+            "source_id": {"type": "integer", "title": "Workflow source"},
+        }},
+    },
+    "flow.if": {
+        "label": "IF", "group": "Flow",
+        "settings": {"path": "", "operator": "truthy", "value": ""},
+        "parameters_schema": {"type": "object", "properties": {
+            "path": {"type": "string", "title": "Input path"},
+            "operator": {"type": "string", "title": "Operator", "enum": ["truthy", "exists", "equals", "not_equals", "contains", "greater_than", "less_than"]},
+            "value": {"type": "string", "title": "Comparison value"},
+        }},
+    },
+    "flow.switch": {
+        "label": "Switch", "group": "Flow",
+        "settings": {"path": "", "operator": "equals", "rules": [{"value": "", "route": 0}]},
+        "parameters_schema": {"type": "object", "properties": {
+            "path": {"type": "string", "title": "Input path", "description": "Dot path including the upstream node ID."},
+            "operator": {"type": "string", "title": "Operator", "enum": ["equals", "not_equals", "contains", "greater_than", "less_than", "exists", "truthy"]},
+            "rules": {"type": "array", "title": "Routing rules", "description": "Ordered JSON rules: [{\"value\":\"paid\",\"route\":0}]. Routes 0-4 are supported."},
+        }},
+    },
+    "flow.merge": {
+        "label": "Merge", "group": "Flow",
+        "settings": {"mode": "append"},
+        "parameters_schema": {"type": "object", "properties": {
+            "mode": {"type": "string", "title": "Merge mode", "enum": ["append", "combine", "choose_first"]},
+        }},
+    },
+    "data.filter": {
+        "label": "Filter", "group": "Data transformation",
+        "settings": {"path": "", "field": "", "operator": "truthy", "value": ""},
+        "parameters_schema": {"type": "object", "properties": {
+            "path": {"type": "string", "title": "Items path", "description": "Dot path to an array, including the upstream node ID."},
+            "field": {"type": "string", "title": "Item field", "description": "Optional dot path inside each item."},
+            "operator": {"type": "string", "title": "Operator", "enum": ["truthy", "exists", "equals", "not_equals", "contains", "greater_than", "less_than"]},
+            "value": {"type": "string", "title": "Comparison value"},
+        }},
+    },
+    "core.http_request": {
+        "label": "HTTP Request", "group": "Action in an app",
+        "settings": {"method": "GET", "url": "", "query": {}, "headers": {}, "body": {}, "timeout_seconds": 30, "response_format": "auto"},
+        "parameters_schema": {"type": "object", "properties": {
+            "method": {"type": "string", "title": "Method", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]},
+            "url": {"type": "string", "title": "HTTPS URL", "description": "The hostname must be listed in CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS."},
+            "query": {"type": "object", "title": "Query parameters"},
+            "headers": {"type": "object", "title": "Headers", "description": "Secret-bearing headers are blocked; use the credential vault when available."},
+            "body": {"type": "object", "title": "JSON body"},
+            "timeout_seconds": {"type": "integer", "title": "Timeout (seconds)", "minimum": 1, "maximum": 120},
+            "response_format": {"type": "string", "title": "Response format", "enum": ["auto", "json", "text"]},
+        }},
+    },
+    "ai.openai": {
+        "label": "OpenAI", "group": "AI",
+        "settings": {"model": "gpt-4o-mini", "system_prompt": "You are a helpful assistant.", "prompt": "", "input_path": "", "temperature": 0.2, "max_output_tokens": 1000},
+        "parameters_schema": {"type": "object", "properties": {
+            "model": {"type": "string", "title": "Model"},
+            "system_prompt": {"type": "string", "title": "System prompt"},
+            "prompt": {"type": "string", "title": "Prompt"},
+            "input_path": {"type": "string", "title": "Optional input path", "description": "Append JSON data from this upstream dot path to the prompt."},
+            "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
+            "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 16000},
+        }},
+        "credentials": ["OPENAI_API_KEY"],
+    },
     "media.probe": {"label": "Inspect Video", "group": "Analysis", "settings": {}},
     "audio.extract": {"label": "Extract Audio", "group": "Analysis", "settings": {}},
     "audio.transcribe": {"label": "Transcribe Every Word", "group": "Analysis", "settings": {"model": "small", "language": None}},
@@ -50,12 +123,26 @@ PROPOSED_TOOL_GROUPS: dict[str, list[str]] = {
 }
 
 
+@lru_cache(maxsize=1)
+def n8n_node_catalog() -> list[dict[str, Any]]:
+    manifest = Path(__file__).resolve().parents[1] / "workflows" / "registry" / "n8n_nodes.json"
+    if not manifest.is_file():
+        return []
+    try:
+        rows = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RuntimeError("The generated n8n node registry is invalid") from exc
+    if not isinstance(rows, list) or any(not isinstance(item, dict) for item in rows):
+        raise RuntimeError("The generated n8n node registry must be a list")
+    return rows
+
+
 def tool_catalog() -> list[dict[str, Any]]:
     implemented = [{
         "type": key, **value, "status": "implemented", "priority": "P0",
-        "icon": key.split(".", 1)[0], "actions": ["run"],
+        "icon": key.split(".", 1)[0], "actions": value.get("actions", ["run"]),
         "input_types": [], "output_types": ["json"],
-        "parameters_schema": value.get("settings", {}), "credentials": [],
+        "parameters_schema": value.get("parameters_schema", value.get("settings", {})), "credentials": value.get("credentials", []),
         "backend_executor": f"workflow_core.call_node:{key}",
     } for key, value in NODE_TYPES.items()]
     used_labels = {item["label"].casefold() for item in implemented}
@@ -72,7 +159,9 @@ def tool_catalog() -> list[dict[str, Any]]:
                 "input_types": [], "output_types": [], "parameters_schema": {},
                 "credentials": [], "backend_executor": None,
             })
-    return implemented + proposed
+    known_types = {item["type"] for item in implemented + proposed}
+    compatible_inventory = [item for item in n8n_node_catalog() if item.get("type") not in known_types]
+    return implemented + proposed + compatible_inventory
 
 
 def _n(id: str, kind: str, depends: list[str] | None = None, settings: dict | None = None) -> dict:
@@ -83,7 +172,7 @@ def _n(id: str, kind: str, depends: list[str] | None = None, settings: dict | No
 def preset_templates() -> list[dict]:
     return [
         {"key": "movie-recap", "name": "Movie Recap", "description": "Full dialogue → highlights → recap script → editable cut plan and captions", "nodes": [
-            _n("probe", "media.probe"), _n("audio", "audio.extract", ["probe"]),
+            _n("trigger", "core.manual_trigger"), _n("probe", "media.probe", ["trigger"]), _n("audio", "audio.extract", ["probe"]),
             _n("words", "audio.transcribe", ["audio"], {"model": "small", "language": None}),
             _n("moments", "ai.highlights", ["words"], {"mode": "offline", "target_duration": 600, "strategy": "story_recap"}),
             _n("cuts", "timeline.cut_plan", ["moments"], {"padding": 0.16}),
@@ -92,7 +181,7 @@ def preset_templates() -> list[dict]:
             _n("render", "video.render", ["cuts", "probe"], {"enabled": False, "aspect_ratio": "original"}),
         ]},
         {"key": "shorts", "name": "Shorts / Reels", "description": "Find a strong hook → 9:16 crop → captions → short video", "nodes": [
-            _n("probe", "media.probe"), _n("audio", "audio.extract", ["probe"]),
+            _n("trigger", "core.manual_trigger"), _n("probe", "media.probe", ["trigger"]), _n("audio", "audio.extract", ["probe"]),
             _n("words", "audio.transcribe", ["audio"], {"model": "small", "language": None}),
             _n("moments", "ai.highlights", ["words"], {"mode": "offline", "target_duration": 45, "strategy": "shorts_hook"}),
             _n("cuts", "timeline.cut_plan", ["moments"], {"padding": 0.12}),
@@ -100,11 +189,12 @@ def preset_templates() -> list[dict]:
             _n("render", "video.render", ["cuts", "probe"], {"enabled": False, "aspect_ratio": "9:16"}),
         ]},
         {"key": "mini-animation", "name": "Mini Animation", "description": "Script → editable scenes → animation keyframes; use the editor for final rendering", "nodes": [
-            _n("storyboard", "animation.storyboard", [], {"script": "Your first scene.\nYour second scene.", "scene_seconds": 4}),
+            _n("trigger", "core.manual_trigger"),
+            _n("storyboard", "animation.storyboard", ["trigger"], {"script": "Your first scene.\nYour second scene.", "scene_seconds": 4}),
             _n("keyframes", "animation.keyframes", ["storyboard"], {"preset": "fade-pop"}),
         ]},
         {"key": "podcast", "name": "Podcast Clips", "description": "Podcast video → word timestamps → strongest segments → captions → editable clips", "nodes": [
-            _n("probe", "media.probe"), _n("audio", "audio.extract", ["probe"]),
+            _n("trigger", "core.manual_trigger"), _n("probe", "media.probe", ["trigger"]), _n("audio", "audio.extract", ["probe"]),
             _n("words", "audio.transcribe", ["audio"], {"model": "small", "language": None}),
             _n("moments", "ai.highlights", ["words"], {"mode": "offline", "target_duration": 120, "strategy": "podcast_clips"}),
             _n("cuts", "timeline.cut_plan", ["moments", "probe"], {"padding": 0.12}),
@@ -131,7 +221,7 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
         deps = node.get("depends_on", [])
         if not isinstance(deps, list) or len(deps) > MAX_NODES or any(not isinstance(d, str) for d in deps) or len(deps) != len(set(deps)):
             raise ValueError(f"Invalid dependencies for {ident}")
-        if node.get("when", "always") not in ("always", "has_video", "has_transcript", "ai_enabled"):
+        if node.get("when", "always") not in ("always", "has_video", "has_transcript", "ai_enabled", "condition_true", "condition_false", "route_0", "route_1", "route_2", "route_3", "route_4", "route_fallback"):
             raise ValueError(f"Invalid condition for {ident}")
         settings = node.get("settings", {})
         if not isinstance(settings, dict) or len(json.dumps(settings, ensure_ascii=False)) > 200_000:
@@ -168,6 +258,27 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
     return ordered
 
 
+def execution_nodes(nodes: list[dict[str, Any]], target_node_id: str | None) -> list[dict[str, Any]]:
+    """Return the full validated graph, or one node and its transitive dependencies."""
+    validated = validate_workflow(nodes)
+    if target_node_id is None:
+        return validated
+    by_id = {node["id"]: node for node in validated}
+    if target_node_id not in by_id:
+        raise ValueError("Target node does not exist in this workflow")
+    required: set[str] = set()
+
+    def include(node_id: str) -> None:
+        if node_id in required:
+            return
+        required.add(node_id)
+        for dependency in by_id[node_id]["depends_on"]:
+            include(dependency)
+
+    include(target_node_id)
+    return [node for node in validated if node["id"] in required]
+
+
 def tool(*args: str, timeout: int = 120) -> str:
     try:
         process = subprocess.run(list(args), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False)
@@ -192,6 +303,55 @@ def get_input(outputs: dict[str, Any], key: str) -> Any:
         if isinstance(item, dict) and key in item:
             return item[key]
     return None
+
+
+def input_path(outputs: dict[str, Any], path: str) -> Any:
+    """Resolve a bounded dot path from dependency output, including the dependency ID."""
+    parts = [part for part in path.strip().split(".") if part]
+    if not parts or len(parts) > 16 or any(not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", part) for part in parts):
+        raise ValueError("IF input path must be a dot path such as node_id.result.value")
+    value: Any = outputs
+    for part in parts:
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+        elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+            value = value[int(part)]
+        else:
+            return None
+    return value
+
+
+def compare_value(actual: Any, operator: str, expected: Any) -> bool:
+    if operator == "exists":
+        return actual is not None
+    if operator == "truthy":
+        return bool(actual)
+    if operator == "contains":
+        return str(expected) in str(actual) if actual is not None else False
+    if operator in ("greater_than", "less_than"):
+        try:
+            left, right = float(actual), float(expected)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("IF numeric comparison requires numeric values") from exc
+        if not math.isfinite(left) or not math.isfinite(right):
+            raise ValueError("IF numeric comparison requires finite values")
+        return left > right if operator == "greater_than" else left < right
+    if isinstance(actual, bool):
+        normalized = str(expected).strip().casefold()
+        if normalized not in ("true", "false"):
+            raise ValueError("IF boolean comparison value must be true or false")
+        expected = normalized == "true"
+    elif isinstance(actual, (int, float)) and not isinstance(actual, bool):
+        try:
+            expected = float(expected)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("IF comparison value must be numeric") from exc
+    equal = actual == expected
+    if operator == "equals":
+        return equal
+    if operator == "not_equals":
+        return not equal
+    raise ValueError("Unsupported IF operator")
 
 
 def as_words(items: Any) -> list[dict]:
@@ -297,12 +457,202 @@ def openai_json(prompt: str, transcript: str, schema: dict) -> dict:
         raise RuntimeError(f"AI provider failed: {str(exc)[:200]}") from exc
 
 
+def openai_chat(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is missing from the backend environment")
+    model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-4o-mini")).strip()
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
+        raise ValueError("OpenAI model name is invalid")
+    prompt = str(cfg.get("prompt", "")).strip()
+    input_path_value = str(cfg.get("input_path", "")).strip()
+    if input_path_value:
+        input_value = input_path(outputs, input_path_value)
+        prompt = f"{prompt}\n\nInput data:\n{json.dumps(input_value, ensure_ascii=False, separators=(',', ':'))}"
+    if not prompt or len(prompt) > 200_000:
+        raise ValueError("OpenAI prompt must contain between 1 and 200,000 characters")
+    system_prompt = str(cfg.get("system_prompt", "You are a helpful assistant."))[:20_000]
+    temperature = float(cfg.get("temperature", 0.2))
+    max_tokens = int(cfg.get("max_output_tokens", 1000))
+    if not math.isfinite(temperature) or not 0 <= temperature <= 2:
+        raise ValueError("OpenAI temperature must be between 0 and 2")
+    if not 1 <= max_tokens <= 16_000:
+        raise ValueError("OpenAI maximum output tokens must be between 1 and 16,000")
+    payload = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}], "temperature": temperature, "max_tokens": max_tokens}
+    request = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=json.dumps(payload).encode("utf-8"), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "CLIPTORA-Workflow/1.0"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            result = json.load(response)
+        choice = result["choices"][0]
+        return {"text": str(choice["message"]["content"]), "model": str(result.get("model", model)), "usage": result.get("usage", {}), "finish_reason": choice.get("finish_reason")}
+    except (urllib.error.HTTPError, urllib.error.URLError, ValueError, KeyError, IndexError) as exc:
+        raise RuntimeError(f"OpenAI request failed: {str(exc)[:200]}") from exc
+
+
 HIGHLIGHTS_SCHEMA = {"type": "object", "properties": {"highlights": {"type": "array", "items": {"type": "object", "properties": {"start_word_id": {"type": "integer"}, "end_word_id": {"type": "integer"}, "score": {"type": "integer"}, "reason": {"type": "string"}}, "required": ["start_word_id", "end_word_id", "score", "reason"], "additionalProperties": False}}}, "required": ["highlights"], "additionalProperties": False}
 SUMMARY_SCHEMA = {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"], "additionalProperties": False}
 
 
+def value_path(value: Any, path: str) -> Any:
+    """Resolve a bounded dot path inside JSON-compatible data without eval."""
+    if not path:
+        return value
+    parts = path.strip().split(".")
+    if len(parts) > 16 or any(not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", part) for part in parts):
+        raise ValueError("Field must be a safe dot path")
+    for part in parts:
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+        elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+            value = value[int(part)]
+        else:
+            return None
+    return value
+
+
+def safe_workflow_http_url(raw_url: str, query: Any = None) -> str:
+    """Validate an outbound integration URL against an explicit HTTPS allowlist."""
+    if not isinstance(raw_url, str) or len(raw_url) > 2048:
+        raise ValueError("HTTP Request URL is invalid")
+    parsed = urllib.parse.urlsplit(raw_url.strip())
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("HTTP Request requires an HTTPS URL without credentials or fragments")
+    if parsed.port not in (None, 443):
+        raise ValueError("HTTP Request only supports HTTPS port 443")
+    allowed = {host.strip().casefold() for host in os.environ.get("CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS", "").split(",") if host.strip()}
+    if parsed.hostname.casefold() not in allowed:
+        raise ValueError("HTTP Request host is not in CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS")
+    addresses = socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM)
+    if not addresses or any(not ipaddress.ip_address(address[4][0]).is_global for address in addresses):
+        raise ValueError("HTTP Request blocks private, local, reserved and loopback addresses")
+    pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    if query not in (None, {}):
+        if not isinstance(query, dict) or len(query) > 100:
+            raise ValueError("HTTP Request query must be an object with at most 100 fields")
+        for key, value in query.items():
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+            pairs.append((str(key)[:200], str(value)[:4000]))
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", urllib.parse.urlencode(pairs), ""))
+
+
+class NoWorkflowRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("HTTP Request redirects are disabled")
+
+
+def execute_http_request(cfg: dict[str, Any]) -> dict[str, Any]:
+    url = safe_workflow_http_url(str(cfg.get("url", "")), cfg.get("query", {}))
+    method = str(cfg.get("method", "GET")).upper()
+    if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+        raise ValueError("Unsupported HTTP method")
+    timeout = int(cfg.get("timeout_seconds", 30))
+    if not 1 <= timeout <= 120:
+        raise ValueError("HTTP timeout must be between 1 and 120 seconds")
+    raw_headers = cfg.get("headers", {})
+    if not isinstance(raw_headers, dict) or len(raw_headers) > 50:
+        raise ValueError("HTTP headers must be an object with at most 50 fields")
+    blocked = {"authorization", "proxy-authorization", "cookie", "set-cookie", "host", "content-length"}
+    headers = {"Accept": "application/json, text/plain;q=0.9", "User-Agent": "CLIPTORA-Workflow/1.0"}
+    for key, value in raw_headers.items():
+        name = str(key).strip()
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", name) or name.casefold() in blocked:
+            raise ValueError(f"HTTP header is not allowed: {name}")
+        text = str(value)
+        if "\r" in text or "\n" in text or len(text) > 4000:
+            raise ValueError(f"HTTP header value is invalid: {name}")
+        headers[name] = text
+    data = None
+    if method in {"POST", "PUT", "PATCH"}:
+        data = json.dumps(cfg.get("body", {}), ensure_ascii=False, allow_nan=False).encode("utf-8")
+        if len(data) > 1_000_000:
+            raise ValueError("HTTP request body exceeds 1 MB")
+        headers.setdefault("Content-Type", "application/json")
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        response = urllib.request.build_opener(NoWorkflowRedirect()).open(request, timeout=timeout)
+        with response:
+            raw = response.read(5_000_001)
+            if len(raw) > 5_000_000:
+                raise ValueError("HTTP response exceeds 5 MB")
+            content_type = response.headers.get_content_type()
+            charset = response.headers.get_content_charset() or "utf-8"
+            response_format = str(cfg.get("response_format", "auto"))
+            if response_format not in {"auto", "json", "text"}:
+                raise ValueError("HTTP response format must be auto, json or text")
+            if response_format == "json" or (response_format == "auto" and content_type == "application/json"):
+                body: Any = json.loads(raw.decode(charset)) if raw else None
+            else:
+                body = raw.decode(charset, errors="replace")
+            return {"response": {"status": response.status, "url": url, "content_type": content_type, "body": body}}
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"HTTP Request failed with status {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"HTTP Request transport failed: {exc.reason}") from exc
+
+
 def call_node(node: dict, outputs: dict[str, Any], source: Path | None, workdir: Path) -> dict:
     kind, cfg = node["type"], node.get("settings", {})
+    if kind == "core.manual_trigger":
+        return {"trigger": {"type": "manual", "status": "received"}}
+    if kind == "core.video_source":
+        if source is None:
+            raise ValueError("Source Video requires a selected video")
+        return {"source": {"filename": source.name, "size_bytes": source.stat().st_size}}
+    if kind == "flow.if":
+        operator = str(cfg.get("operator", "truthy"))
+        actual = input_path(outputs, str(cfg.get("path", "")))
+        condition = compare_value(actual, operator, cfg.get("value", ""))
+        return {"condition": condition, "operator": operator, "path": str(cfg.get("path", "")), "actual": actual}
+    if kind == "flow.switch":
+        actual = input_path(outputs, str(cfg.get("path", "")))
+        operator = str(cfg.get("operator", "equals"))
+        rules = cfg.get("rules", [])
+        if not isinstance(rules, list) or not 1 <= len(rules) <= 20:
+            raise ValueError("Switch requires between 1 and 20 rules")
+        route = None
+        for rule in rules:
+            if not isinstance(rule, dict) or not isinstance(rule.get("route"), int) or not 0 <= rule["route"] <= 4:
+                raise ValueError("Switch routes must be integers from 0 to 4")
+            if compare_value(actual, operator, rule.get("value", "")):
+                route = rule["route"]
+                break
+        return {"route": route, "matched": route is not None, "operator": operator, "actual": actual}
+    if kind == "flow.merge":
+        mode = str(cfg.get("mode", "append"))
+        values = list(outputs.values())
+        if len(values) < 2:
+            raise ValueError("Merge requires at least two connected inputs")
+        if mode == "choose_first":
+            return {"items": values[0], "mode": mode, "input_count": len(values)}
+        if mode == "combine":
+            combined: dict[str, Any] = {}
+            for dependency_id, value in outputs.items():
+                if not isinstance(value, dict):
+                    raise ValueError(f"Merge combine requires object input from {dependency_id}")
+                combined.update(value)
+            return {"items": combined, "mode": mode, "input_count": len(values)}
+        if mode == "append":
+            appended: list[Any] = []
+            for value in values:
+                candidate = value.get("items") if isinstance(value, dict) and "items" in value else value
+                appended.extend(candidate if isinstance(candidate, list) else [candidate])
+            return {"items": appended, "mode": mode, "input_count": len(values)}
+        raise ValueError("Merge mode must be append, combine or choose_first")
+    if kind == "data.filter":
+        items = input_path(outputs, str(cfg.get("path", "")))
+        if not isinstance(items, list):
+            raise ValueError("Filter items path must resolve to an array")
+        if len(items) > 100_000:
+            raise ValueError("Filter input exceeds 100,000 items")
+        field = str(cfg.get("field", ""))
+        operator = str(cfg.get("operator", "truthy"))
+        kept = [item for item in items if compare_value(value_path(item, field), operator, cfg.get("value", ""))]
+        return {"items": kept, "matched_count": len(kept), "input_count": len(items)}
+    if kind == "core.http_request":
+        return execute_http_request(cfg)
+    if kind == "ai.openai":
+        return openai_chat(cfg, outputs)
     if kind == "media.probe":
         if source is None:
             raise ValueError("Select a video source first")
@@ -492,7 +842,9 @@ def run_graph(nodes: list[dict], source: Path | None, workspace: Path, update: C
         deps = {key: outputs[key] for key in node["depends_on"] if key in outputs}
         has_video = source is not None
         condition = node.get("when", "always")
-        satisfied = condition == "always" or (condition == "has_video" and has_video) or (condition == "has_transcript" and get_input(deps, "words") is not None) or (condition == "ai_enabled" and bool(os.environ.get("OPENAI_API_KEY")))
+        branch_condition = get_input(deps, "condition")
+        switch_route = get_input(deps, "route")
+        satisfied = condition == "always" or (condition == "has_video" and has_video) or (condition == "has_transcript" and get_input(deps, "words") is not None) or (condition == "ai_enabled" and bool(os.environ.get("OPENAI_API_KEY"))) or (condition == "condition_true" and branch_condition is True) or (condition == "condition_false" and branch_condition is False) or (condition.startswith("route_") and condition != "route_fallback" and switch_route == int(condition.removeprefix("route_"))) or (condition == "route_fallback" and switch_route is None)
         if not satisfied or len(deps) != len(node["depends_on"]):
             summary[node["id"]] = {"state": "skipped", "type": node["type"]}
             update(int(100 * (index + 1) / len(ordered)), node["id"], summary)

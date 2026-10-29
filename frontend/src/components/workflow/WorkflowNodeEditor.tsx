@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { createPortal } from 'react-dom'
 import {
   ArrowLeft, ArrowRight, Check, CircleAlert, Database,
-  LoaderCircle, Play, Plus, RefreshCw, Settings2, X,
+  Film, FolderOpen, LoaderCircle, Play, Plus, RefreshCw, Settings2, Upload, X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { WorkflowNode } from './workflowTypes'
 import type { WorkflowStudioState } from './useWorkflowStudio'
-import { iconFor } from './workflowUI'
+import { WorkflowToolIcon } from './WorkflowToolIcon'
+import { mediaName } from '../editor/library/mediaLibraryUtils'
 
 type Props = {
   studio: WorkflowStudioState
@@ -35,25 +36,11 @@ const inputClass = 'min-h-10 w-full rounded-lg border border-[#dedede] bg-white 
 const lightButton = 'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#e3e3e3] bg-white px-3 text-xs font-medium text-[#202020] shadow-sm transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-45'
 const getObject = (value: unknown): JsonObject => value && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {}
 const isExcel = (value: string) => /excel|workbook/i.test(value)
-const providerLogo = (value: string): string | null => {
-  const text = value.toLowerCase()
-  if (/microsoft.excel|excel|workbook/.test(text)) return 'https://api.iconify.design/logos/microsoft-excel.svg'
-  if (/gmail/.test(text)) return 'https://api.iconify.design/logos/google-gmail.svg'
-  if (/google.sheets/.test(text)) return 'https://api.iconify.design/logos/google-sheets.svg'
-  if (/gemini/.test(text)) return 'https://api.iconify.design/logos/google-gemini.svg'
-  if (/openai/.test(text)) return 'https://api.iconify.design/logos/openai-icon.svg'
-  if (/telegram/.test(text)) return 'https://api.iconify.design/logos/telegram.svg'
-  return null
-}
 const titleize = (name: string) => name.replace(/[_-]/g, ' ').replace(/\b\w/g, s => s.toUpperCase())
 const formatJSON = (value: unknown) => JSON.stringify(value ?? null, null, 2)
 
 function BrandIcon({ text, type, size = 23 }: { text: string; type: string; size?: number }) {
-  const logo = providerLogo(`${text} ${type}`)
-  const [failed, setFailed] = useState(false)
-  useEffect(() => setFailed(false), [logo])
-  if (logo && !failed) return <img src={logo} width={size} height={size} alt="" onError={() => setFailed(true)} className="shrink-0 object-contain" />
-  return <span className="shrink-0 text-[#777]">{iconFor(type, size)}</span>
+  return <WorkflowToolIcon type={type} label={text} size={size} />
 }
 
 function EmptyData({ title, message, action }: { title: string; message: string; action?: ReactNode }) {
@@ -99,7 +86,10 @@ function DynamicField({ name, schema, value, onChange }: { name: string; schema?
 }
 
 export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCredentials }: Props) {
-  const { projectId, selected, selectedCatalog, run, working, save, start, updateSelectedSetting, updateNode } = studio
+  const {
+    projectId, selected, selectedCatalog, run, working, save, start, updateSelectedSetting, updateNode,
+    sourceId, setSourceId, sources, editorMedia, useMediaSource, fileInput, upload,
+  } = studio
   const [tab, setTab] = useState<Tab>('parameters')
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('parameters')
   const [inputView, setInputView] = useState<DataView>('schema')
@@ -121,13 +111,14 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const schema = getObject(selectedCatalog?.parameters_schema)
   const properties = getObject(schema.properties) as Record<string, FieldSchema>
   const excelNode = isExcel(`${title} ${selected?.type ?? ''}`)
+  const sourceNode = selected?.type === 'core.video_source'
   const excelDefaults: Record<string, FieldSchema> = excelNode ? {
     return_all: { type: 'boolean', title: 'Return All', default: false },
     limit: { type: 'integer', title: 'Limit', default: 100, minimum: 1 },
     fields: { type: 'string', title: 'Fields' },
   } : {}
   const fields = { ...excelDefaults, ...properties }
-  const keys = [...new Set([...Object.keys(fields), ...Object.keys(settings)])].filter(key => !['credential_id','credential','operation','action','resource','filters'].includes(key))
+  const keys = [...new Set([...Object.keys(fields), ...Object.keys(settings)])].filter(key => !['credential_id','credential','operation','action','resource','filters','source_id','__cliptora_ui_source_handles'].includes(key))
   const operationKey = Object.prototype.hasOwnProperty.call(settings, 'action') && !Object.prototype.hasOwnProperty.call(settings, 'operation') ? 'action' : 'operation'
   const resourceValue = String(settings.resource ?? (excelNode ? 'Workbook' : 'Message'))
   const operationValue = String(settings[operationKey] ?? (actions[0] ?? ''))
@@ -212,17 +203,25 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700"><CircleAlert size={16} className="shrink-0"/>{localError}</div>}
             {tab === 'parameters' ? <>
+              {sourceNode && <div className="space-y-5 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4">
+                <div className="flex items-center gap-2"><Film size={18} className="text-[#7950bd]"/><div><strong className="block text-[13px] font-semibold text-[#292929]">Source Video</strong><span className="text-[11px] text-[#858585]">Choose the video this workflow will process.</span></div></div>
+                <label className="block"><SectionLabel>Workflow source</SectionLabel><select aria-label="Workflow source video" className={inputClass} value={sourceId ?? ''} onChange={event => setSourceId(event.target.value ? Number(event.target.value) : null)}><option value="">Select a video...</option>{sources.map(source => <option key={source.id} value={source.id}>{source.filename}</option>)}</select></label>
+                <label className="block"><SectionLabel>Use from Media Library</SectionLabel><select aria-label="Link video from Media Library" className={inputClass} value="" disabled={working} onChange={event => { const id = Number(event.target.value); if (id > 0) void useMediaSource(id) }}><option value="">Choose a video...</option>{editorMedia.filter(item => item.kind === 'video').map(item => <option key={item.id} value={item.id}>{mediaName(item)}</option>)}</select></label>
+                <input ref={fileInput} type="file" accept=".mp4,.mov,.mkv,.webm,.m4v" className="hidden" onChange={event => void upload(event)} />
+                <button type="button" disabled={working} onClick={() => fileInput.current?.click()} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dedede] bg-white text-xs font-semibold text-[#333] hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-50"><Upload size={15}/> Upload video</button>
+                <p className="flex gap-2 text-[11px] leading-5 text-[#777]"><FolderOpen size={14} className="mt-0.5 shrink-0"/>Originals stay unchanged. The selected source is saved with this node.</p>
+              </div>}
               {credentialNeeded && <div className="space-y-2"><SectionLabel>Credential</SectionLabel><button type="button" disabled={!onManageCredentials} onClick={onManageCredentials} title={onManageCredentials ? 'Manage credentials' : 'Credential management is not yet connected to the backend'} className={`${lightButton} rounded-lg px-3` }><BrandIcon text={title} type={selected.type} size={18}/>{settings.credential_id ? `Credential ${String(settings.credential_id)}` : `Connect to ${isExcel(`${title} ${selected.type}`) ? 'Microsoft Excel' : title}`}</button>{!onManageCredentials && <p className="text-[11px] leading-5 text-[#888]">Configure OAuth credentials through a dedicated backend credential manager. Secrets must never be stored in workflow JSON.</p>}</div>}
               {excelNode && <div className="rounded-lg border border-amber-400 bg-[#fffae6] p-3 text-[12px] leading-[1.45] text-[#68471c]">Microsoft Excel 365 works with workbooks in OneDrive or SharePoint. Local .xlsx files need a different file-processing tool.</div>}
               {(isApp || Object.prototype.hasOwnProperty.call(settings,'resource')) && <DynamicField name="resource" value={resourceValue} onChange={value => updateSelectedSetting('resource',value)} schema={fields.resource}/>} 
-              {(actions.length > 0 || excelNode || settings.operation != null) && <label className="block"><SectionLabel>Operation</SectionLabel>{actions.length > 0 ? <select className={inputClass} value={operationValue} onChange={e => updateSelectedSetting(operationKey,e.target.value)}>{actions.map(action => <option key={action} value={action}>{titleize(action)}</option>)}</select> : <input className={`${inputClass} bg-[#f8f8f8]`} readOnly value={operationValue || (excelNode ? 'Get Many' : title)} title="This tool does not advertise selectable actions in the catalog" />}</label>}
+              {!sourceNode && (actions.length > 0 || excelNode || settings.operation != null) && <label className="block"><SectionLabel>Operation</SectionLabel>{actions.length > 0 ? <select className={inputClass} value={operationValue} onChange={e => updateSelectedSetting(operationKey,e.target.value)}>{actions.map(action => <option key={action} value={action}>{titleize(action)}</option>)}</select> : <input className={`${inputClass} bg-[#f8f8f8]`} readOnly value={operationValue || (excelNode ? 'Get Many' : title)} title="This tool does not advertise selectable actions in the catalog" />}</label>}
               {keys.map(key => <DynamicField key={`${selectedId}:${key}`} name={key} schema={fields[key]} value={settings[key]} onChange={value => updateSelectedSetting(key,value)}/>)}
               {(excelNode || Object.prototype.hasOwnProperty.call(settings,'filters')) && <div><div className="flex items-center justify-between border-b border-[#e7e7e7] pb-2"><SectionLabel>Filters</SectionLabel><button type="button" onClick={() => setFiltersOpen(v => !v)} title="Edit filters" aria-expanded={filtersOpen} className="grid size-7 place-items-center rounded-md text-[#777] hover:bg-[#f3f3f3]"><Plus size={20}/></button></div>{filtersOpen && <div className="pt-3"><JsonField label="Filter rules (JSON)" value={settings.filters ?? []} onChange={value => updateSelectedSetting('filters',value)}/></div>}</div>}
-              {!keys.length && actions.length === 0 && !isApp && <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs text-[#777]">This node has no registered parameter fields. Use the Settings tab for execution options, or register <code>parameters_schema</code> in the Tool Catalog.</div>}
+              {!sourceNode && !keys.length && actions.length === 0 && !isApp && <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs text-[#777]">This node has no registered parameter fields. Use the Settings tab for execution options, or register <code>parameters_schema</code> in the Tool Catalog.</div>}
               <div className="flex flex-wrap items-center gap-2 border-t border-[#ededed] pt-4"><button type="button" className={lightButton} disabled={working} onClick={() => void save()}><Check size={14}/> Save workflow</button><button type="button" className={lightButton} disabled={working} onClick={() => void start()}><Play size={14}/> Run workflow</button></div>
             </> : <>
               <label className="block"><SectionLabel>Node ID</SectionLabel><input value={selected.id} readOnly className={`${inputClass} bg-[#f7f7f7] font-mono text-[#777]`} /></label>
-              <label className="block"><SectionLabel>Execution condition</SectionLabel><select className={inputClass} value={selected.when} onChange={e => updateNode(selected.id,{when:e.target.value as WorkflowNode['when']})}>{(['always','has_video','has_transcript','ai_enabled'] as const).map(value => <option key={value} value={value}>{titleize(value)}</option>)}</select></label>
+              <label className="block"><SectionLabel>Execution condition</SectionLabel><select className={inputClass} value={selected.when} onChange={e => updateNode(selected.id,{when:e.target.value as WorkflowNode['when']})}>{(['always','has_video','has_transcript','ai_enabled','condition_true','condition_false','route_0','route_1','route_2','route_3','route_4','route_fallback'] as const).map(value => <option key={value} value={value}>{titleize(value)}</option>)}</select></label>
               <label className="block"><SectionLabel>Retry limit</SectionLabel><input type="number" min="0" max="5" className={inputClass} value={selected.retry_limit ?? 1} onChange={e=>updateNode(selected.id,{retry_limit:Math.max(0,Math.min(5,Number(e.target.value)||0))})}/></label>
               <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#444]"><input type="checkbox" className="size-4 accent-violet-600" checked={selected.cache ?? true} onChange={e=>updateNode(selected.id,{cache:e.target.checked})}/> Cache result for retries</label>
               <div className="space-y-2"><SectionLabel>Previous nodes</SectionLabel>{dependencies.length ? dependencies.map(id => <div key={id} className="flex items-center gap-2 rounded-lg border border-[#eee] p-2 text-xs text-[#555]"><ArrowLeft size={13}/>{id}</div>) : <p className="text-xs text-[#999]">No previous nodes connected.</p>}</div>

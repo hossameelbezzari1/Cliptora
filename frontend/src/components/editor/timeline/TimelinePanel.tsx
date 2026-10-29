@@ -993,28 +993,30 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasM
                 window.location.assign(workflowUrl(id))
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not open workflow.') }
         }
-        type N8nWorkflowLink = { id: number; title: string }
+        type WorkflowDefinition = { id: number; name: string }
         const copyWorkflow = async () => {
             if (!workflowId || !store.projectId) return
             try {
-                const copy = await api<N8nWorkflowLink>(`/n8n/projects/${store.projectId}/workflows/${workflowId}/duplicate`, {
-                    method: 'POST', body: JSON.stringify({ element_client_id: clip.client_id, title: `${clip.name} Workflow (copy)` }),
-                })
+                const copy = await api<WorkflowDefinition>(`/workflows/${store.projectId}/definitions/${workflowId}/duplicate`, { method: 'POST' })
                 await saveTimelineAndOpen(copy.id, copy.id)
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not copy workflow.') }
         }
         const deleteWorkflow = async () => {
             if (!workflowId || !store.projectId) return
-            const deleteUnderlying = window.confirm('Delete the underlying n8n workflow too?\n\nOK deletes it from n8n. Cancel lets you unlink it from this Empty Element instead.')
-            if (!deleteUnderlying && !window.confirm('Unlink the workflow from this Empty Element without deleting it from n8n?')) return
+            const references = store.tracks.flatMap(item => item.clips).filter(item => item.props?.workflow_id === workflowId)
+            const shared = references.length > 1
+            const deleteUnderlying = !shared && window.confirm('Delete this CLIPTORA workflow permanently?\n\nChoose Cancel to unlink it from this Empty Element and keep the workflow.')
+            if (!deleteUnderlying && !window.confirm(shared
+                ? `This workflow is linked to ${references.length} Timeline elements. Unlink only this Empty Element?`
+                : 'Unlink the workflow from this Empty Element without deleting it?')) return
             try {
-                await api<void>(`/n8n/projects/${store.projectId}/workflows/${workflowId}?delete_underlying=${deleteUnderlying}`, { method: 'DELETE' })
                 useEditor.getState().patchProps(clip.client_id, { workflow_id: null })
                 const current = useEditor.getState()
                 const saved = await api<Timeline>(`/projects/${store.projectId}/timeline`, {
                     method: 'PUT', body: JSON.stringify({ revision: current.revision, tracks: current.tracks }),
                 })
                 current.markSaved(saved.revision)
+                if (deleteUnderlying) await api<void>(`/workflows/${store.projectId}/definitions/${workflowId}`, { method: 'DELETE' })
             } catch (reason) { window.alert(reason instanceof Error ? reason.message : 'Could not delete workflow.') }
         }
         const actions: ContextAction[] = [
