@@ -74,7 +74,7 @@ export function WorkflowLayout({
       )}
 
       <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {libraryOpen && <ToolLibrary studio={studio} />}
+        {libraryOpen && <ToolLibrary studio={studio} onOpenNode={() => setNodeEditorOpen(true)} />}
 
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {page === 'nodes' ? (

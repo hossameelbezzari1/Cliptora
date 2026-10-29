@@ -46,12 +46,12 @@ import {
 } from 'lucide-react'
 import { btn } from './workflowUI'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
-import { flowNodeTypes, WorkflowQuickAddContext, type StudioFlowNode } from './WorkflowNodeCard'
+import { flowNodeTypes, WorkflowInputQuickAddContext, WorkflowQuickAddContext, type StudioFlowNode } from './WorkflowNodeCard'
 import { WorkflowBottomDeck } from './WorkflowBottomDeck'
 import { WorkflowContextMenu, type ContextMenuAction } from './WorkflowContextMenu'
 import { clone, uid } from './workflowUtils'
 
-type QuickAddPosition = { sourceId: string; sourceHandle: string; left: number; top: number; dropPosition?: { x: number; y: number }; mode?: 'add' | 'replace' }
+type QuickAddPosition = { sourceId: string; sourceHandle: string; targetId?: string; targetHandle?: string; left: number; top: number; dropPosition?: { x: number; y: number }; mode?: 'add' | 'replace' | 'input' }
 type ContextState = {
   kind: 'node' | 'pane' | 'edge'
   id?: string
@@ -73,12 +73,19 @@ type FlowClipboard = {
   nodes: WorkflowNode[]
 }
 const connectionKey = '__cliptora_ui_source_handles'
+const targetConnectionKey = '__cliptora_ui_target_handles'
 const pinKey = '__cliptora_ui_pinned'
 const labelKey = '__cliptora_ui_label'
 const START_VIEWPORT: Viewport = { x: 90, y: 70, zoom: 0.7 }
 
 function handlesFor(node: WorkflowNode): Record<string, string> {
   const value = node.settings[connectionKey]
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value).filter(([, handle]) => typeof handle === 'string')) as Record<string, string>
+}
+
+function targetHandlesFor(node: WorkflowNode): Record<string, string> {
+  const value = node.settings[targetConnectionKey]
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return Object.fromEntries(Object.entries(value).filter(([, handle]) => typeof handle === 'string')) as Record<string, string>
 }
@@ -162,7 +169,8 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
     setNodes(previous => previous.filter(node => !removed.has(node.id)).map(node => {
       const deps = node.depends_on.filter(id => !removed.has(id))
       const handles = Object.fromEntries(Object.entries(handlesFor(node)).filter(([id]) => !removed.has(id)))
-      return { ...node, depends_on: deps, settings: { ...node.settings, [connectionKey]: handles } }
+      const targetHandles = Object.fromEntries(Object.entries(targetHandlesFor(node)).filter(([id]) => !removed.has(id)))
+      return { ...node, depends_on: deps, settings: { ...node.settings, [connectionKey]: handles, [targetConnectionKey]: targetHandles } }
     }))
     setSelectedId(null)
     setSelectedNodeIds([])
@@ -182,6 +190,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
   const copyNodeConfig = useCallback((node: WorkflowNode) => {
     const settings = structuredClone(node.settings)
     delete settings[connectionKey]
+    delete settings[targetConnectionKey]
     delete settings[pinKey]
     delete settings[labelKey]
     const payload: NodeConfigClipboard = {
@@ -214,7 +223,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
     setNodes(previous => previous.map(item => {
       if (item.id !== node.id) return item
       const internalSettings = Object.fromEntries(Object.entries(item.settings).filter(([key]) =>
-        key === connectionKey || key === pinKey || key === labelKey))
+        key === connectionKey || key === targetConnectionKey || key === pinKey || key === labelKey))
       return {
         ...item,
         when: value.when,
@@ -277,6 +286,8 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
       delete settings[pinKey]
       const oldHandles = handlesFor(node)
       settings[connectionKey] = Object.fromEntries(Object.entries(oldHandles).map(([id, h]) => [ids.get(id) ?? id, h]))
+      const oldTargetHandles = targetHandlesFor(node)
+      settings[targetConnectionKey] = Object.fromEntries(Object.entries(oldTargetHandles).map(([id, h]) => [ids.get(id) ?? id, h]))
       return {
         ...structuredClone(node), id: ids.get(node.id)!, settings,
         depends_on: node.depends_on.filter(id => ids.has(id) || existingIds.has(id)).map(id => ids.get(id) ?? id),
@@ -349,7 +360,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
       type: 'default',
       selected: selectedEdges.includes(edge.id),
       sourceHandle: isBranch ? (sourceHandle || 'true') : 'main',
-      targetHandle: 'input',
+      targetHandle: target ? (targetHandlesFor(target)[edge.source] || 'input') : 'input',
       style: { stroke: active ? '#08a844' : '#bfc3c8', strokeWidth: 2.2 },
       label: active && count ? count : undefined,
       labelStyle: { fontSize: 12, fill: '#808080' },
@@ -392,13 +403,14 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
         const removedSources = disconnect.filter(edge => edge.target === node.id).map(edge => edge.source)
         if (!removedSources.length) return node
         const nextHandles = handlesFor(node)
-        removedSources.forEach(source => { delete nextHandles[source] })
+        const nextTargetHandles = targetHandlesFor(node)
+        removedSources.forEach(source => { delete nextHandles[source]; delete nextTargetHandles[source] })
         const removedBranch = disconnect.some(edge => edge.target === node.id && /^(true|false)$/.test(handlesFor(node)[edge.source] ?? ''))
         return {
           ...node,
           depends_on: node.depends_on.filter(source => !removedSources.includes(source)),
           when: removedBranch && /^condition_(true|false)$/.test(node.when) ? 'always' : node.when,
-          settings: { ...node.settings, [connectionKey]: nextHandles },
+          settings: { ...node.settings, [connectionKey]: nextHandles, [targetConnectionKey]: nextTargetHandles },
         }
       }))
     }
@@ -421,17 +433,19 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
   }, [flowEdges, setNodes])
 
   const onConnect = useCallback((connection: Connection) => {
-    const { source, target, sourceHandle } = connection
+    const { source, target, sourceHandle, targetHandle } = connection
     if (!source || !target || createsCycle(nodes, source, target)) return
     setNodes(previous => previous.map(node => {
       if (node.id !== target) return node
       const isBranch = previous.find(candidate => candidate.id === source)?.type === 'flow.if'
       const sourceHandles = isBranch ? { ...handlesFor(node), [source]: sourceHandle === 'false' ? 'false' : 'true' } : handlesFor(node)
+      const targetHandles = { ...targetHandlesFor(node) }
+      if (node.type === 'ai.agent') targetHandles[source] = targetHandle && ['chat_model','memory','tool'].includes(targetHandle) ? targetHandle : 'input'
       return {
         ...node,
         depends_on: [...new Set([...node.depends_on, source])],
         when: isBranch ? (sourceHandle === 'false' ? 'condition_false' : 'condition_true') : node.when,
-        settings: isBranch ? { ...node.settings, [connectionKey]: sourceHandles } : node.settings,
+        settings: { ...node.settings, ...(isBranch ? { [connectionKey]: sourceHandles } : {}), ...(node.type === 'ai.agent' ? { [targetConnectionKey]: targetHandles } : {}) },
       }
     }))
   }, [nodes, setNodes])
@@ -446,6 +460,15 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
       left: Math.max(12, Math.min(event.clientX - rect.left + 12, rect.width - 302)),
       top: Math.max(12, Math.min(event.clientY - rect.top - 30, rect.height - 330)),
     })
+  }, [])
+
+  const openInputQuickAdd = useCallback((targetId: string, targetHandle: string, event: MouseEvent<HTMLButtonElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setQuickSearch('')
+    setQuickAdd({ mode: 'input', sourceId: targetId, sourceHandle: 'main', targetId, targetHandle,
+      left: Math.max(12, Math.min(event.clientX - rect.left + 12, rect.width - 302)),
+      top: Math.max(12, Math.min(event.clientY - rect.top - 30, rect.height - 330)) })
   }, [])
 
   const addAfter = useCallback((type: string) => {
@@ -473,6 +496,24 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
       return
     }
     const id = uid(type, nodes.map(node => node.id))
+    if (quickAdd.mode === 'input' && quickAdd.targetId && quickAdd.targetHandle) {
+      const targetHandle = quickAdd.targetHandle
+      const next: WorkflowNode = {
+        id, type, depends_on: [], when: 'always', retry_limit: 1, cache: true,
+        settings: structuredClone(template.settings),
+        position: { x: (source.position?.x ?? 100) + (targetHandle === 'chat_model' ? -120 : targetHandle === 'memory' ? 30 : 180), y: (source.position?.y ?? 100) + 260 },
+      }
+      setNodes(previous => [...previous.map(node => node.id === quickAdd.targetId ? {
+        ...node,
+        depends_on: [...new Set([...node.depends_on, id])],
+        settings: { ...node.settings, [targetConnectionKey]: { ...targetHandlesFor(node), [id]: targetHandle } },
+      } : node), next])
+      setSelectedId(id)
+      setJsonEditor(JSON.stringify(next.settings, null, 2))
+      setMessage(`${template.label} added to the AI Agent ${targetHandle.replace('_', ' ')} input.`)
+      setQuickAdd(null)
+      return
+    }
     const siblingOffset = quickAdd.sourceHandle === 'false' ? 140 : quickAdd.sourceHandle === 'true' ? -50 : 0
     const next: WorkflowNode = {
       id,
@@ -500,6 +541,8 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
   }, [catalog, nodes, quickAdd, setJsonEditor, setMessage, setNodes, setSelectedId])
 
   const quickItems = useMemo(() => catalog.filter(item => item.status === 'implemented' && (quickAdd?.mode !== 'replace' || item.type !== 'core.video_source') &&
+    (quickAdd?.mode !== 'input' || quickAdd.targetHandle !== 'chat_model' || item.type === 'ai.chat_model') &&
+    (quickAdd?.mode !== 'input' || item.type !== 'ai.agent') &&
     `${item.label} ${item.type} ${item.group}`.toLowerCase().includes(quickSearch.toLowerCase().trim())).slice(0, 35), [catalog, quickSearch, quickAdd?.mode])
 
   const duplicateSelectedNodes = useCallback(() => {
@@ -512,14 +555,15 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
       usedIds.push(nextId)
       idMap.set(node.id, nextId)
     })
-    const copies = selected.map(node => {
+    const copies = selected.map((node): WorkflowNode => {
       const copy = structuredClone(node)
       const sourceHandles = Object.fromEntries(Object.entries(handlesFor(copy)).map(([sourceId, handle]) => [idMap.get(sourceId) ?? sourceId, handle]))
+      const targetHandles = Object.fromEntries(Object.entries(targetHandlesFor(copy)).map(([sourceId, handle]) => [idMap.get(sourceId) ?? sourceId, handle]))
       return {
         ...copy,
         id: idMap.get(node.id)!,
         depends_on: node.depends_on.map(id => idMap.get(id) ?? id),
-        settings: Object.keys(sourceHandles).length ? { ...copy.settings, [connectionKey]: sourceHandles } : copy.settings,
+        settings: { ...copy.settings, ...(Object.keys(sourceHandles).length ? { [connectionKey]: sourceHandles } : {}), ...(Object.keys(targetHandles).length ? { [targetConnectionKey]: targetHandles } : {}) },
         position: { x: (node.position?.x ?? 0) + 42, y: (node.position?.y ?? 0) + 42 },
       }
     })
@@ -673,7 +717,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
     const nodeActions: ContextMenuAction[] = activeNode ? [
       { id: 'chat', label: 'Add node to chat', icon: MessageCircle, disabled: true, disabledReason: 'Requires a connected chat assistant; not installed.', run: () => {} },
       { id: 'open', label: 'Open...', icon: ExternalLink, shortcut: ['Enter'], disabled: !onOpenNode,
-        disabledReason: 'Node editor is unavailable.', run: () => onOpenNode?.(activeNode.id) },
+        disabledReason: !onOpenNode ? 'Node editor is unavailable.' : undefined, run: () => onOpenNode?.(activeNode.id) },
       { id: 'execute', label: 'Execute step', icon: Play, disabled: working,
         shortcut: ['Ctrl', 'Enter'],
         run: () => void testStep(activeNode.id) },
@@ -782,6 +826,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
         onDrop={onLibraryDrop}
       >
         <WorkflowQuickAddContext.Provider value={openQuickAdd}>
+          <WorkflowInputQuickAddContext.Provider value={openInputQuickAdd}>
           <ReactFlow<StudioFlowNode, Edge>
             nodes={canvasNodes}
             edges={graphEdges}
@@ -861,13 +906,14 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
               const removed = deleted.filter(edge => edge.target === node.id).map(edge => edge.source)
               if (!removed.length) return node
               const sourceHandles = handlesFor(node)
+              const targetHandles = targetHandlesFor(node)
               const removedBranch = removed.some(source => /^(true|false)$/.test(sourceHandles[source] ?? ''))
-              removed.forEach(source => { delete sourceHandles[source] })
+              removed.forEach(source => { delete sourceHandles[source]; delete targetHandles[source] })
               return {
                 ...node,
                 depends_on: node.depends_on.filter(id => !removed.includes(id)),
                 when: removedBranch && /^condition_(true|false)$/.test(node.when) ? 'always' : node.when,
-                settings: { ...node.settings, [connectionKey]: sourceHandles },
+                settings: { ...node.settings, [connectionKey]: sourceHandles, [targetConnectionKey]: targetHandles },
               }
             }))}
             onNodesDelete={deleted => deleted.forEach(node => removeNode(node.id))}
@@ -879,6 +925,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
             <Controls showInteractive={false} fitViewOptions={{ padding: 0.32, maxZoom: 0.8, duration: 250 }} />
             <MiniMap zoomable pannable className="!hidden !rounded-xl !border !border-[#ddd] !bg-white !shadow-sm 2xl:!block" nodeColor="#ded8ed" />
           </ReactFlow>
+          </WorkflowInputQuickAddContext.Provider>
         </WorkflowQuickAddContext.Provider>
 
         {contextMenu && <WorkflowContextMenu
@@ -911,7 +958,7 @@ export function WorkflowCanvas({ studio, onOpenNode }: { studio: WorkflowStudioS
             onPointerDown={event => event.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-[#ededed] px-3 py-2.5">
-              <strong className="text-[14px] font-semibold text-[#222]">{quickAdd.mode === 'replace' ? 'Replace node' : 'What happens next?'}</strong>
+            <strong className="text-[14px] font-semibold text-[#222]">{quickAdd.mode === 'replace' ? 'Replace node' : quickAdd.mode === 'input' ? `Add ${quickAdd.targetHandle?.replace('_', ' ')}` : 'What happens next?'}</strong>
               <button type="button" className="rounded p-1 text-[#777] hover:bg-[#eee]" onClick={() => setQuickAdd(null)} aria-label="Close"><X size={17} /></button>
             </div>
             <label className="mx-3 mt-3 flex shrink-0 items-center gap-2 rounded-md border border-[#b28dff] px-3 py-2 text-[#777]">

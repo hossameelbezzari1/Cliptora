@@ -83,15 +83,66 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
         }},
     },
     "ai.openai": {
-        "label": "OpenAI", "group": "AI",
-        "settings": {"model": "gpt-4o-mini", "system_prompt": "You are a helpful assistant.", "prompt": "", "input_path": "", "temperature": 0.2, "max_output_tokens": 1000},
+        "label": "OpenAI", "group": "AI", "description": "Use OpenAI text, vision, image, audio, file, conversation and video actions.",
+        "actions": ["message_model", "classify_violations", "analyze_image", "generate_image", "edit_image", "generate_audio", "transcribe_recording", "translate_recording", "delete_file", "list_files", "upload_file", "create_conversation", "get_conversation", "remove_conversation", "update_conversation", "generate_video"],
+        "action_capabilities": {
+            "message_model": {"status": "implemented", "group": "Text actions", "label": "Message a model"},
+            "classify_violations": {"status": "implemented", "group": "Text actions", "label": "Classify text for violations"},
+            "analyze_image": {"status": "implemented", "group": "Image actions", "label": "Analyze image"},
+            "generate_image": {"status": "implemented", "group": "Image actions", "label": "Generate an image"},
+            "edit_image": {"status": "unavailable", "group": "Image actions", "label": "Edit image", "reason": "Binary image uploads are not connected yet."},
+            "generate_audio": {"status": "unavailable", "group": "Audio actions", "label": "Generate audio", "reason": "Binary audio artifacts are not connected yet."},
+            "transcribe_recording": {"status": "unavailable", "group": "Audio actions", "label": "Transcribe a recording", "reason": "Binary audio inputs are not connected yet."},
+            "translate_recording": {"status": "unavailable", "group": "Audio actions", "label": "Translate a recording", "reason": "Binary audio inputs are not connected yet."},
+            "delete_file": {"status": "unavailable", "group": "File actions", "label": "Delete a file", "reason": "OpenAI file management is not enabled."},
+            "list_files": {"status": "unavailable", "group": "File actions", "label": "List files", "reason": "OpenAI file management is not enabled."},
+            "upload_file": {"status": "unavailable", "group": "File actions", "label": "Upload a file", "reason": "Binary file uploads are not connected yet."},
+            "create_conversation": {"status": "unavailable", "group": "Conversation actions", "label": "Create a conversation", "reason": "OpenAI conversation persistence is not enabled yet."},
+            "get_conversation": {"status": "unavailable", "group": "Conversation actions", "label": "Get a conversation", "reason": "OpenAI conversation persistence is not enabled yet."},
+            "remove_conversation": {"status": "unavailable", "group": "Conversation actions", "label": "Remove a conversation", "reason": "OpenAI conversation persistence is not enabled yet."},
+            "update_conversation": {"status": "unavailable", "group": "Conversation actions", "label": "Update a conversation", "reason": "OpenAI conversation persistence is not enabled yet."},
+            "generate_video": {"status": "unavailable", "group": "Video actions", "label": "Generate a video", "reason": "Video generation artifacts are not connected yet."},
+        },
+        "settings": {"action": "message_model", "model": "gpt-4o-mini", "system_prompt": "You are a helpful assistant.", "prompt": "", "image_urls": "", "input_path": "", "temperature": 0.2, "max_output_tokens": 1000, "simplify_output": True, "image_size": "1024x1024"},
         "parameters_schema": {"type": "object", "properties": {
+            "action": {"type": "string", "title": "Operation"},
             "model": {"type": "string", "title": "Model"},
             "system_prompt": {"type": "string", "title": "System prompt"},
-            "prompt": {"type": "string", "title": "Prompt"},
+            "prompt": {"type": "string", "title": "Text input"},
+            "image_urls": {"type": "string", "title": "URL(s)", "description": "One HTTPS image URL per line."},
             "input_path": {"type": "string", "title": "Optional input path", "description": "Append JSON data from this upstream dot path to the prompt."},
             "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
             "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 16000},
+            "simplify_output": {"type": "boolean", "title": "Simplify Output", "default": True},
+            "image_size": {"type": "string", "title": "Image size", "enum": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
+        }},
+        "credentials": ["OPENAI_API_KEY"],
+    },
+    "ai.chat_model": {
+        "label": "OpenAI Chat Model", "group": "AI", "description": "Model configuration for AI Agent nodes.",
+        "settings": {"model": "gpt-4o-mini", "temperature": 0.2, "max_output_tokens": 1000},
+        "parameters_schema": {"type": "object", "properties": {
+            "model": {"type": "string", "title": "Model"},
+            "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
+            "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 16000},
+        }},
+        "credentials": ["OPENAI_API_KEY"],
+    },
+    "ai.agent": {
+        "label": "AI Agent", "group": "AI", "description": "Use a connected chat model with optional memory and tool inputs.",
+        "settings": {
+            "prompt_source": "connected_chat_trigger", "prompt": "{{ $json.chatInput }}",
+            "require_specific_output": False, "enable_fallback_model": False,
+            "fallback_model": "", "system_message": "You are a helpful AI agent.",
+            "__cliptora_ui_target_handles": {},
+        },
+        "parameters_schema": {"type": "object", "properties": {
+            "prompt_source": {"type": "string", "title": "Source for Prompt (User Message)", "enum": ["connected_chat_trigger", "define_below"]},
+            "prompt": {"type": "string", "title": "Prompt (User Message)"},
+            "require_specific_output": {"type": "boolean", "title": "Require Specific Output Format"},
+            "enable_fallback_model": {"type": "boolean", "title": "Enable Fallback Model"},
+            "fallback_model": {"type": "string", "title": "Fallback model"},
+            "system_message": {"type": "string", "title": "System message"},
         }},
         "credentials": ["OPENAI_API_KEY"],
     },
@@ -117,7 +168,7 @@ PROPOSED_TOOL_GROUPS: dict[str, list[str]] = {
     "Effects & Animations": ["Add Text", "Text Animation", "Keyframe Animation", "Transform", "Opacity Animation", "Motion Blur", "Blur Background", "Green Screen", "Color Correction", "LUT Filter", "Transitions", "Zoom & Pan", "Tracking", "Mask & Crop", "Shape Animation", "Particle Effect", "Apply Preset", "Animated Lower Third"],
     "Voiceover & Music": ["Text to Speech", "AI Voiceover", "Voice Clone", "Record Microphone", "Teleprompter Script", "Voice Synchronization", "Add Background Music", "Find Music", "Audio Fade In/Out", "Volume Automation", "Audio Ducking", "Mix Audio Tracks", "Sound Effects", "Audio Crossfade"],
     "Image & AI Generation": ["Generate Image", "Image to Video", "Text to Video", "Remove Background", "Upscale Image", "Upscale Video", "Inpaint Image", "Generate B-Roll", "Generate Thumbnail Art", "Object Detection", "Face Tracking", "Scene Detection", "AI Background Generation", "Animate Image"],
-    "AI Providers": ["OpenAI", "Google Gemini", "Anthropic Claude", "Ollama", "Hugging Face", "Local LLM", "Whisper / faster-whisper", "WhisperX", "ElevenLabs", "Custom OpenAI-Compatible API", "Generic REST AI Provider", "ComfyUI Workflow"],
+    "AI Providers": ["OpenAI Chat Model", "Google Gemini", "Anthropic Claude", "Ollama", "Hugging Face", "Local LLM", "Whisper / faster-whisper", "WhisperX", "ElevenLabs", "Custom OpenAI-Compatible API", "Generic REST AI Provider", "ComfyUI Workflow"],
     "Apps & Integrations": ["Gmail", "Microsoft Outlook", "Microsoft Excel 365", "Google Sheets", "Google Drive", "OneDrive", "Dropbox", "YouTube", "TikTok API", "Instagram / Meta Graph API", "Telegram", "Discord", "Slack", "Notion", "Airtable", "WordPress", "AWS S3", "Cloudflare R2", "Supabase", "FTP / SFTP"],
     "Developer & Custom Tools": ["HTTP Request", "Webhook", "Python Function", "Custom Plugin", "Plugin Registry", "JavaScript Sandbox", "Run Approved Command", "API Credentials", "OAuth Connection", "Custom Header Auth", "Environment Variables", "Input/Output Schema", "Test Connection", "Node Logs", "Execution Metrics", "Cache Results", "Versioned Tool", "Custom Tool Import"],
 }
@@ -489,6 +540,161 @@ def openai_chat(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError(f"OpenAI request failed: {str(exc)[:200]}") from exc
 
 
+def _find_named_value(value: Any, name: str, depth: int = 0) -> Any:
+    """Find a bounded field in upstream JSON without evaluating expressions."""
+    if depth > 8:
+        return None
+    if isinstance(value, dict):
+        if name in value:
+            return value[name]
+        for nested in value.values():
+            found = _find_named_value(nested, name, depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for nested in value[:100]:
+            found = _find_named_value(nested, name, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def execute_ai_agent(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
+    raw_handles = cfg.get("__cliptora_ui_target_handles", {})
+    handles = raw_handles if isinstance(raw_handles, dict) else {}
+    model_ids = [source_id for source_id, handle in handles.items() if handle == "chat_model" and source_id in outputs]
+    if not model_ids:
+        raise ValueError("AI Agent requires a Chat Model connection")
+    model_output = outputs[model_ids[0]]
+    model_cfg = model_output.get("chat_model", {}) if isinstance(model_output, dict) else {}
+    if not isinstance(model_cfg, dict):
+        raise ValueError("The connected Chat Model returned invalid configuration")
+
+    prompt_source = str(cfg.get("prompt_source", "connected_chat_trigger"))
+    if prompt_source == "connected_chat_trigger":
+        prompt_value = _find_named_value({key: value for key, value in outputs.items() if key not in model_ids}, "chatInput")
+        if prompt_value is None:
+            raise ValueError("Connected Chat Trigger input is missing chatInput")
+        prompt = str(prompt_value).strip()
+    elif prompt_source == "define_below":
+        prompt = str(cfg.get("prompt", "")).strip()
+    else:
+        raise ValueError("AI Agent prompt source must be connected_chat_trigger or define_below")
+    if not prompt:
+        raise ValueError("AI Agent prompt cannot be empty")
+
+    memory = {key: outputs[key] for key, handle in handles.items() if handle == "memory" and key in outputs}
+    tools = {key: outputs[key] for key, handle in handles.items() if handle == "tool" and key in outputs}
+    if memory:
+        prompt += "\n\nConversation memory:\n" + json.dumps(memory, ensure_ascii=False, separators=(",", ":"))
+    if tools:
+        prompt += "\n\nConnected tool results:\n" + json.dumps(tools, ensure_ascii=False, separators=(",", ":"))
+
+    request_cfg = {
+        **model_cfg,
+        "prompt": prompt,
+        "system_prompt": str(cfg.get("system_message", "You are a helpful AI agent.")),
+    }
+    try:
+        result = openai_chat(request_cfg, {})
+    except RuntimeError:
+        fallback = str(cfg.get("fallback_model", "")).strip()
+        if not cfg.get("enable_fallback_model") or not fallback:
+            raise
+        result = openai_chat({**request_cfg, "model": fallback}, {})
+        result["fallback_used"] = True
+
+    if cfg.get("require_specific_output"):
+        try:
+            result["structured_output"] = json.loads(str(result.get("text", "")))
+        except ValueError as exc:
+            raise ValueError("AI Agent required structured JSON output, but the model returned invalid JSON") from exc
+    result["agent"] = {"chat_model_node": model_ids[0], "memory_inputs": list(memory), "tool_inputs": list(tools)}
+    return result
+
+
+def openai_request(path: str, payload: dict[str, Any], timeout: int = 120) -> dict[str, Any]:
+    """Call a JSON OpenAI endpoint with the server-side credential only."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is missing from the backend environment")
+    request = urllib.request.Request(
+        f"https://api.openai.com/v1/{path.lstrip('/')}",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "CLIPTORA-Workflow/1.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            result = json.load(response)
+        if not isinstance(result, dict):
+            raise ValueError("OpenAI returned a non-object response")
+        return result
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read(4096).decode("utf-8", errors="replace")
+        except Exception:
+            detail = str(exc)
+        raise RuntimeError(f"OpenAI request failed ({exc.code}): {detail[:500]}") from exc
+    except (urllib.error.URLError, ValueError) as exc:
+        raise RuntimeError(f"OpenAI request failed: {str(exc)[:300]}") from exc
+
+
+def openai_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
+    action = str(cfg.get("action") or "message_model")
+    if action == "message_model":
+        return openai_chat(cfg, outputs)
+
+    prompt = str(cfg.get("prompt", "")).strip()
+    input_path_value = str(cfg.get("input_path", "")).strip()
+    if input_path_value:
+        prompt = f"{prompt}\n\nInput data:\n{json.dumps(input_path(outputs, input_path_value), ensure_ascii=False, separators=(',', ':'))}"
+
+    if action == "classify_violations":
+        if not prompt or len(prompt) > 200_000:
+            raise ValueError("Text input must contain between 1 and 200,000 characters")
+        result = openai_request("moderations", {"model": str(cfg.get("model") or "omni-moderation-latest"), "input": prompt})
+        moderation = (result.get("results") or [{}])[0]
+        if bool(cfg.get("simplify_output", True)):
+            return {"flagged": bool(moderation.get("flagged")), "categories": moderation.get("categories", {}), "category_scores": moderation.get("category_scores", {})}
+        return result
+
+    if action == "analyze_image":
+        urls = [line.strip() for line in str(cfg.get("image_urls", "")).splitlines() if line.strip()]
+        if not 1 <= len(urls) <= 10:
+            raise ValueError("Analyze image requires between 1 and 10 HTTPS image URLs")
+        for url in urls:
+            parsed = urllib.parse.urlparse(url)
+            if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError("Every image URL must be a public HTTPS URL")
+        if not prompt:
+            prompt = "What's in this image?"
+        if len(prompt) > 100_000:
+            raise ValueError("Text input is too long")
+        model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-4o-mini"))
+        content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        content.extend({"type": "image_url", "image_url": {"url": url, "detail": "auto"}} for url in urls)
+        result = openai_request("chat/completions", {"model": model, "messages": [{"role": "user", "content": content}], "max_tokens": int(cfg.get("max_output_tokens", 1000))})
+        choice = result["choices"][0]
+        if bool(cfg.get("simplify_output", True)):
+            return {"text": str(choice["message"]["content"]), "model": str(result.get("model", model)), "usage": result.get("usage", {}), "finish_reason": choice.get("finish_reason")}
+        return result
+
+    if action == "generate_image":
+        if not prompt or len(prompt) > 32_000:
+            raise ValueError("Image prompt must contain between 1 and 32,000 characters")
+        size = str(cfg.get("image_size") or "1024x1024")
+        if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
+            raise ValueError("Unsupported image size")
+        result = openai_request("images/generations", {"model": str(cfg.get("model") or "gpt-image-1"), "prompt": prompt, "size": size, "n": 1}, timeout=180)
+        images = result.get("data") or []
+        if bool(cfg.get("simplify_output", True)):
+            return {"images": [{key: item[key] for key in ("url", "b64_json", "revised_prompt") if key in item} for item in images if isinstance(item, dict)]}
+        return result
+
+    raise ValueError(f"OpenAI action '{action}' is not supported by this CLIPTORA backend")
+
+
 HIGHLIGHTS_SCHEMA = {"type": "object", "properties": {"highlights": {"type": "array", "items": {"type": "object", "properties": {"start_word_id": {"type": "integer"}, "end_word_id": {"type": "integer"}, "score": {"type": "integer"}, "reason": {"type": "string"}}, "required": ["start_word_id", "end_word_id", "score", "reason"], "additionalProperties": False}}}, "required": ["highlights"], "additionalProperties": False}
 SUMMARY_SCHEMA = {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"], "additionalProperties": False}
 
@@ -651,8 +857,21 @@ def call_node(node: dict, outputs: dict[str, Any], source: Path | None, workdir:
         return {"items": kept, "matched_count": len(kept), "input_count": len(items)}
     if kind == "core.http_request":
         return execute_http_request(cfg)
+    if kind == "ai.chat_model":
+        model = str(cfg.get("model") or "gpt-4o-mini").strip()
+        temperature = float(cfg.get("temperature", 0.2))
+        max_tokens = int(cfg.get("max_output_tokens", 1000))
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
+            raise ValueError("OpenAI model name is invalid")
+        if not math.isfinite(temperature) or not 0 <= temperature <= 2:
+            raise ValueError("OpenAI temperature must be between 0 and 2")
+        if not 1 <= max_tokens <= 16_000:
+            raise ValueError("OpenAI maximum output tokens must be between 1 and 16,000")
+        return {"chat_model": {"model": model, "temperature": temperature, "max_output_tokens": max_tokens}}
+    if kind == "ai.agent":
+        return execute_ai_agent(cfg, outputs)
     if kind == "ai.openai":
-        return openai_chat(cfg, outputs)
+        return openai_action(cfg, outputs)
     if kind == "media.probe":
         if source is None:
             raise ValueError("Select a video source first")

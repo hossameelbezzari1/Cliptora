@@ -82,6 +82,7 @@ function DynamicField({ name, schema, value, onChange }: { name: string; schema?
   if (schema?.enum?.length) return <label className="block"><SectionLabel>{label}</SectionLabel><select className={inputClass} value={String(effective ?? '')} onChange={e => onChange(schema.enum?.find(option => String(option) === e.target.value) ?? e.target.value)}><option value="">Choose…</option>{schema.enum.map(option => <option key={String(option)} value={String(option)}>{titleize(String(option))}</option>)}</select>{schema.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
   if (type === 'boolean') return <label className="flex cursor-pointer items-center gap-3 py-1"><button type="button" role="switch" aria-checked={Boolean(effective)} onClick={() => onChange(!effective)} className={`relative h-6 w-11 rounded-full transition-colors ${effective ? 'bg-[#8550e9]' : 'bg-[#b6b6b6]'}`}><span className={`absolute left-[3px] top-[3px] size-[18px] rounded-full bg-white shadow-sm transition-transform ${effective ? 'translate-x-5' : ''}`} /></button><span className="text-[13px] text-[#393939]">{label}</span></label>
   if (type === 'object' || type === 'array') return <JsonField label={label} value={effective ?? (type === 'array' ? [] : {})} onChange={onChange}/>
+  if (['prompt','system_prompt','image_urls'].includes(name)) return <label className="block"><SectionLabel>{label}</SectionLabel><textarea rows={name === 'system_prompt' ? 3 : 4} className={`${inputClass} resize-y`} value={String(effective ?? '')} placeholder={name === 'image_urls' ? 'e.g. https://example.com/image.jpeg' : name === 'prompt' ? "What's in this image?" : undefined} onChange={e => onChange(e.target.value)} />{schema?.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
   return <label className="block"><SectionLabel>{label}</SectionLabel><input type={type === 'number' || type === 'integer' ? 'number' : 'text'} min={schema?.minimum} max={schema?.maximum} className={inputClass} value={String(effective ?? '')} onChange={e => onChange(type === 'number' || type === 'integer' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)} />{schema?.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
 }
 
@@ -101,7 +102,17 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const [testing, setTesting] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const title = selectedCatalog?.label ?? selected?.type ?? 'Node'
+  const openAINode = selected?.type === 'ai.openai'
+  const agentNode = selected?.type === 'ai.agent'
+  const openAIAction = String(selected?.settings?.action ?? 'message_model')
+  const openAICapability = selectedCatalog?.action_capabilities?.[openAIAction]
+  const openAIResource = openAIAction.includes('image') ? 'Image'
+    : openAIAction.includes('audio') || openAIAction.includes('recording') ? 'Audio'
+      : openAIAction.includes('file') ? 'File'
+        : openAIAction.includes('conversation') ? 'Conversation'
+          : openAIAction.includes('video') ? 'Video'
+            : 'Text'
+  const title = openAINode ? (openAICapability?.label ?? 'OpenAI') : selectedCatalog?.label ?? selected?.type ?? 'Node'
   const isApp = /excel|gmail|google|telegram|outlook|onedrive|openai|gemini|anthropic/i.test(`${title} ${selected?.type ?? ''}`)
   const selectedId = selected?.id
   const result = selectedId ? run?.results?.[selectedId] : undefined
@@ -118,11 +129,21 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     fields: { type: 'string', title: 'Fields' },
   } : {}
   const fields = { ...excelDefaults, ...properties }
-  const keys = [...new Set([...Object.keys(fields), ...Object.keys(settings)])].filter(key => !['credential_id','credential','operation','action','resource','filters','source_id','__cliptora_ui_source_handles'].includes(key))
+  const openAIFields: Record<string, string[]> = {
+    message_model: ['model','system_prompt','prompt','input_path','temperature','max_output_tokens'],
+    classify_violations: ['model','prompt','input_path','simplify_output'],
+    analyze_image: ['model','prompt','image_urls','max_output_tokens','simplify_output'],
+    generate_image: ['model','prompt','image_size','simplify_output'],
+  }
+  const allKeys = [...new Set([...Object.keys(fields), ...Object.keys(settings)])].filter(key => !['credential_id','credential','operation','action','resource','filters','source_id','__cliptora_ui_source_handles','__cliptora_ui_target_handles'].includes(key))
+  const keys = openAINode ? (openAIFields[openAIAction] ?? []) : allKeys
   const operationKey = Object.prototype.hasOwnProperty.call(settings, 'action') && !Object.prototype.hasOwnProperty.call(settings, 'operation') ? 'action' : 'operation'
   const resourceValue = String(settings.resource ?? (excelNode ? 'Workbook' : 'Message'))
   const operationValue = String(settings[operationKey] ?? (actions[0] ?? ''))
   const credentialNeeded = isApp || Boolean(selectedCatalog?.credentials?.length)
+  const targetHandles = getObject(settings.__cliptora_ui_target_handles)
+  const agentInputs = Object.values(targetHandles).map(String)
+  const hasAgentModel = !agentNode || agentInputs.includes('chat_model')
 
   const loadData = useCallback(async () => {
     if (!selectedId) return
@@ -190,7 +211,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     <div role="dialog" aria-modal="true" aria-label={`${title} node configuration`} className="flex h-[min(92dvh,960px)] w-full max-w-[1780px] flex-col overflow-hidden rounded-2xl border border-[#d5d5d5] bg-white text-[#292929] shadow-[0_35px_110px_#0005]">
       <header className="flex h-[54px] shrink-0 items-center justify-between gap-3 border-b border-[#e6e6e6] bg-white px-4">
         <div className="flex min-w-0 items-center gap-2"><BrandIcon text={title} type={selected.type}/><span className="truncate text-[14px] font-medium text-[#212121]">{title}</span></div>
-        <div className="flex shrink-0 items-center gap-3"><span className="hidden text-[11px] text-[#888] sm:block">Node: {selected.id}</span><button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="rounded-md p-1.5 text-[#444] hover:bg-[#f4f4f4]"><X size={22}/></button></div>
+        <div className="flex shrink-0 items-center gap-3">{openAINode && <a href="https://platform.openai.com/docs" target="_blank" rel="noreferrer" className="hidden text-[12px] font-medium text-[#555] underline underline-offset-2 hover:text-[#111] sm:block">Docs ↗</a>}<span className="hidden text-[11px] text-[#888] xl:block">Node: {selected.id}</span><button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="rounded-md p-1.5 text-[#444] hover:bg-[#f4f4f4]"><X size={22}/></button></div>
       </header>
       <nav aria-label="Node editor sections" className="flex shrink-0 items-center justify-around border-b border-[#e5e5e5] bg-white px-1 py-1 lg:hidden">{(['input','parameters','output'] as const).map(panel => <button key={panel} type="button" onClick={() => setMobilePanel(panel)} className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize ${mobilePanel === panel ? 'bg-violet-100 text-violet-800' : 'text-[#888]'}`}>{panel}</button>)}</nav>
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -198,11 +219,20 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 w-full flex-col border-x border-[#e3e3e3] bg-white lg:flex lg:w-[33%] lg:min-w-[350px] lg:max-w-[580px] lg:shrink-0`}>
           <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] px-4">
             <div className="flex h-full gap-5">{(['parameters','settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#202020]' : 'text-[#666]'}`}>{t}</button>)}</div>
-            <button type="button" disabled={!onExecuteStep || testing || working} onClick={() => void execute()} title={!onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-3 text-[12px] font-semibold text-white hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin"/> : <Play size={14}/>} Execute step</button>
+            <button type="button" disabled={!onExecuteStep || testing || working || !hasAgentModel} onClick={() => void execute()} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-3 text-[12px] font-semibold text-white hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin"/> : <Play size={14}/>} Execute step</button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700"><CircleAlert size={16} className="shrink-0"/>{localError}</div>}
             {tab === 'parameters' ? <>
+              {agentNode ? <>
+                {!hasAgentModel && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] leading-5 text-red-700"><CircleAlert size={17} className="mt-0.5 shrink-0"/><span><strong className="block">Chat Model is required</strong>Connect an OpenAI Chat Model using the bottom port on the canvas.</span></div>}
+                <label className="block"><SectionLabel>Source for Prompt (User Message)</SectionLabel><select className={inputClass} value={String(settings.prompt_source ?? 'connected_chat_trigger')} onChange={event => updateSelectedSetting('prompt_source', event.target.value)}><option value="connected_chat_trigger">Connected Chat Trigger Node</option><option value="define_below">Define below</option></select></label>
+                <label className="block"><SectionLabel>Prompt (User Message)</SectionLabel><textarea rows={3} className={`${inputClass} resize-y font-mono`} value={String(settings.prompt ?? '')} onChange={event => updateSelectedSetting('prompt', event.target.value)} placeholder="{{ $json.chatInput }}"/><span className="mt-1 block text-[11px] text-[#888]">Connected mode reads <code>chatInput</code> from upstream data. Define below uses this text directly.</span></label>
+                <DynamicField name="require_specific_output" schema={fields.require_specific_output} value={settings.require_specific_output ?? false} onChange={value => updateSelectedSetting('require_specific_output', value)}/>
+                <DynamicField name="enable_fallback_model" schema={fields.enable_fallback_model} value={settings.enable_fallback_model ?? false} onChange={value => updateSelectedSetting('enable_fallback_model', value)}/>
+                <div><div className="flex items-center justify-between border-b border-[#e7e7e7] pb-2"><SectionLabel>Options</SectionLabel><button type="button" onClick={() => setFiltersOpen(value => !value)} title="Add options" aria-expanded={filtersOpen} className="grid size-7 place-items-center rounded-md text-[#555] hover:bg-[#f3f3f3]"><Plus size={21}/></button></div>{filtersOpen && <div className="space-y-4 pt-4"><DynamicField name="system_message" schema={fields.system_message} value={settings.system_message} onChange={value => updateSelectedSetting('system_message', value)}/>{Boolean(settings.enable_fallback_model) && <DynamicField name="fallback_model" schema={fields.fallback_model} value={settings.fallback_model} onChange={value => updateSelectedSetting('fallback_model', value)}/>}</div>}</div>
+                <div className="rounded-lg border border-[#e7e7e7] bg-[#fafafa] p-3 text-[11px] leading-5 text-[#777]">Connected Memory and Tool nodes are supplied as bounded JSON context. The agent never evaluates arbitrary code or stores secrets in workflow JSON.</div>
+              </> : <>
               {sourceNode && <div className="space-y-5 rounded-xl border border-[#e5e5e5] bg-[#fafafa] p-4">
                 <div className="flex items-center gap-2"><Film size={18} className="text-[#7950bd]"/><div><strong className="block text-[13px] font-semibold text-[#292929]">Source Video</strong><span className="text-[11px] text-[#858585]">Choose the video this workflow will process.</span></div></div>
                 <label className="block"><SectionLabel>Workflow source</SectionLabel><select aria-label="Workflow source video" className={inputClass} value={sourceId ?? ''} onChange={event => setSourceId(event.target.value ? Number(event.target.value) : null)}><option value="">Select a video...</option>{sources.map(source => <option key={source.id} value={source.id}>{source.filename}</option>)}</select></label>
@@ -211,13 +241,17 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
                 <button type="button" disabled={working} onClick={() => fileInput.current?.click()} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dedede] bg-white text-xs font-semibold text-[#333] hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-50"><Upload size={15}/> Upload video</button>
                 <p className="flex gap-2 text-[11px] leading-5 text-[#777]"><FolderOpen size={14} className="mt-0.5 shrink-0"/>Originals stay unchanged. The selected source is saved with this node.</p>
               </div>}
-              {credentialNeeded && <div className="space-y-2"><SectionLabel>Credential</SectionLabel><button type="button" disabled={!onManageCredentials} onClick={onManageCredentials} title={onManageCredentials ? 'Manage credentials' : 'Credential management is not yet connected to the backend'} className={`${lightButton} rounded-lg px-3` }><BrandIcon text={title} type={selected.type} size={18}/>{settings.credential_id ? `Credential ${String(settings.credential_id)}` : `Connect to ${isExcel(`${title} ${selected.type}`) ? 'Microsoft Excel' : title}`}</button>{!onManageCredentials && <p className="text-[11px] leading-5 text-[#888]">Configure OAuth credentials through a dedicated backend credential manager. Secrets must never be stored in workflow JSON.</p>}</div>}
+              {credentialNeeded && <div className="space-y-2"><SectionLabel>Credential</SectionLabel><button type="button" disabled={!onManageCredentials} onClick={onManageCredentials} title={onManageCredentials ? 'Manage credentials' : openAINode ? 'OpenAI uses the backend environment credential' : 'Credential management is not yet connected to the backend'} className={`${lightButton} rounded-lg px-3` }><BrandIcon text={title} type={selected.type} size={18}/>{settings.credential_id ? `Credential ${String(settings.credential_id)}` : `Connect to ${openAINode ? 'OpenAI' : isExcel(`${title} ${selected.type}`) ? 'Microsoft Excel' : title}`}</button>{!onManageCredentials && <p className="text-[11px] leading-5 text-[#888]">{openAINode ? 'Uses OPENAI_API_KEY configured securely in the backend environment.' : 'Configure OAuth credentials through a dedicated backend credential manager. Secrets must never be stored in workflow JSON.'}</p>}</div>}
               {excelNode && <div className="rounded-lg border border-amber-400 bg-[#fffae6] p-3 text-[12px] leading-[1.45] text-[#68471c]">Microsoft Excel 365 works with workbooks in OneDrive or SharePoint. Local .xlsx files need a different file-processing tool.</div>}
-              {(isApp || Object.prototype.hasOwnProperty.call(settings,'resource')) && <DynamicField name="resource" value={resourceValue} onChange={value => updateSelectedSetting('resource',value)} schema={fields.resource}/>} 
-              {!sourceNode && (actions.length > 0 || excelNode || settings.operation != null) && <label className="block"><SectionLabel>Operation</SectionLabel>{actions.length > 0 ? <select className={inputClass} value={operationValue} onChange={e => updateSelectedSetting(operationKey,e.target.value)}>{actions.map(action => <option key={action} value={action}>{titleize(action)}</option>)}</select> : <input className={`${inputClass} bg-[#f8f8f8]`} readOnly value={operationValue || (excelNode ? 'Get Many' : title)} title="This tool does not advertise selectable actions in the catalog" />}</label>}
+              {openAINode
+                ? <label className="block"><SectionLabel>Resource</SectionLabel><select className={inputClass} value={openAIResource} disabled><option>{openAIResource}</option></select></label>
+                : (isApp || Object.prototype.hasOwnProperty.call(settings,'resource')) && <DynamicField name="resource" value={resourceValue} onChange={value => updateSelectedSetting('resource',value)} schema={fields.resource}/>
+              }
+              {!sourceNode && (actions.length > 0 || excelNode || settings.operation != null) && <label className="block"><SectionLabel>Operation</SectionLabel>{actions.length > 0 ? <select className={inputClass} value={operationValue} onChange={e => updateSelectedSetting(operationKey,e.target.value)}>{actions.map(action => <option key={action} value={action} disabled={selectedCatalog?.action_capabilities?.[action]?.status === 'unavailable'}>{selectedCatalog?.action_capabilities?.[action]?.label ?? titleize(action)}</option>)}</select> : <input className={`${inputClass} bg-[#f8f8f8]`} readOnly value={operationValue || (excelNode ? 'Get Many' : title)} title="This tool does not advertise selectable actions in the catalog" />}</label>}
               {keys.map(key => <DynamicField key={`${selectedId}:${key}`} name={key} schema={fields[key]} value={settings[key]} onChange={value => updateSelectedSetting(key,value)}/>)}
               {(excelNode || Object.prototype.hasOwnProperty.call(settings,'filters')) && <div><div className="flex items-center justify-between border-b border-[#e7e7e7] pb-2"><SectionLabel>Filters</SectionLabel><button type="button" onClick={() => setFiltersOpen(v => !v)} title="Edit filters" aria-expanded={filtersOpen} className="grid size-7 place-items-center rounded-md text-[#777] hover:bg-[#f3f3f3]"><Plus size={20}/></button></div>{filtersOpen && <div className="pt-3"><JsonField label="Filter rules (JSON)" value={settings.filters ?? []} onChange={value => updateSelectedSetting('filters',value)}/></div>}</div>}
               {!sourceNode && !keys.length && actions.length === 0 && !isApp && <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs text-[#777]">This node has no registered parameter fields. Use the Settings tab for execution options, or register <code>parameters_schema</code> in the Tool Catalog.</div>}
+              </>}
               <div className="flex flex-wrap items-center gap-2 border-t border-[#ededed] pt-4"><button type="button" className={lightButton} disabled={working} onClick={() => void save()}><Check size={14}/> Save workflow</button><button type="button" className={lightButton} disabled={working} onClick={() => void start()}><Play size={14}/> Run workflow</button></div>
             </> : <>
               <label className="block"><SectionLabel>Node ID</SectionLabel><input value={selected.id} readOnly className={`${inputClass} bg-[#f7f7f7] font-mono text-[#777]`} /></label>
@@ -228,7 +262,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
               <JsonField label="All node parameters (JSON)" value={settings} onChange={value=>updateNode(selected.id,{settings:getObject(value)})}/>
             </>}
           </div>
-          <footer className="flex h-[49px] shrink-0 items-center justify-between border-t border-[#e7e7e7] px-5 text-[11px] text-[#888]"><span className="flex items-center gap-1.5"><Settings2 size={13}/> {selectedCatalog?.group ?? 'Workflow node'}</span><span className="truncate">{result?.state ?? 'Not executed'}</span></footer>
+          {agentNode ? <footer className="grid h-[66px] shrink-0 grid-cols-3 border-t border-[#e7e7e7] px-3 text-center text-[11px] text-[#555]">{[['chat_model','Chat Model *'],['memory','Memory'],['tool','Tool']].map(([handle,label]) => <div key={handle} className="flex flex-col items-center justify-center gap-1"><span className={`size-3 rotate-45 rounded-[2px] border ${agentInputs.includes(handle) ? 'border-violet-600 bg-violet-100' : 'border-[#aaa] bg-white'}`}/><span>{label}</span></div>)}</footer> : <footer className="flex h-[49px] shrink-0 items-center justify-between border-t border-[#e7e7e7] px-5 text-[11px] text-[#888]"><span className="flex items-center gap-1.5"><Settings2 size={13}/> {selectedCatalog?.group ?? 'Workflow node'}</span><span className="truncate">{result?.state ?? 'Not executed'}</span></footer>}
         </section>
         {dataPanel('output')}
       </div>

@@ -62,14 +62,14 @@ const PRIMARY_CATEGORIES: CategoryDefinition[] = [
     id: 'ai',
     title: 'AI',
     pageTitle: 'AI Nodes',
-    description: 'Build autonomous agents, summarize or search documents, etc.',
+    description: 'AI tools and models available in CLIPTORA',
     icon: Bot,
   },
   {
     id: 'apps',
     title: 'Action in an app',
     pageTitle: 'Action in an app',
-    description: 'Do something in an app or service like Google Sheets, Telegram or Notion',
+    description: 'Connect to the installed apps and services',
     icon: Globe2,
   },
   {
@@ -97,7 +97,7 @@ const PRIMARY_CATEGORIES: CategoryDefinition[] = [
     id: 'review',
     title: 'Human review',
     pageTitle: 'Human review',
-    description: 'Request approval via services like Slack and Telegram before making tool calls',
+    description: 'Review and approval tools registered in your workspace',
     icon: UserCheck,
   },
 ]
@@ -202,7 +202,10 @@ function sectionOf(category: CategoryId, item: WorkflowCatalogItem): string {
     if (/filter|\bif\b|loop|merge|switch/.test(text)) return 'Popular'
     return 'Other'
   }
-  if (category === 'ai') return 'AI Nodes'
+  if (category === 'ai') {
+    if (item.group.startsWith('AI · ')) return item.group.slice(5)
+    return 'CLIPTORA AI'
+  }
   return 'Available nodes'
 }
 
@@ -210,39 +213,9 @@ function iconForTool(item: WorkflowCatalogItem) {
   return <WorkflowToolIcon type={item.type} label={item.label} size={32} />
 }
 
-/** Discoverability-only entries: NEVER added to the execution registry. */
-const SHOWCASE: Array<WorkflowCatalogItem & { description: string }> = [
-  { type: 'app.gmail', label: 'Gmail', group: 'Integrations', settings: {}, status: 'planned', description: 'Send and receive emails' },
-  { type: 'app.google.sheets', label: 'Google Sheets', group: 'Integrations', settings: {}, status: 'planned', description: 'Read and write spreadsheet data' },
-  { type: 'app.microsoft.excel', label: 'Microsoft Excel', group: 'Integrations', settings: {}, status: 'planned', description: 'Manage workbooks and tables' },
-  { type: 'app.google.drive', label: 'Google Drive', group: 'Integrations', settings: {}, status: 'planned', description: 'Work with cloud files and folders' },
-  { type: 'app.telegram', label: 'Telegram', group: 'Integrations', settings: {}, status: 'planned', description: 'Send messages and notifications' },
-  { type: 'app.notion', label: 'Notion', group: 'Integrations', settings: {}, status: 'planned', description: 'Manage pages and databases' },
-  { type: 'app.slack', label: 'Slack', group: 'Integrations', settings: {}, status: 'planned', description: 'Send messages and coordinate teams' },
-  { type: 'app.youtube', label: 'YouTube', group: 'Integrations', settings: {}, status: 'planned', description: 'Manage your YouTube content' },
-  { type: 'ai.google.gemini', label: 'Google Gemini', group: 'AI', settings: {}, status: 'planned', description: 'Generate text, analyze media and use AI models' },
-  { type: 'ai.anthropic', label: 'Anthropic', group: 'AI', settings: {}, status: 'planned', description: 'Use Claude models and tools' },
-  { type: 'ai.openai', label: 'OpenAI', group: 'AI', settings: {}, status: 'planned', description: 'Use text, vision and speech models' },
-  { type: 'data.code', label: 'Code', group: 'Data transformation', settings: {}, status: 'planned', description: 'Run custom JavaScript or Python code' },
-  { type: 'data.date_time', label: 'Date & Time', group: 'Data transformation', settings: {}, status: 'planned', description: 'Manipulate date and time values' },
-  { type: 'data.edit_fields', label: 'Edit Fields (Set)', group: 'Data transformation', settings: {}, status: 'planned', description: 'Modify, add, or remove item fields' },
-  { type: 'data.filter', label: 'Filter', group: 'Data transformation', settings: {}, status: 'planned', description: 'Keep only items matching a condition' },
-  { type: 'data.limit', label: 'Limit', group: 'Data transformation', settings: {}, status: 'planned', description: 'Restrict the number of items' },
-  { type: 'data.remove_duplicates', label: 'Remove Duplicates', group: 'Data transformation', settings: {}, status: 'planned', description: 'Delete items with matching field values' },
-  { type: 'data.split_out', label: 'Split Out', group: 'Data transformation', settings: {}, status: 'planned', description: 'Turn a list inside item(s) into separate items' },
-  { type: 'flow.if', label: 'If', group: 'Flow', settings: {}, status: 'planned', description: 'Route items to different branches (true/false)' },
-  { type: 'flow.loop', label: 'Loop Over Items (Split in Batches)', group: 'Flow', settings: {}, status: 'planned', description: 'Split data into batches and iterate over each batch' },
-  { type: 'flow.merge', label: 'Merge', group: 'Flow', settings: {}, status: 'planned', description: 'Merges data of multiple streams once data from both is available' },
-  { type: 'flow.switch', label: 'Switch', group: 'Flow', settings: {}, status: 'planned', description: 'Route items to multiple branches' },
-  { type: 'flow.compare', label: 'Compare Datasets', group: 'Flow', settings: {}, status: 'planned', description: 'Compare two inputs for changes' },
-  { type: 'flow.subworkflow', label: 'Execute Sub-workflow', group: 'Flow', settings: {}, status: 'planned', description: 'Helpers for calling other n8n workflows. Used for designing modular, microservice-like workflows.' },
-  { type: 'flow.stop', label: 'Stop and Error', group: 'Flow', settings: {}, status: 'planned', description: 'Throw an error in the workflow' },
-]
-
 function rowText(item: WorkflowCatalogItem): string {
   const custom = (item as WorkflowCatalogItem & { description?: string }).description
   if (custom?.trim()) return custom
-  if (item.status !== 'implemented') return item.availability_reason ?? 'Backend executor not installed'
   const text = `${item.type} ${item.label}`.toLowerCase()
   if (/gmail/.test(text)) return 'Send and receive emails through Gmail'
   if (/excel/.test(text)) return 'Read, write and manage spreadsheets'
@@ -268,7 +241,7 @@ function rowText(item: WorkflowCatalogItem): string {
 
 const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8750ff]'
 
-export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
+export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioState; onOpenNode?: () => void }) {
   const {
     setLibraryOpen,
     catalog,
@@ -278,7 +251,6 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     versions,
     setVersions,
     working,
-    groups,
     nodeGroup,
     setNodeGroup,
     openDefinition,
@@ -349,17 +321,29 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(width)) } catch {}
   }
 
-  const browseCatalog = useMemo(() => {
-    // Hide a showcase item as soon as the real plugin is installed in the backend.
-    const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
-    return [
-      ...catalog,
-      ...SHOWCASE.filter(example => !catalog.some(real =>
-        normalize(real.label) === normalize(example.label) || real.type === example.type
-      )),
-    ]
-  }, [catalog])
+  const browseCatalog = useMemo(() => catalog.filter(item =>
+    item.status === 'implemented' && (
+      !item.actions?.length || item.actions.some(action => item.action_capabilities?.[action]?.status !== 'unavailable')
+    )
+  ), [catalog])
   const classified = useMemo(() => browseCatalog.map(item => ({ ...item, category: categoryOf(item) })), [browseCatalog])
+  const availableCategories = useMemo(() => new Set(classified.map(item => item.category)), [classified])
+  const primaryCategories = PRIMARY_CATEGORIES.filter(category => availableCategories.has(category.id))
+  const cliptoraCategories = CLIPTORA_CATEGORIES.filter(category => availableCategories.has(category.id))
+  const hasTriggerCategory = availableCategories.has('triggers')
+  const activeGroups = useMemo(() => [...new Set(browseCatalog.map(item => item.group))], [browseCatalog])
+  const availableTemplates = useMemo(() => {
+    const types = new Set(browseCatalog.map(item => item.type))
+    return templates.filter(template => template.nodes.length > 0 && template.nodes.every(node => types.has(node.type)))
+  }, [templates, browseCatalog])
+
+  useEffect(() => {
+    if (page.kind === 'category' && !availableCategories.has(page.category)) setPage({ kind: 'home' })
+    if (page.kind === 'app' && !browseCatalog.some(item => item.type === page.type)) setPage({ kind: 'home' })
+    if (page.kind === 'templates' && !availableTemplates.length) setPage({ kind: 'home' })
+    if (page.kind === 'alltools' && !browseCatalog.length) setPage({ kind: 'home' })
+  }, [availableCategories, browseCatalog, availableTemplates, page])
+
   const query = nodeSearch.trim()
   const currentCategory = page.kind === 'category' ? CATEGORY_BY_ID[page.category] : null
   const currentApp = page.kind === 'app' ? browseCatalog.find(item => item.type === page.type) : undefined
@@ -408,39 +392,42 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     const previousIds = new Set(nodes.map(node => node.id))
     addNode(item.type)
     if (action !== undefined) {
+      const actionDefaults: Record<string, Record<string, unknown>> = {
+        message_model: { model: 'gpt-4o-mini', prompt: '' },
+        classify_violations: { model: 'omni-moderation-latest', prompt: '', simplify_output: true },
+        analyze_image: { model: 'gpt-4o-mini', prompt: "What's in this image?", image_urls: '', simplify_output: true },
+        generate_image: { model: 'gpt-image-1', prompt: '', image_size: '1024x1024', simplify_output: true },
+      }
       const property = Object.prototype.hasOwnProperty.call(item.settings, 'action') &&
         !Object.prototype.hasOwnProperty.call(item.settings, 'operation') ? 'action' : 'operation'
       setNodesTransient(previous => previous.map(node => (
         node.type === item.type && !previousIds.has(node.id)
-          ? { ...node, settings: { ...node.settings, [property]: action } }
+          ? { ...node, settings: { ...node.settings, ...(actionDefaults[action] ?? {}), [property]: action } }
           : node
       )))
     }
     setLibraryOpen(false)
+    onOpenNode?.()
   }
 
   const renderTool = (item: WorkflowCatalogItem, category: CategoryId) => {
-    const disabled = item.status !== 'implemented'
-    const statusLabel = item.status === 'unavailable' ? 'Unavailable' : 'Coming soon'
     return (
       <button
         key={item.type}
         type="button"
-        draggable={!disabled}
+        draggable
         onDragStart={event => {
           event.dataTransfer.effectAllowed = 'copy'
           event.dataTransfer.setData('text/cliptora-node', item.type)
         }}
         onClick={() => item.actions?.length ? goApp(item, category) : addItem(item)}
-        disabled={disabled}
-        title={disabled ? (item.availability_reason ?? 'Backend executor not installed') : `Add ${item.label}`}
-        className={`group flex w-full min-w-0 items-start gap-4 px-5 py-[17px] text-left transition-colors hover:bg-[#f8f8f9] focus-visible:bg-[#f6f2ff] disabled:cursor-not-allowed disabled:opacity-75 ${focusRing}`}
+        title={`Add ${item.label}`}
+        className={`group flex w-full min-w-0 items-start gap-4 px-5 py-[17px] text-left transition-colors hover:bg-[#f8f8f9] focus-visible:bg-[#f6f2ff] ${focusRing}`}
       >
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center" aria-hidden="true">{iconForTool(item)}</span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <strong className="block break-words text-[15px] font-medium leading-6 text-[#202020]">{item.label}</strong>
-            {disabled && <span className="rounded border border-[#e4e4e7] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#777]">{statusLabel}</span>}
           </span>
           <span className="mt-0.5 block break-words text-[13px] leading-5 text-[#575757]">{rowText(item)}</span>
         </span>
@@ -472,7 +459,9 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     ? ['Popular', 'Add or remove items', 'Combine items']
     : page.kind === 'category' && page.category === 'flow'
       ? ['Popular', 'Other']
-      : ['AI Nodes', 'Available nodes']
+      : page.kind === 'category' && page.category === 'ai'
+        ? ['CLIPTORA AI', 'Agents & Chains', 'Chat Models', 'Memory', 'Embeddings', 'Vector Stores', 'Document Processing', 'Retrievers & Rerankers', 'Output Parsers', 'Tools']
+        : ['Available nodes']
 
   const groupSections = (() => {
     const category = page.kind === 'category' ? page.category : null
@@ -482,14 +471,15 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
       const key = sectionOf(category, item)
       grouped.set(key, [...(grouped.get(key) ?? []), item])
     })
-    return sectionOrder.filter(section => grouped.has(section)).map(section => ({ title: section, items: grouped.get(section)! }))
+    const ordered = [...sectionOrder.filter(section => grouped.has(section)), ...[...grouped.keys()].filter(section => !sectionOrder.includes(section)).sort()]
+    return ordered.map(section => ({ title: section, items: [...grouped.get(section)!].sort((a, b) => a.label.localeCompare(b.label)) }))
   })()
 
   const isSearch = query.length > 0
   const pageTitle = page.kind === 'home'
     ? 'What happens next?'
     : page.kind === 'app'
-      ? currentApp?.label ?? 'Tool actions'
+      ? currentApp?.type === 'ai.openai' ? `Actions (${currentApp.actions?.length ?? 0})` : currentApp?.label ?? 'Tool actions'
       : page.kind === 'templates'
         ? 'Workflow Templates'
         : page.kind === 'workflows'
@@ -497,6 +487,17 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
           : page.kind === 'alltools'
             ? 'All Tools'
             : currentCategory?.pageTitle ?? 'Tools'
+
+  const appActionSections = (() => {
+    if (!currentApp) return [] as Array<{ title: string; actions: string[] }>
+    const visible = (currentApp.actions ?? []).filter(action => !isSearch || `${action} ${currentApp.action_capabilities?.[action]?.label ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+    const grouped = new Map<string, string[]>()
+    visible.forEach(action => {
+      const group = currentApp.action_capabilities?.[action]?.group ?? 'Actions'
+      grouped.set(group, [...(grouped.get(group) ?? []), action])
+    })
+    return [...grouped.entries()].map(([title, actions]) => ({ title, actions }))
+  })()
 
   return (
     <aside
@@ -506,18 +507,18 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
       style={{ width: `min(${libraryWidth}px, calc(100vw - 16px))` }}
     >
       {/* n8n-style page title and back navigation */}
-      <div className={`group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-5 ${page.kind === 'category' && page.category === 'ai' ? 'min-h-[88px] py-3' : page.kind === 'app' ? 'min-h-[74px] py-3' : 'h-[62px]'}`}>
+      <div className={`group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-2 ${page.kind === 'category' && page.category === 'ai' ? 'min-h-[88px] py-3' : page.kind === 'app' ? 'min-h-[74px] py-3' : 'h-[62px]'}`}>
         {page.kind !== 'home' && (
           <button type="button" onClick={goBack} title="Back" aria-label="Back" className={`-ml-2 grid size-9 shrink-0 place-items-center rounded-md text-[#777] hover:bg-[#eeeeee] hover:text-[#222] ${focusRing}`}>
             <ArrowLeft size={25} strokeWidth={1.9} />
           </button>
         )}
         {page.kind === 'category' && currentCategory && <currentCategory.icon size={26} className="shrink-0 text-[#b9b9b9]" strokeWidth={1.7} />}
-        {page.kind === 'app' && currentApp && <div className="shrink-0">{iconForTool(currentApp)}</div>}
+        {page.kind === 'app' && currentApp && currentApp.type !== 'ai.openai' && <div className="shrink-0">{iconForTool(currentApp)}</div>}
         <div className="min-w-0 flex-1">
           <h2 className="break-words text-[18px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
           {page.kind === 'category' && page.category === 'ai' && <p className="mt-2 text-[13px] leading-5 text-[#555]">Select an AI Node to add to your workflow</p>}
-          {page.kind === 'app' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
+          {page.kind === 'app' && currentApp?.type !== 'ai.openai' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
         </div>
         <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide Tool Library" title="Hide Tool Library" className={`-mr-2 grid size-8 shrink-0 place-items-center rounded-lg text-[#9b9b9b] opacity-0 transition-opacity hover:bg-[#ececec] hover:text-[#222] group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 ${focusRing}`}><X size={18} /></button>
       </div>
@@ -542,11 +543,11 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         {page.kind === 'home' && !isSearch && (
           <>
             <nav aria-label="Node categories" className="pt-1">
-              {PRIMARY_CATEGORIES.map(renderCategory)}
+              {primaryCategories.map(renderCategory)}
             </nav>
-            <div className="ml-5 mr-4 my-4 border-t border-[#dedede]" />
-            {renderCategory(TRIGGER_CATEGORY)}
-            {templates.length > 0 && (
+            {primaryCategories.length > 0 && hasTriggerCategory && <div className="ml-5 mr-4 my-4 border-t border-[#dedede]" />}
+            {hasTriggerCategory && renderCategory(TRIGGER_CATEGORY)}
+            {availableTemplates.length > 0 && (
               <button type="button" onClick={() => { setPage({ kind: 'templates' }); setNodeSearch('') }}
                 className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Layers3 size={29} strokeWidth={1.7} /></span>
@@ -554,27 +555,30 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
                   <strong className="block text-[13px] font-medium leading-6 text-[#202020]">Workflow Templates</strong>
                   <span className="mt-0.5 block text-[11px] leading-[1.45] text-[#505050]">Start with a ready-made set of connected nodes</span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{templates.length}</span><ArrowRight size={21} /></span>
+                <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{availableTemplates.length}</span><ArrowRight size={21} /></span>
               </button>
             )}
-            <div className="mx-5 mb-4 mt-[76px] border-t border-[#e6e6e6]" />
-            <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#969696]">CLIPTORA tools</p>
-            {CLIPTORA_CATEGORIES.map(renderCategory)}
+            {cliptoraCategories.length > 0 && <>
+              <div className="mx-5 mb-4 mt-8 border-t border-[#e6e6e6]" />
+              <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#969696]">CLIPTORA tools</p>
+              {cliptoraCategories.map(renderCategory)}
+            </>}
             <div className="mx-5 my-4 border-t border-[#e6e6e6]" />
-            <button type="button" onClick={() => { setPage({ kind: 'workflows' }); setNodeSearch('') }}
+            {definitions.length > 0 && <button type="button" onClick={() => { setPage({ kind: 'workflows' }); setNodeSearch('') }}
               className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><FolderOpen size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">Saved Workflows</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Open saved workflows and restore previous versions</span></span>
               <span className="mt-1 flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{definitions.length}</span><ArrowRight size={21} /></span>
-            </button>
-            <button type="button" onClick={() => { setPage({ kind: 'alltools' }); setNodeSearch(''); setNodeGroup('All') }}
+            </button>}
+            {browseCatalog.length > 0 && <button type="button" onClick={() => { setPage({ kind: 'alltools' }); setNodeSearch(''); setNodeGroup('All') }}
               className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Database size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">All tools</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Browse tools by their original backend groups</span></span>
               <ArrowRight size={21} className="mt-2 shrink-0 text-[#777]" />
-            </button>
+            </button>}
+            {!browseCatalog.length && <div className="px-5 py-6 text-[13px] text-[#818181]">No executable tools are registered in this workspace.</div>}
           </>
         )}
 
@@ -590,12 +594,10 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
 
         {page.kind === 'category' && !['apps', 'triggers'].includes(page.category) && groupSections.map((section, idx) => (
           <section key={section.title}>
-            {page.category !== 'ai' && (
-              <button type="button" onClick={() => setCollapsed(value => value.includes(section.title) ? value.filter(v => v !== section.title) : [...value, section.title])} className={`flex w-full items-center justify-between border-y border-[#e7e7e7] bg-[#fafafa] px-5 py-3.5 text-left text-[14px] font-medium text-[#222] hover:bg-[#f3f3f3] ${idx === 0 ? 'border-t-0' : ''} ${focusRing}`} aria-expanded={!collapsed.includes(section.title)}>
-                {section.title}
-                <ChevronDown size={19} className={`text-[#777] transition-transform ${collapsed.includes(section.title) ? '-rotate-90' : ''}`} />
-              </button>
-            )}
+            <button type="button" onClick={() => setCollapsed(value => value.includes(section.title) ? value.filter(v => v !== section.title) : [...value, section.title])} className={`flex w-full items-center justify-between border-y border-[#e7e7e7] bg-[#fafafa] px-5 py-3.5 text-left text-[14px] font-medium text-[#222] hover:bg-[#f3f3f3] ${idx === 0 ? 'border-t-0' : ''} ${focusRing}`} aria-expanded={!collapsed.includes(section.title)}>
+              {section.title}
+              <ChevronDown size={19} className={`text-[#777] transition-transform ${collapsed.includes(section.title) ? '-rotate-90' : ''}`} />
+            </button>
             {!collapsed.includes(section.title) && section.items.map(item => renderTool(item, page.category))}
           </section>
         ))}
@@ -603,7 +605,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         {page.kind === 'alltools' && (
           <>
             <div className="flex gap-1 overflow-x-auto border-b border-[#e7e7e7] px-4 pb-3 pt-2 [scrollbar-width:thin]" aria-label="Tool groups">
-              {['All', ...groups].map(group => (
+              {['All', ...activeGroups].map(group => (
                 <button key={group} type="button" onClick={() => setNodeGroup(group)}
                   aria-pressed={nodeGroup === group}
                   className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium ${focusRing} ${nodeGroup === group ? 'bg-[#222] text-white' : 'text-[#606060] hover:bg-[#f2f2f2]'}`}>{group}</button>
@@ -666,7 +668,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         {page.kind === 'templates' && (
           <>
             <div className="px-5 pb-2 pt-4 text-[12px] font-medium text-[#858585]">WORKFLOW TEMPLATES</div>
-            {templates.filter(template => !isSearch || `${template.name} ${template.description}`.toLowerCase().includes(query.toLowerCase())).map(template => (
+            {availableTemplates.filter(template => !isSearch || `${template.name} ${template.description}`.toLowerCase().includes(query.toLowerCase())).map(template => (
               <button key={template.key} type="button" onClick={() => { openTemplate(template); setLibraryOpen(false) }} className={`group flex w-full items-start gap-4 px-5 py-[17px] text-left hover:bg-[#f8f8f9] ${focusRing}`}>
                 <span className="mt-1 grid size-9 shrink-0 place-items-center text-[#888]"><Layers3 size={22} /></span>
                 <span className="min-w-0 flex-1"><strong className="block text-[15px] font-medium">{template.name}</strong><small className="mt-1 block text-[12px] leading-5 text-[#666]">{template.description}</small></span>
@@ -678,22 +680,27 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
 
         {page.kind === 'app' && currentApp && (
           <>
-            <div className="px-5 pb-2 pt-4 text-[12px] font-medium text-[#858585]">ACTIONS</div>
-            {(currentApp.actions ?? []).filter(action => !isSearch || action.toLowerCase().includes(query.toLowerCase())).map(action => (
-              <button key={action} type="button" onClick={() => addItem(currentApp, action)} className={`group flex w-full items-start gap-4 px-5 py-[17px] text-left hover:bg-[#f8f8f9] ${focusRing}`}>
-                <span className="mt-0.5 grid size-9 shrink-0 place-items-center text-[#9e9e9e]"><PlayCircle size={22} /></span>
-                <span className="min-w-0 flex-1"><strong className="block text-[15px] font-medium leading-6">{prettyOperation(action)}</strong><small className="mt-0.5 block text-[12px] leading-5 text-[#666]">Add this action to your workflow</small></span>
-                <ArrowRight size={19} className="mt-2 text-[#c9c9c9] group-hover:text-[#8750ff]" />
-              </button>
-            ))}
+            {appActionSections.map(section => <section key={section.title}>
+              <div className="px-5 pb-2 pt-6 text-[12px] font-medium uppercase tracking-[0.08em] text-[#5f5f5f]">{section.title}</div>
+              {section.actions.map(action => {
+                const capability = currentApp.action_capabilities?.[action]
+                const disabled = capability?.status === 'unavailable'
+                return <button key={action} type="button" disabled={disabled} onClick={() => addItem(currentApp, action)} title={disabled ? capability?.reason : `Add ${capability?.label ?? prettyOperation(action)}`}
+                  className={`group flex w-full items-center gap-4 px-5 py-[15px] text-left transition-colors ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-[#f8f8f9]'} ${focusRing}`}>
+                  <span className="grid size-9 shrink-0 place-items-center text-[#111]">{currentApp.type === 'ai.openai' ? <WorkflowToolIcon type="ai.openai" label="OpenAI" size={31} /> : <PlayCircle size={22} />}</span>
+                  <span className="min-w-0 flex-1"><strong className="block text-[15px] font-normal leading-6 text-[#202020]">{capability?.label ?? prettyOperation(action)}</strong>{disabled && <small className="mt-0.5 block text-[11px] leading-4 text-[#777]">{capability?.reason}</small>}</span>
+                  {!disabled && <ArrowRight size={18} className="text-[#c9c9c9] group-hover:text-[#8750ff]" />}
+                </button>
+              })}
+            </section>)}
           </>
         )}
 
-        {page.kind !== 'home' && page.kind !== 'templates' && filtered.length === 0 && (
+        {page.kind !== 'home' && page.kind !== 'templates' && page.kind !== 'app' && page.kind !== 'workflows' && filtered.length === 0 && (
           <div className="mx-5 mt-5 rounded-xl border border-dashed border-[#dfdfdf] px-5 py-7 text-center">
             <CircleHelp size={23} className="mx-auto mb-2 text-[#b0b0b0]" />
             <p className="text-[13px] font-medium text-[#484848]">{isSearch ? 'No matching nodes' : 'No tools registered in this category'}</p>
-            <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'Install or enable the required tool in the backend registry.'}</p>
+            <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'No implemented tools are available in this section.'}</p>
           </div>
         )}
       </div>

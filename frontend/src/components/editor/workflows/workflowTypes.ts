@@ -15,6 +15,7 @@ export type WorkflowCatalogItem = {
   type: string; label: string; group: string; settings: Record<string, unknown>
   status?: 'implemented' | 'planned'; priority?: 'P0' | 'P1'; icon?: string
   actions?: string[]; input_types?: string[]; output_types?: string[]
+  action_capabilities?: Record<string, { status: 'implemented' | 'unavailable'; group?: string; label?: string; reason?: string }>
   parameters_schema?: Record<string, unknown>; credentials?: string[]; backend_executor?: string | null
 }
 export type WorkflowSource = { id: number; media_id: number | null; filename: string; size_bytes: number; created_at: string }

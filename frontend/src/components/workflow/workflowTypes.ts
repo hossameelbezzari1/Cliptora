@@ -15,6 +15,7 @@ export type WorkflowCatalogItem = {
   type: string; label: string; group: string; settings: Record<string, unknown>
   status?: 'implemented' | 'planned' | 'unavailable'; priority?: 'P0' | 'P1'; icon?: string
   actions?: string[]; input_types?: string[]; output_types?: string[]
+  action_capabilities?: Record<string, { status: 'implemented' | 'unavailable'; group?: string; label?: string; reason?: string }>
   parameters_schema?: Record<string, unknown>; credentials?: string[]; backend_executor?: string | null
   description?: string; availability_reason?: string; source_package?: string; source_path?: string; source_license?: string; version?: string
 }

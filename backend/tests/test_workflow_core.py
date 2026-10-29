@@ -24,6 +24,19 @@ class WorkflowEngineTests(unittest.TestCase):
         self.assertTrue(all(item['backend_executor'] for item in catalog if item['status'] == 'implemented'))
         self.assertTrue(all(item['backend_executor'] is None for item in catalog if item['status'] != 'implemented'))
 
+    def test_openai_catalog_matches_the_sixteen_action_picker(self):
+        openai = next(item for item in core.tool_catalog() if item['type'] == 'ai.openai')
+        self.assertEqual(len(openai['actions']), 16)
+        self.assertEqual(openai['actions'][-5:], ['create_conversation', 'get_conversation', 'remove_conversation', 'update_conversation', 'generate_video'])
+        self.assertEqual(openai['action_capabilities']['create_conversation']['group'], 'Conversation actions')
+        self.assertEqual(openai['action_capabilities']['generate_video']['group'], 'Video actions')
+
+    def test_ai_agent_and_chat_model_are_runnable_catalog_nodes(self):
+        catalog = {item['type']: item for item in core.tool_catalog()}
+        self.assertEqual(catalog['ai.agent']['status'], 'implemented')
+        self.assertEqual(catalog['ai.chat_model']['label'], 'OpenAI Chat Model')
+        self.assertEqual(catalog['ai.agent']['settings']['prompt_source'], 'connected_chat_trigger')
+
     def test_n8n_inventory_matches_vendored_manifest(self):
         package_path = Path(__file__).resolve().parents[2] / 'vendor/n8n/packages/nodes-base/package.json'
         inventory = core.n8n_node_catalog()
@@ -159,6 +172,46 @@ class WorkflowEngineTests(unittest.TestCase):
         request = request_mock.call_args.args[0]
         self.assertEqual(request.get_header('Authorization'), 'Bearer server-only-key')
         self.assertNotIn('server-only-key', json.dumps(result))
+
+    def test_openai_analyze_image_sends_vision_content_and_simplifies_output(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self): return json.dumps({'model': 'gpt-4o-mini', 'choices': [{'message': {'content': 'A sunset over the ocean.'}, 'finish_reason': 'stop'}], 'usage': {'total_tokens': 19}}).encode()
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'server-only-key'}), patch.object(core.urllib.request, 'urlopen', return_value=Response()) as request_mock:
+            result = core.call_node({'type': 'ai.openai', 'settings': {'action': 'analyze_image', 'model': 'gpt-4o-mini', 'prompt': "What's in this image?", 'image_urls': 'https://images.example.com/sunset.jpg', 'simplify_output': True}}, {}, None, Path('.'))
+        self.assertEqual(result['text'], 'A sunset over the ocean.')
+        request = request_mock.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertEqual(payload['messages'][0]['content'][1]['type'], 'image_url')
+        self.assertEqual(payload['messages'][0]['content'][1]['image_url']['url'], 'https://images.example.com/sunset.jpg')
+
+    def test_openai_unavailable_action_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'not supported'):
+            core.call_node({'type': 'ai.openai', 'settings': {'action': 'edit_image'}}, {}, None, Path('.'))
+
+    def test_ai_agent_requires_chat_model_and_uses_connected_inputs(self):
+        with self.assertRaisesRegex(ValueError, 'Chat Model'):
+            core.call_node({'type': 'ai.agent', 'settings': {'prompt_source': 'define_below', 'prompt': 'Hello'}}, {}, None, Path('.'))
+
+        settings = {
+            'prompt_source': 'define_below', 'prompt': 'Answer the user',
+            '__cliptora_ui_target_handles': {'model': 'chat_model', 'memory': 'memory', 'tool': 'tool'},
+            'system_message': 'Act as an agent.',
+        }
+        outputs = {
+            'model': {'chat_model': {'model': 'gpt-test', 'temperature': 0.3, 'max_output_tokens': 321}},
+            'memory': {'messages': ['Earlier context']},
+            'tool': {'items': [{'answer': 42}]},
+        }
+        with patch.object(core, 'openai_chat', return_value={'text': 'Agent reply', 'model': 'gpt-test'}) as chat:
+            result = core.call_node({'type': 'ai.agent', 'settings': settings}, outputs, None, Path('.'))
+        self.assertEqual(result['text'], 'Agent reply')
+        self.assertEqual(result['agent']['chat_model_node'], 'model')
+        request_cfg = chat.call_args.args[0]
+        self.assertIn('Conversation memory', request_cfg['prompt'])
+        self.assertIn('Connected tool results', request_cfg['prompt'])
+        self.assertEqual(request_cfg['max_output_tokens'], 321)
 
     def test_transcript_to_cuts(self):
         words = []
