@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -137,6 +137,18 @@ const TRIGGER_CATEGORY: CategoryDefinition = {
 const CATEGORY_BY_ID = Object.fromEntries(
   [...PRIMARY_CATEGORIES, ...CLIPTORA_CATEGORIES, TRIGGER_CATEGORY].map(category => [category.id, category]),
 ) as Record<CategoryId, CategoryDefinition>
+
+const LIBRARY_WIDTH_KEY = 'cliptora.workflow.toolLibraryWidth'
+const LIBRARY_MIN_WIDTH = 280
+const LIBRARY_DEFAULT_WIDTH = 340
+const LIBRARY_MAX_WIDTH = 520
+
+function clampLibraryWidth(width: number) {
+  const viewportMaximum = typeof window === 'undefined'
+    ? LIBRARY_MAX_WIDTH
+    : Math.max(LIBRARY_MIN_WIDTH, Math.min(LIBRARY_MAX_WIDTH, window.innerWidth - 16))
+  return Math.max(LIBRARY_MIN_WIDTH, Math.min(viewportMaximum, Math.round(width)))
+}
 
 /**
  * Use the backend registry as the source of truth. This classifier only organizes
@@ -282,6 +294,60 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
 
   const [page, setPage] = useState<PickerPage>({ kind: 'home' })
   const [collapsed, setCollapsed] = useState<string[]>([])
+  const [libraryWidth, setLibraryWidth] = useState(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(LIBRARY_WIDTH_KEY))
+      return clampLibraryWidth(Number.isFinite(saved) && saved > 0 ? saved : LIBRARY_DEFAULT_WIDTH)
+    } catch { return LIBRARY_DEFAULT_WIDTH }
+  })
+  const widthRef = useRef(libraryWidth)
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  useEffect(() => {
+    const resize = (event: PointerEvent) => {
+      const state = resizeRef.current
+      if (!state) return
+      const width = clampLibraryWidth(state.startWidth + event.clientX - state.startX)
+      widthRef.current = width
+      setLibraryWidth(width)
+    }
+    const stop = () => {
+      if (!resizeRef.current) return
+      resizeRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(widthRef.current)) } catch {}
+    }
+    window.addEventListener('pointermove', resize)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointermove', resize)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [])
+
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    resizeRef.current = { startX: event.clientX, startWidth: widthRef.current }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  const resizeWithKeyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const delta = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0
+    const requested = event.key === 'Home' ? LIBRARY_MIN_WIDTH : event.key === 'End' ? LIBRARY_MAX_WIDTH : widthRef.current + delta
+    if (!delta && event.key !== 'Home' && event.key !== 'End') return
+    event.preventDefault()
+    const width = clampLibraryWidth(requested)
+    widthRef.current = width
+    setLibraryWidth(width)
+    try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(width)) } catch {}
+  }
 
   const browseCatalog = useMemo(() => {
     // Hide a showcase item as soon as the real plugin is installed in the backend.
@@ -436,7 +502,8 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
     <aside
       id="ws-tool-library"
       aria-label="Tool Library"
-      className="absolute inset-y-0 left-0 z-40 flex w-[min(432px,calc(100vw-16px))] shrink-0 flex-col overflow-hidden border-r border-[#e5e5e5] bg-white text-[#202020] shadow-[8px_0_28px_#00000018] lg:relative lg:z-auto lg:w-[432px] lg:shadow-none 2xl:w-[432px]"
+      className="absolute inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-visible border-r border-[#e5e5e5] bg-white text-[#202020] shadow-[8px_0_28px_#00000018] lg:relative lg:z-auto lg:shadow-none"
+      style={{ width: `min(${libraryWidth}px, calc(100vw - 16px))` }}
     >
       {/* n8n-style page title and back navigation */}
       <div className={`group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-5 ${page.kind === 'category' && page.category === 'ai' ? 'min-h-[88px] py-3' : page.kind === 'app' ? 'min-h-[74px] py-3' : 'h-[62px]'}`}>
@@ -448,7 +515,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
         {page.kind === 'category' && currentCategory && <currentCategory.icon size={26} className="shrink-0 text-[#b9b9b9]" strokeWidth={1.7} />}
         {page.kind === 'app' && currentApp && <div className="shrink-0">{iconForTool(currentApp)}</div>}
         <div className="min-w-0 flex-1">
-          <h2 className="break-words text-[21px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
+          <h2 className="break-words text-[18px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
           {page.kind === 'category' && page.category === 'ai' && <p className="mt-2 text-[13px] leading-5 text-[#555]">Select an AI Node to add to your workflow</p>}
           {page.kind === 'app' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
         </div>
@@ -457,7 +524,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
 
       {/* Search always uses the backend catalog, and is scoped to the active page. */}
 
-      <label className="flex h-[45px] items-center gap-[9px] rounded-[6px] border border-[#cfcfcf] bg-white px-[14px] text-[#777777] shadow-[0_5px_15px_rgba(0,0,0,0.035)] transition-colors focus-within:border-[#8e26ff] focus-within:ring-1 focus-within:ring-[#8e26ff]">
+      <label className="flex h-[45px] items-center gap-[9px] bg-white px-[14px] text-[#777777]  focus-within:border-[#8e26ff] focus-within:ring-1 focus-within:ring-[#8e26ff]">
         <Search size={20} strokeWidth={2} className="shrink-0" />
         <input
           ref={toolSearchRef}
@@ -465,7 +532,7 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
           type="search"
           value={nodeSearch}
           onChange={event => setNodeSearch(event.target.value)}
-          placeholder={page.kind === 'app' ? 'Search actions...' : page.kind === 'templates' ? 'Search templates...' : page.kind === 'workflows' ? 'Search workflows...' : 'Search nodes...aaa'}
+          placeholder={page.kind === 'app' ? 'Search actions...' : page.kind === 'templates' ? 'Search templates...' : page.kind === 'workflows' ? 'Search workflows...' : 'Search nodes...'}
           aria-label={page.kind === 'app' ? 'Search actions' : page.kind === 'templates' ? 'Search templates' : page.kind === 'workflows' ? 'Search workflows' : 'Search nodes'}
           className="h-full min-w-0 w-full flex-1 border-0 bg-transparent p-0 text-[16px] leading-normal text-[#222] outline-none placeholder:text-[#777]"
         />
@@ -484,8 +551,8 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
                 className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Layers3 size={29} strokeWidth={1.7} /></span>
                 <span className="min-w-0 flex-1">
-                  <strong className="block text-[16px] font-medium leading-6 text-[#202020]">Workflow Templates</strong>
-                  <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Start with a ready-made set of connected nodes</span>
+                  <strong className="block text-[13px] font-medium leading-6 text-[#202020]">Workflow Templates</strong>
+                  <span className="mt-0.5 block text-[11px] leading-[1.45] text-[#505050]">Start with a ready-made set of connected nodes</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{templates.length}</span><ArrowRight size={21} /></span>
               </button>
@@ -629,6 +696,23 @@ export function ToolLibrary({ studio }: { studio: WorkflowStudioState }) {
             <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'Install or enable the required tool in the backend registry.'}</p>
           </div>
         )}
+      </div>
+
+      <div
+        role="separator"
+        aria-label="Resize Tool Library"
+        aria-orientation="vertical"
+        aria-valuemin={LIBRARY_MIN_WIDTH}
+        aria-valuemax={LIBRARY_MAX_WIDTH}
+        aria-valuenow={libraryWidth}
+        tabIndex={0}
+        onPointerDown={startResize}
+        onKeyDown={resizeWithKeyboard}
+        className="group absolute inset-y-0 right-0 z-50 w-3 translate-x-1/2 cursor-col-resize touch-none outline-none"
+      >
+        <span className="absolute left-1/2 top-1/2 grid h-14 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#d8d8da] bg-white shadow-sm transition-colors group-hover:border-[#9b7be8] group-hover:bg-[#f7f3ff] group-focus-visible:border-[#7c4dff] group-focus-visible:ring-2 group-focus-visible:ring-violet-200">
+          <span className="h-7 w-px rounded-full bg-[#b8b8bc] group-hover:bg-[#7c4dff]" />
+        </span>
       </div>
 
     </aside>
