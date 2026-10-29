@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import type { Connection, Edge, ReactFlowInstance } from '@xyflow/react'
 import { api } from '../../lib/api'
@@ -207,17 +206,13 @@ export function useWorkflowStudio({ projectId, initialWorkflowId = null, initial
     if (nodes.find(node => node.id === id)?.type === 'core.video_source') setSourceId(null)
     setNodes(prev => prev.filter(node => node.id !== id).map(node => {
       const sourceHandles = node.settings.__cliptora_ui_source_handles
-      const targetHandles = node.settings.__cliptora_ui_target_handles
       const nextHandles = sourceHandles && typeof sourceHandles === 'object' && !Array.isArray(sourceHandles)
         ? Object.fromEntries(Object.entries(sourceHandles).filter(([sourceId]) => sourceId !== id))
         : sourceHandles
-      const nextTargetHandles = targetHandles && typeof targetHandles === 'object' && !Array.isArray(targetHandles)
-        ? Object.fromEntries(Object.entries(targetHandles).filter(([sourceId]) => sourceId !== id))
-        : targetHandles
       return {
         ...node,
         depends_on: node.depends_on.filter(dep => dep !== id),
-        settings: nextHandles === sourceHandles && nextTargetHandles === targetHandles ? node.settings : { ...node.settings, __cliptora_ui_source_handles: nextHandles, __cliptora_ui_target_handles: nextTargetHandles },
+        settings: nextHandles === sourceHandles ? node.settings : { ...node.settings, __cliptora_ui_source_handles: nextHandles },
       }
     }))
     setSelectedId(prev => prev === id ? null : prev)
@@ -237,8 +232,7 @@ export function useWorkflowStudio({ projectId, initialWorkflowId = null, initial
     type: 'studio',
     draggable: node.settings.__cliptora_ui_pinned !== true,
     position: node.position ?? { x: 80 + (index % 3) * 260, y: 60 + Math.floor(index / 3) * 150 },
-    data: { label: typeof node.settings.__cliptora_ui_label === 'string' && node.settings.__cliptora_ui_label.trim() ? node.settings.__cliptora_ui_label : (catalog.find(item => item.type === node.type)?.label ?? node.type), pinned: node.settings.__cliptora_ui_pinned === true, nodeType: node.type, subtitle: node.type === 'core.video_source' ? (sources.find(item => item.id === node.settings.source_id)?.filename ?? 'Select a video') : node.depends_on.length ? `${node.depends_on.length} connected input${node.depends_on.length === 1 ? '' : 's'}` : 'Start workflow here', meta: count !== undefined ? `${String(count)} items` : node.when === 'always' ? 'Ready' : `If ${node.when}`, status,
-      agentConnections: node.type === 'ai.agent' ? (() => { const raw = node.settings.__cliptora_ui_target_handles; const values = raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.values(raw) : []; return { chatModel: values.includes('chat_model'), memory: values.includes('memory'), tool: values.includes('tool') } })() : undefined },
+    data: { label: typeof node.settings.__cliptora_ui_label === 'string' && node.settings.__cliptora_ui_label.trim() ? node.settings.__cliptora_ui_label : (catalog.find(item => item.type === node.type)?.label ?? node.type), pinned: node.settings.__cliptora_ui_pinned === true, note: node.settings.__cliptora_ui_note_visible === true && typeof node.settings.__cliptora_ui_notes === 'string' ? node.settings.__cliptora_ui_notes : undefined, nodeType: node.type, subtitle: node.type === 'core.video_source' ? (sources.find(item => item.id === node.settings.source_id)?.filename ?? 'Select a video') : node.depends_on.length ? `${node.depends_on.length} connected input${node.depends_on.length === 1 ? '' : 's'}` : 'Start workflow here', meta: count !== undefined ? `${String(count)} items` : node.when === 'always' ? 'Ready' : `If ${node.when}`, status },
     selected: selectedId === node.id,
   }}), [nodes, catalog, selectedId, run?.results, run?.state, run?.current_node, sources])
   const flowEdges = useMemo<Edge[]>(() => nodes.flatMap(node => node.depends_on.map(dep => ({ id: `${dep}:${node.id}`, source: dep, target: node.id, type: 'smoothstep', animated: run?.state === 'running' && run.current_node === node.id }))), [nodes, run?.state, run?.current_node])

@@ -90,12 +90,17 @@ services:
       CLIPTORA_N8N_SSO_SECRET: ${CLIPTORA_N8N_SSO_SECRET:-cliptora-local-sso-secret-change-me-32}
       CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS: ${CLIPTORA_WORKFLOW_HTTP_ALLOWED_HOSTS:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      CLIPTORA_OPENAI_MODEL: ${CLIPTORA_OPENAI_MODEL:-gpt-4o-mini}
+      CLIPTORA_OPENAI_MODEL: ${CLIPTORA_OPENAI_MODEL:-gpt-6.1-sol}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      CLIPTORA_OLLAMA_ALLOWED_HOSTS: ${CLIPTORA_OLLAMA_ALLOWED_HOSTS:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./storage:/workspace/storage
       - cliptora_integration_secrets:/run/cliptora:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy

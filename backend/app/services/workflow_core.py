@@ -7,6 +7,7 @@ and checked by the API. FFmpeg and faster-whisper are optional system dependenci
 from __future__ import annotations
 
 import hashlib
+import base64
 import ipaddress
 import json
 import math
@@ -25,6 +26,12 @@ from typing import Any, Callable
 MAX_NODES = 100
 MAX_CUTS = 36
 MAX_TARGET_SECONDS = 1800
+OPENAI_TEXT_MODELS = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.2")
+OPENAI_IMAGE_MODELS = ("gpt-image-2.5-sunburst", "gpt-image-2.5-flare", "gpt-image-2")
+OPENAI_MODERATION_MODELS = ("omni-moderation-latest",)
+OPENAI_REASONING_EFFORTS = ("none", "low", "medium", "high", "xhigh", "max")
+GEMINI_TEXT_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite")
+GEMINI_IMAGE_MODELS = ("gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-3-pro-image", "gemini-2.5-flash-image")
 NODE_TYPES: dict[str, dict[str, Any]] = {
     "core.manual_trigger": {"label": "Manual Trigger", "group": "Triggers", "settings": {}},
     "core.video_source": {
@@ -90,7 +97,7 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
             "classify_violations": {"status": "implemented", "group": "Text actions", "label": "Classify text for violations"},
             "analyze_image": {"status": "implemented", "group": "Image actions", "label": "Analyze image"},
             "generate_image": {"status": "implemented", "group": "Image actions", "label": "Generate an image"},
-            "edit_image": {"status": "unavailable", "group": "Image actions", "label": "Edit image", "reason": "Binary image uploads are not connected yet."},
+            "edit_image": {"status": "implemented", "group": "Image actions", "label": "Edit image"},
             "generate_audio": {"status": "unavailable", "group": "Audio actions", "label": "Generate audio", "reason": "Binary audio artifacts are not connected yet."},
             "transcribe_recording": {"status": "unavailable", "group": "Audio actions", "label": "Transcribe a recording", "reason": "Binary audio inputs are not connected yet."},
             "translate_recording": {"status": "unavailable", "group": "Audio actions", "label": "Translate a recording", "reason": "Binary audio inputs are not connected yet."},
@@ -103,13 +110,16 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
             "update_conversation": {"status": "unavailable", "group": "Conversation actions", "label": "Update a conversation", "reason": "OpenAI conversation persistence is not enabled yet."},
             "generate_video": {"status": "unavailable", "group": "Video actions", "label": "Generate a video", "reason": "Video generation artifacts are not connected yet."},
         },
-        "settings": {"action": "message_model", "model": "gpt-4o-mini", "system_prompt": "You are a helpful assistant.", "prompt": "", "image_urls": "", "input_path": "", "temperature": 0.2, "max_output_tokens": 1000, "simplify_output": True, "image_size": "1024x1024"},
+        "settings": {"action": "message_model", "model": "gpt-6.1-sol", "system_prompt": "You are a helpful assistant.", "prompt": "", "image_urls": "", "mask_image_url": "", "input_path": "", "reasoning_effort": "none", "temperature": 0.2, "max_output_tokens": 1000, "simplify_output": True, "image_size": "1024x1024", "image_input_fidelity": "auto"},
         "parameters_schema": {"type": "object", "properties": {
             "action": {"type": "string", "title": "Operation"},
             "model": {"type": "string", "title": "Model"},
+            "reasoning_effort": {"type": "string", "title": "Reasoning effort", "enum": list(OPENAI_REASONING_EFFORTS), "default": "none"},
             "system_prompt": {"type": "string", "title": "System prompt"},
             "prompt": {"type": "string", "title": "Text input"},
             "image_urls": {"type": "string", "title": "URL(s)", "description": "One HTTPS image URL per line."},
+            "mask_image_url": {"type": "string", "title": "Optional mask URL", "description": "Public HTTPS URL of a PNG mask. Transparent areas are replaced."},
+            "image_input_fidelity": {"type": "string", "title": "Input fidelity", "enum": ["auto", "low", "high"], "default": "auto"},
             "input_path": {"type": "string", "title": "Optional input path", "description": "Append JSON data from this upstream dot path to the prompt."},
             "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
             "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 16000},
@@ -118,11 +128,67 @@ NODE_TYPES: dict[str, dict[str, Any]] = {
         }},
         "credentials": ["OPENAI_API_KEY"],
     },
+    "ai.gemini": {
+        "label": "Google Gemini", "group": "AI", "description": "Use Google Gemini text, media understanding, File Search, image and video actions.",
+        "actions": ["analyze_audio", "transcribe_recording", "analyze_document", "create_file_search_store", "delete_file_search_store", "list_file_search_stores", "upload_file_to_search_store", "analyze_image", "generate_image", "edit_image", "upload_media_file", "message_model", "analyze_video", "generate_video", "download_video"],
+        "action_capabilities": {
+            "analyze_audio": {"status": "unavailable", "group": "Audio actions", "label": "Analyze audio", "reason": "Gemini Files API binary uploads are not connected to workflow artifacts yet."},
+            "transcribe_recording": {"status": "unavailable", "group": "Audio actions", "label": "Transcribe a recording", "reason": "Gemini Files API binary uploads are not connected to workflow artifacts yet."},
+            "analyze_document": {"status": "unavailable", "group": "Document actions", "label": "Analyze document", "reason": "Document binary uploads are not connected to workflow artifacts yet."},
+            "create_file_search_store": {"status": "implemented", "group": "File Search actions", "label": "Create a File Search store"},
+            "delete_file_search_store": {"status": "implemented", "group": "File Search actions", "label": "Delete a File Search store"},
+            "list_file_search_stores": {"status": "implemented", "group": "File Search actions", "label": "List all File Search stores"},
+            "upload_file_to_search_store": {"status": "unavailable", "group": "File Search actions", "label": "Upload a file to a File Search store", "reason": "Binary document uploads and long-running import polling are not connected yet."},
+            "analyze_image": {"status": "unavailable", "group": "Image actions", "label": "Analyze an image", "reason": "Gemini Files API binary uploads are not connected to workflow artifacts yet."},
+            "generate_image": {"status": "implemented", "group": "Image actions", "label": "Generate an image"},
+            "edit_image": {"status": "unavailable", "group": "Image actions", "label": "Edit an image", "reason": "Image binary inputs are not connected to workflow artifacts yet."},
+            "upload_media_file": {"status": "unavailable", "group": "Media File actions", "label": "Upload a media file", "reason": "Binary media uploads are not connected to workflow artifacts yet."},
+            "message_model": {"status": "implemented", "group": "Text actions", "label": "Message a model"},
+            "analyze_video": {"status": "unavailable", "group": "Video actions", "label": "Analyze video", "reason": "Gemini Files API video uploads are not connected to workflow artifacts yet."},
+            "generate_video": {"status": "unavailable", "group": "Video actions", "label": "Generate a video", "reason": "Gemini Omni video generation needs an asynchronous artifact pipeline that is not connected yet."},
+            "download_video": {"status": "unavailable", "group": "Video actions", "label": "Download a video", "reason": "Generated video operations and file artifacts are not connected yet."},
+        },
+        "settings": {"action": "message_model", "model": "gemini-3.8-flash", "system_prompt": "You are a helpful assistant.", "prompt": "", "input_path": "", "max_output_tokens": 1000, "simplify_output": True, "display_name": "", "store_name": "", "image_aspect_ratio": "1:1"},
+        "parameters_schema": {"type": "object", "properties": {
+            "action": {"type": "string", "title": "Operation"},
+            "model": {"type": "string", "title": "Model"},
+            "system_prompt": {"type": "string", "title": "System instruction"},
+            "prompt": {"type": "string", "title": "Text input"},
+            "input_path": {"type": "string", "title": "Optional input path", "description": "Append JSON data from this upstream dot path to the prompt."},
+            "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 65536},
+            "simplify_output": {"type": "boolean", "title": "Simplify Output", "default": True},
+            "display_name": {"type": "string", "title": "Store display name"},
+            "store_name": {"type": "string", "title": "File Search store name", "description": "Exact API resource name, for example fileSearchStores/my-store-id."},
+            "image_aspect_ratio": {"type": "string", "title": "Aspect ratio", "enum": ["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"]},
+        }},
+        "credentials": ["GEMINI_API_KEY"],
+    },
+    "ai.ollama": {
+        "label": "Ollama", "group": "AI", "description": "Run text and vision prompts through a local Ollama server.",
+        "actions": ["analyze_image", "message_model"],
+        "action_capabilities": {
+            "analyze_image": {"status": "implemented", "group": "Image actions", "label": "Analyze image"},
+            "message_model": {"status": "implemented", "group": "Text actions", "label": "Message a model"},
+        },
+        "settings": {"action": "message_model", "model": "gemma3", "system_prompt": "You are a helpful assistant.", "prompt": "", "image_urls": "", "input_path": "", "temperature": 0.2, "max_output_tokens": 1000, "simplify_output": True},
+        "parameters_schema": {"type": "object", "properties": {
+            "action": {"type": "string", "title": "Operation"},
+            "model": {"type": "string", "title": "Ollama model", "description": "Exact installed model name returned by Ollama, for example gemma3."},
+            "system_prompt": {"type": "string", "title": "System prompt"},
+            "prompt": {"type": "string", "title": "Text input"},
+            "image_urls": {"type": "string", "title": "Image URL(s)", "description": "One public HTTPS image URL per line; at most four images."},
+            "input_path": {"type": "string", "title": "Optional input path", "description": "Append JSON data from this upstream dot path to the prompt."},
+            "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
+            "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 32768},
+            "simplify_output": {"type": "boolean", "title": "Simplify Output", "default": True},
+        }},
+    },
     "ai.chat_model": {
         "label": "OpenAI Chat Model", "group": "AI", "description": "Model configuration for AI Agent nodes.",
-        "settings": {"model": "gpt-4o-mini", "temperature": 0.2, "max_output_tokens": 1000},
+        "settings": {"model": "gpt-6.1-sol", "reasoning_effort": "none", "temperature": 0.2, "max_output_tokens": 1000},
         "parameters_schema": {"type": "object", "properties": {
-            "model": {"type": "string", "title": "Model"},
+            "model": {"type": "string", "title": "Model", "enum": list(OPENAI_TEXT_MODELS)},
+            "reasoning_effort": {"type": "string", "title": "Reasoning effort", "enum": list(OPENAI_REASONING_EFFORTS), "default": "none"},
             "temperature": {"type": "number", "title": "Temperature", "minimum": 0, "maximum": 2},
             "max_output_tokens": {"type": "integer", "title": "Maximum output tokens", "minimum": 1, "maximum": 16000},
         }},
@@ -495,7 +561,7 @@ def openai_json(prompt: str, transcript: str, schema: dict) -> dict:
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("OPENAI_API_KEY is missing. Use mode=offline or configure the API key")
-    model = os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-4o-mini")
+    model = os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-6.1-sol")
     payload = {"model": model, "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": transcript}],
                "response_format": {"type": "json_schema", "json_schema": {"name": "cliptora_workflow", "strict": True, "schema": schema}}}
     req = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=json.dumps(payload).encode(),
@@ -512,7 +578,7 @@ def openai_chat(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("OPENAI_API_KEY is missing from the backend environment")
-    model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-4o-mini")).strip()
+    model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-6.1-sol")).strip()
     if not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
         raise ValueError("OpenAI model name is invalid")
     prompt = str(cfg.get("prompt", "")).strip()
@@ -529,7 +595,14 @@ def openai_chat(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("OpenAI temperature must be between 0 and 2")
     if not 1 <= max_tokens <= 16_000:
         raise ValueError("OpenAI maximum output tokens must be between 1 and 16,000")
-    payload = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}], "temperature": temperature, "max_tokens": max_tokens}
+    payload: dict[str, Any] = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}], "max_completion_tokens": max_tokens}
+    if model.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")):
+        effort = str(cfg.get("reasoning_effort", "none"))
+        if effort not in OPENAI_REASONING_EFFORTS:
+            raise ValueError("OpenAI reasoning effort is invalid")
+        payload["reasoning_effort"] = effort
+    else:
+        payload["temperature"] = temperature
     request = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=json.dumps(payload).encode("utf-8"), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "CLIPTORA-Workflow/1.0"}, method="POST")
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
@@ -640,6 +713,73 @@ def openai_request(path: str, payload: dict[str, Any], timeout: int = 120) -> di
         raise RuntimeError(f"OpenAI request failed: {str(exc)[:300]}") from exc
 
 
+def fetch_public_image_bytes(raw_url: str, *, max_bytes: int = 10_000_000) -> tuple[bytes, str, str]:
+    """Download one bounded public image without redirects or private-network access."""
+    parsed = urllib.parse.urlsplit(raw_url.strip())
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment or parsed.port not in {None, 443}:
+        raise ValueError("Image inputs must be public HTTPS URLs")
+    addresses = socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM)
+    if not addresses or any(not ipaddress.ip_address(address[4][0]).is_global for address in addresses):
+        raise ValueError("Image URL cannot resolve to a private, local or reserved address")
+    request = urllib.request.Request(raw_url, headers={"Accept": "image/png,image/jpeg,image/webp", "User-Agent": "CLIPTORA-Workflow/1.0"})
+    try:
+        response = urllib.request.build_opener(NoWorkflowRedirect()).open(request, timeout=30)
+        with response:
+            content_type = response.headers.get_content_type()
+            if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+                raise ValueError("Image URL returned an unsupported content type")
+            raw = response.read(max_bytes + 1)
+        if not raw or len(raw) > max_bytes:
+            raise ValueError(f"Image must contain between 1 byte and {max_bytes // 1_000_000} MB")
+        extension = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}[content_type]
+        return raw, content_type, f"input.{extension}"
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Image download failed with status {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Image download failed: {exc.reason}") from exc
+
+
+def openai_multipart_request(path: str, fields: dict[str, str], files: list[tuple[str, str, str, bytes]], timeout: int = 180) -> dict[str, Any]:
+    """Call a bounded multipart OpenAI endpoint using only the backend credential."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is missing from the backend environment")
+    if path != "images/edits" or not files or len(files) > 5:
+        raise ValueError("OpenAI multipart request is invalid")
+    boundary = "----CLIPTORA" + hashlib.sha256(os.urandom(24)).hexdigest()[:32]
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        if not re.fullmatch(r"[A-Za-z0-9_\[\]-]{1,80}", name) or "\r" in value or "\n" in name:
+            raise ValueError("OpenAI multipart field is invalid")
+        chunks.extend([f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n".encode(), value.encode("utf-8"), b"\r\n"])
+    for name, filename, content_type, raw in files:
+        if not re.fullmatch(r"[A-Za-z0-9_\[\]-]{1,80}", name) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", filename) or content_type not in {"image/png", "image/jpeg", "image/webp"}:
+            raise ValueError("OpenAI multipart file is invalid")
+        chunks.extend([f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n".encode(), raw, b"\r\n"])
+    chunks.append(f"--{boundary}--\r\n".encode())
+    body = b"".join(chunks)
+    if len(body) > 50_000_000:
+        raise ValueError("OpenAI image edit request exceeds 50 MB")
+    request = urllib.request.Request(
+        f"https://api.openai.com/v1/{path}", data=body,
+        headers={"Authorization": f"Bearer {key}", "Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "CLIPTORA-Workflow/1.0"}, method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            result = json.load(response)
+        if not isinstance(result, dict):
+            raise ValueError("OpenAI returned a non-object response")
+        return result
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read(4096).decode("utf-8", errors="replace")
+        except Exception:
+            detail = str(exc)
+        raise RuntimeError(f"OpenAI image edit failed ({exc.code}): {detail[:500]}") from exc
+    except (urllib.error.URLError, ValueError) as exc:
+        raise RuntimeError(f"OpenAI image edit failed: {str(exc)[:300]}") from exc
+
+
 def openai_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
     action = str(cfg.get("action") or "message_model")
     if action == "message_model":
@@ -653,7 +793,10 @@ def openai_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any
     if action == "classify_violations":
         if not prompt or len(prompt) > 200_000:
             raise ValueError("Text input must contain between 1 and 200,000 characters")
-        result = openai_request("moderations", {"model": str(cfg.get("model") or "omni-moderation-latest"), "input": prompt})
+        model = str(cfg.get("model") or "omni-moderation-latest")
+        if not model.startswith("omni-moderation"):
+            model = "omni-moderation-latest"
+        result = openai_request("moderations", {"model": model, "input": prompt})
         moderation = (result.get("results") or [{}])[0]
         if bool(cfg.get("simplify_output", True)):
             return {"flagged": bool(moderation.get("flagged")), "categories": moderation.get("categories", {}), "category_scores": moderation.get("category_scores", {})}
@@ -671,10 +814,18 @@ def openai_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any
             prompt = "What's in this image?"
         if len(prompt) > 100_000:
             raise ValueError("Text input is too long")
-        model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-4o-mini"))
+        model = str(cfg.get("model") or os.environ.get("CLIPTORA_OPENAI_MODEL", "gpt-6.1-sol"))
+        if model.startswith(("gpt-image", "omni-moderation")):
+            model = "gpt-6.1-sol"
         content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         content.extend({"type": "image_url", "image_url": {"url": url, "detail": "auto"}} for url in urls)
-        result = openai_request("chat/completions", {"model": model, "messages": [{"role": "user", "content": content}], "max_tokens": int(cfg.get("max_output_tokens", 1000))})
+        vision_payload: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": content}], "max_completion_tokens": int(cfg.get("max_output_tokens", 1000))}
+        if model.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")):
+            effort = str(cfg.get("reasoning_effort", "none"))
+            if effort not in OPENAI_REASONING_EFFORTS:
+                raise ValueError("OpenAI reasoning effort is invalid")
+            vision_payload["reasoning_effort"] = effort
+        result = openai_request("chat/completions", vision_payload)
         choice = result["choices"][0]
         if bool(cfg.get("simplify_output", True)):
             return {"text": str(choice["message"]["content"]), "model": str(result.get("model", model)), "usage": result.get("usage", {}), "finish_reason": choice.get("finish_reason")}
@@ -686,13 +837,275 @@ def openai_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any
         size = str(cfg.get("image_size") or "1024x1024")
         if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
             raise ValueError("Unsupported image size")
-        result = openai_request("images/generations", {"model": str(cfg.get("model") or "gpt-image-1"), "prompt": prompt, "size": size, "n": 1}, timeout=180)
+        model = str(cfg.get("model") or "gpt-image-2.5-flare")
+        if not model.startswith("gpt-image-"):
+            model = "gpt-image-2.5-flare"
+        result = openai_request("images/generations", {"model": model, "prompt": prompt, "size": size, "n": 1}, timeout=180)
+        images = result.get("data") or []
+        if bool(cfg.get("simplify_output", True)):
+            return {"images": [{key: item[key] for key in ("url", "b64_json", "revised_prompt") if key in item} for item in images if isinstance(item, dict)]}
+        return result
+
+    if action == "edit_image":
+        if not prompt or len(prompt) > 32_000:
+            raise ValueError("Image edit prompt must contain between 1 and 32,000 characters")
+        urls = [line.strip() for line in str(cfg.get("image_urls", "")).splitlines() if line.strip()]
+        if not 1 <= len(urls) <= 4:
+            raise ValueError("Edit image requires between 1 and 4 public HTTPS image URLs")
+        model = str(cfg.get("model") or "gpt-image-2.5-sunburst")
+        if model not in OPENAI_IMAGE_MODELS:
+            model = "gpt-image-2.5-sunburst"
+        size = str(cfg.get("image_size") or "1024x1024")
+        if size not in {"1024x1024", "1536x1024", "1024x1536", "auto"}:
+            raise ValueError("Unsupported image size")
+        fields = {"model": model, "prompt": prompt, "size": size, "n": "1"}
+        fidelity = str(cfg.get("image_input_fidelity") or "auto")
+        if fidelity not in {"auto", "low", "high"}:
+            raise ValueError("Unsupported image input fidelity")
+        if fidelity != "auto" and model != "gpt-image-2":
+            fields["input_fidelity"] = fidelity
+        files: list[tuple[str, str, str, bytes]] = []
+        for index, url in enumerate(urls):
+            raw, content_type, filename = fetch_public_image_bytes(url)
+            files.append(("image[]", f"input-{index + 1}.{filename.rsplit('.', 1)[-1]}", content_type, raw))
+        mask_url = str(cfg.get("mask_image_url", "")).strip()
+        if mask_url:
+            raw, content_type, _ = fetch_public_image_bytes(mask_url)
+            if content_type != "image/png":
+                raise ValueError("OpenAI image edit mask must be a PNG image")
+            files.append(("mask", "mask.png", content_type, raw))
+        result = openai_multipart_request("images/edits", fields, files, timeout=180)
         images = result.get("data") or []
         if bool(cfg.get("simplify_output", True)):
             return {"images": [{key: item[key] for key in ("url", "b64_json", "revised_prompt") if key in item} for item in images if isinstance(item, dict)]}
         return result
 
     raise ValueError(f"OpenAI action '{action}' is not supported by this CLIPTORA backend")
+
+
+def gemini_request(method: str, path: str, payload: dict[str, Any] | None = None, timeout: int = 120) -> dict[str, Any]:
+    """Call a Gemini JSON endpoint using the backend-only API key."""
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY is missing from the backend environment")
+    if method not in {"GET", "POST", "DELETE"} or not re.fullmatch(r"[A-Za-z0-9._~:/?=&%-]{1,500}", path):
+        raise ValueError("Gemini API request is invalid")
+    data = None if payload is None else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://generativelanguage.googleapis.com/v1beta/{path.lstrip('/')}",
+        data=data,
+        headers={"x-goog-api-key": key, "Content-Type": "application/json", "User-Agent": "CLIPTORA-Workflow/1.0"},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+        result = json.loads(raw) if raw else {}
+        if not isinstance(result, dict):
+            raise ValueError("Gemini returned a non-object response")
+        return result
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read(4096).decode("utf-8", errors="replace")
+        except Exception:
+            detail = str(exc)
+        raise RuntimeError(f"Gemini request failed ({exc.code}): {detail[:500]}") from exc
+    except (urllib.error.URLError, ValueError) as exc:
+        raise RuntimeError(f"Gemini request failed: {str(exc)[:300]}") from exc
+
+
+def gemini_prompt(cfg: dict[str, Any], outputs: dict[str, Any]) -> str:
+    prompt = str(cfg.get("prompt", "")).strip()
+    input_path_value = str(cfg.get("input_path", "")).strip()
+    if input_path_value:
+        prompt = f"{prompt}\n\nInput data:\n{json.dumps(input_path(outputs, input_path_value), ensure_ascii=False, separators=(',', ':'))}"
+    if not prompt or len(prompt) > 200_000:
+        raise ValueError("Text input must contain between 1 and 200,000 characters")
+    return prompt
+
+
+def gemini_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
+    action = str(cfg.get("action") or "message_model")
+    if action == "message_model":
+        prompt = gemini_prompt(cfg, outputs)
+        model = str(cfg.get("model") or "gemini-3.8-flash").strip()
+        if model not in GEMINI_TEXT_MODELS:
+            model = "gemini-3.8-flash"
+        max_tokens = int(cfg.get("max_output_tokens", 1000))
+        if not 1 <= max_tokens <= 65_536:
+            raise ValueError("Gemini maximum output tokens must be between 1 and 65,536")
+        payload: dict[str, Any] = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens},
+        }
+        system_prompt = str(cfg.get("system_prompt", "")).strip()
+        if system_prompt:
+            payload["systemInstruction"] = {"parts": [{"text": system_prompt[:100_000]}]}
+        result = gemini_request("POST", f"models/{model}:generateContent", payload)
+        if not bool(cfg.get("simplify_output", True)):
+            return result
+        candidates = result.get("candidates") or []
+        parts = candidates[0].get("content", {}).get("parts", []) if candidates and isinstance(candidates[0], dict) else []
+        text = "".join(str(part.get("text", "")) for part in parts if isinstance(part, dict))
+        finish_reason = candidates[0].get("finishReason") if candidates and isinstance(candidates[0], dict) else None
+        return {"text": text, "model": model, "usage": result.get("usageMetadata", {}), "finish_reason": finish_reason}
+
+    if action == "generate_image":
+        prompt = gemini_prompt(cfg, outputs)
+        model = str(cfg.get("model") or "gemini-3.1-flash-image").strip()
+        if model not in GEMINI_IMAGE_MODELS:
+            model = "gemini-3.1-flash-image"
+        aspect_ratio = str(cfg.get("image_aspect_ratio") or "1:1")
+        if aspect_ratio not in {"1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"}:
+            raise ValueError("Unsupported Gemini image aspect ratio")
+        result = gemini_request("POST", f"models/{model}:generateContent", {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"responseModalities": ["TEXT", "IMAGE"], "imageConfig": {"aspectRatio": aspect_ratio}},
+        }, timeout=180)
+        if not bool(cfg.get("simplify_output", True)):
+            return result
+        candidates = result.get("candidates") or []
+        parts = candidates[0].get("content", {}).get("parts", []) if candidates and isinstance(candidates[0], dict) else []
+        images = []
+        text_parts = []
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            if part.get("text"):
+                text_parts.append(str(part["text"]))
+            inline = part.get("inlineData") or part.get("inline_data")
+            if isinstance(inline, dict) and inline.get("data"):
+                images.append({"mime_type": inline.get("mimeType") or inline.get("mime_type") or "image/png", "b64_json": inline["data"]})
+        return {"images": images, "text": "".join(text_parts), "model": model, "usage": result.get("usageMetadata", {})}
+
+    if action == "create_file_search_store":
+        display_name = str(cfg.get("display_name", "")).strip()
+        if not 1 <= len(display_name) <= 128:
+            raise ValueError("File Search store display name must contain between 1 and 128 characters")
+        return gemini_request("POST", "fileSearchStores", {"displayName": display_name, "embeddingModel": "models/gemini-embedding-2"})
+
+    if action == "list_file_search_stores":
+        return gemini_request("GET", "fileSearchStores?pageSize=100")
+
+    if action == "delete_file_search_store":
+        store_name = str(cfg.get("store_name", "")).strip()
+        if not re.fullmatch(r"fileSearchStores/[A-Za-z0-9_-]{1,128}", store_name):
+            raise ValueError("File Search store name must look like fileSearchStores/store-id")
+        return gemini_request("DELETE", f"{store_name}?force=true")
+
+    raise ValueError(f"Gemini action '{action}' is not supported by this CLIPTORA backend")
+
+
+def ollama_base_url() -> str:
+    raw = os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434").strip().rstrip("/")
+    parsed = urllib.parse.urlsplit(raw)
+    allowed_hosts = {"localhost", "127.0.0.1", "host.docker.internal"}
+    allowed_hosts.update(host.strip().casefold() for host in os.environ.get("CLIPTORA_OLLAMA_ALLOWED_HOSTS", "").split(",") if host.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.hostname.casefold() not in allowed_hosts:
+        raise ValueError("OLLAMA_BASE_URL must use an explicitly allowed local Ollama host")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in {"", "/"}:
+        raise ValueError("OLLAMA_BASE_URL cannot contain credentials, a path, query or fragment")
+    if parsed.port is not None and not 1 <= parsed.port <= 65535:
+        raise ValueError("OLLAMA_BASE_URL port is invalid")
+    return raw
+
+
+def ollama_request(path: str, payload: dict[str, Any] | None = None, timeout: int = 180) -> dict[str, Any]:
+    if path not in {"api/chat", "api/tags"}:
+        raise ValueError("Ollama API path is not allowed")
+    request = urllib.request.Request(
+        f"{ollama_base_url()}/{path}",
+        data=None if payload is None else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8"),
+        headers={"Content-Type": "application/json", "User-Agent": "CLIPTORA-Workflow/1.0"},
+        method="GET" if payload is None else "POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            result = json.load(response)
+        if not isinstance(result, dict):
+            raise ValueError("Ollama returned a non-object response")
+        return result
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read(4096).decode("utf-8", errors="replace")
+        except Exception:
+            detail = str(exc)
+        raise RuntimeError(f"Ollama request failed ({exc.code}): {detail[:500]}") from exc
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        raise RuntimeError(f"Ollama is unavailable at {ollama_base_url()}: {str(exc)[:300]}") from exc
+
+
+def ollama_status() -> dict[str, Any]:
+    try:
+        base_url = ollama_base_url()
+        result = ollama_request("api/tags", timeout=3)
+        models = [str(item.get("name") or item.get("model")) for item in result.get("models", []) if isinstance(item, dict) and (item.get("name") or item.get("model"))]
+        return {"configured": True, "reachable": True, "base_url": base_url, "models": models[:200]}
+    except (RuntimeError, ValueError):
+        return {"configured": False, "reachable": False, "base_url": os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434").strip(), "models": []}
+
+
+def fetch_public_ollama_image(raw_url: str) -> str:
+    parsed = urllib.parse.urlsplit(raw_url.strip())
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment or parsed.port not in {None, 443}:
+        raise ValueError("Ollama image inputs must be public HTTPS URLs")
+    addresses = socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM)
+    if not addresses or any(not ipaddress.ip_address(address[4][0]).is_global for address in addresses):
+        raise ValueError("Ollama image URL cannot resolve to a private, local or reserved address")
+    request = urllib.request.Request(raw_url, headers={"Accept": "image/png,image/jpeg,image/webp", "User-Agent": "CLIPTORA-Workflow/1.0"})
+    try:
+        response = urllib.request.build_opener(NoWorkflowRedirect()).open(request, timeout=30)
+        with response:
+            content_type = response.headers.get_content_type()
+            if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+                raise ValueError("Ollama image URL returned an unsupported content type")
+            raw = response.read(10_000_001)
+        if not raw or len(raw) > 10_000_000:
+            raise ValueError("Ollama image must contain between 1 byte and 10 MB")
+        return base64.b64encode(raw).decode("ascii")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Ollama image download failed with status {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Ollama image download failed: {exc.reason}") from exc
+
+
+def ollama_action(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
+    action = str(cfg.get("action") or "message_model")
+    if action not in {"message_model", "analyze_image"}:
+        raise ValueError(f"Ollama action '{action}' is not supported by this CLIPTORA backend")
+    model = str(cfg.get("model") or "gemma3").strip()
+    if not re.fullmatch(r"[A-Za-z0-9._:/-]{1,160}", model):
+        raise ValueError("Ollama model name is invalid")
+    prompt = str(cfg.get("prompt", "")).strip()
+    if action == "analyze_image" and not prompt:
+        prompt = "What is in this image?"
+    input_path_value = str(cfg.get("input_path", "")).strip()
+    if input_path_value:
+        prompt = f"{prompt}\n\nInput data:\n{json.dumps(input_path(outputs, input_path_value), ensure_ascii=False, separators=(',', ':'))}"
+    if not prompt or len(prompt) > 200_000:
+        raise ValueError("Ollama text input must contain between 1 and 200,000 characters")
+    temperature = float(cfg.get("temperature", 0.2))
+    max_tokens = int(cfg.get("max_output_tokens", 1000))
+    if not math.isfinite(temperature) or not 0 <= temperature <= 2:
+        raise ValueError("Ollama temperature must be between 0 and 2")
+    if not 1 <= max_tokens <= 32_768:
+        raise ValueError("Ollama maximum output tokens must be between 1 and 32,768")
+    user_message: dict[str, Any] = {"role": "user", "content": prompt}
+    if action == "analyze_image":
+        urls = [line.strip() for line in str(cfg.get("image_urls", "")).splitlines() if line.strip()]
+        if not 1 <= len(urls) <= 4:
+            raise ValueError("Analyze image requires between 1 and 4 public HTTPS image URLs")
+        user_message["images"] = [fetch_public_ollama_image(url) for url in urls]
+    messages: list[dict[str, Any]] = []
+    system_prompt = str(cfg.get("system_prompt", "")).strip()
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt[:100_000]})
+    messages.append(user_message)
+    result = ollama_request("api/chat", {"model": model, "messages": messages, "stream": False, "options": {"temperature": temperature, "num_predict": max_tokens}})
+    if not bool(cfg.get("simplify_output", True)):
+        return result
+    message = result.get("message") if isinstance(result.get("message"), dict) else {}
+    return {"text": str(message.get("content", "")), "model": str(result.get("model", model)), "done_reason": result.get("done_reason"), "prompt_tokens": result.get("prompt_eval_count"), "output_tokens": result.get("eval_count"), "total_duration": result.get("total_duration")}
 
 
 HIGHLIGHTS_SCHEMA = {"type": "object", "properties": {"highlights": {"type": "array", "items": {"type": "object", "properties": {"start_word_id": {"type": "integer"}, "end_word_id": {"type": "integer"}, "score": {"type": "integer"}, "reason": {"type": "string"}}, "required": ["start_word_id", "end_word_id", "score", "reason"], "additionalProperties": False}}}, "required": ["highlights"], "additionalProperties": False}
@@ -858,7 +1271,7 @@ def call_node(node: dict, outputs: dict[str, Any], source: Path | None, workdir:
     if kind == "core.http_request":
         return execute_http_request(cfg)
     if kind == "ai.chat_model":
-        model = str(cfg.get("model") or "gpt-4o-mini").strip()
+        model = str(cfg.get("model") or "gpt-6.1-sol").strip()
         temperature = float(cfg.get("temperature", 0.2))
         max_tokens = int(cfg.get("max_output_tokens", 1000))
         if not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
@@ -867,11 +1280,18 @@ def call_node(node: dict, outputs: dict[str, Any], source: Path | None, workdir:
             raise ValueError("OpenAI temperature must be between 0 and 2")
         if not 1 <= max_tokens <= 16_000:
             raise ValueError("OpenAI maximum output tokens must be between 1 and 16,000")
-        return {"chat_model": {"model": model, "temperature": temperature, "max_output_tokens": max_tokens}}
+        effort = str(cfg.get("reasoning_effort", "none"))
+        if effort not in OPENAI_REASONING_EFFORTS:
+            raise ValueError("OpenAI reasoning effort is invalid")
+        return {"chat_model": {"model": model, "reasoning_effort": effort, "temperature": temperature, "max_output_tokens": max_tokens}}
     if kind == "ai.agent":
         return execute_ai_agent(cfg, outputs)
     if kind == "ai.openai":
         return openai_action(cfg, outputs)
+    if kind == "ai.gemini":
+        return gemini_action(cfg, outputs)
+    if kind == "ai.ollama":
+        return ollama_action(cfg, outputs)
     if kind == "media.probe":
         if source is None:
             raise ValueError("Select a video source first")

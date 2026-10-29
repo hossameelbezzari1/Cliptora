@@ -20,6 +20,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 input[type=range]{accent-color:#9139e9}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{border-radius:8px;background:#3a3d41}::-webkit-scrollbar-track{background:transparent}
 @keyframes glint{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes cliptora-toast-in{from{opacity:0;transform:translate3d(18px,-6px,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes cliptora-toast-progress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.cliptora-toast{animation:cliptora-toast-in .2s ease-out both}
+.cliptora-toast-progress{animation-name:cliptora-toast-progress;animation-timing-function:linear;animation-fill-mode:forwards}
+@media (prefers-reduced-motion:reduce){.cliptora-toast,.cliptora-toast-progress{animation:none}}
 .loading-pulse{animation:glint 1.5s infinite}
 .timeline-playhead{background:linear-gradient(#fe7526,#fc6821);box-shadow:0 0 16px #fe752677}
 

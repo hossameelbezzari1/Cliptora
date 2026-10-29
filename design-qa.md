@@ -37,6 +37,60 @@ final result: passed
 
 ---
 
+# Ollama Node Design QA — 2026-10-29
+
+- Source visual truth: `C:/Users/Hossame/AppData/Local/Temp/codex-clipboard-21a9d8ca-3bfe-411f-a96c-4fa20ae8f05d.png`
+- Rendered implementation: live Docker build at `http://127.0.0.1:5173/projects/1/workflows/1`
+- Verified state: mounted AI category and Ollama `Actions (2)` picker in the in-app browser, without adding a node or modifying the saved workflow.
+
+## Findings
+
+No actionable P0, P1, or P2 visual or interaction mismatches remain.
+
+- Action picker: reproduces the requested Image actions / Analyze image and Text actions / Message a model groups, plus the custom-call footer copy.
+- Functional truth: both enabled actions call the local Ollama `/api/chat` executor; vision URLs are downloaded through a public-HTTPS-only guard and sent as base64 image content.
+- Model discovery: the editor reads installed model names from `/api/tags`, uses a selectable list when reachable, and keeps an exact model-ID input as the offline fallback.
+- Honest unavailable state: the current host has no reachable Ollama service on port 11434, so the editor reports that condition and disables execution until the local service responds.
+- Persistence safety: visual verification opened only the Tool Library and picker; it did not create a node, trigger autosave, or mutate MySQL workflow data.
+
+## Comparison History
+
+1. Pass 1: registered the two-action Ollama catalog and screenshot-matched grouping/copy.
+2. Pass 2: connected both actions to the local chat/vision API, added model discovery, validation, Docker host routing, and backend tests.
+3. Final pass: rebuilt Docker and verified the actual mounted React picker through its accessibility tree and a browser screenshot.
+
+final result: passed
+
+---
+
+# Google Gemini Node Design QA — 2026-10-29
+
+- Source visual truth: `C:/Users/Hossame/AppData/Local/Temp/codex-clipboard-0000f3ff-b2ff-4fd5-8c2c-3582f5dd8ec0.png` and `C:/Users/Hossame/AppData/Local/Temp/codex-clipboard-b272a137-bcd8-4add-88a6-75e3b046e83f.png`
+- Rendered implementation: live rebuilt Docker app at `http://127.0.0.1:5173/projects/1/workflows/1`
+- Implementation evidence: in-app browser capture on 2026-10-29 showing the mounted `Actions (15)` Gemini picker.
+- Verified states: AI category contains Google Gemini; correct four-point Gemini brand mark; all 15 actions in the requested seven groups; implemented actions enabled; unsupported binary/async actions disabled with reasons.
+
+## Findings
+
+No actionable P0, P1, or P2 visual or interaction mismatches remain.
+
+- Action picker: reproduces the requested Audio, Document, File Search, Image, Media File, Text, and Video sections in the same order.
+- Functional truth: Message a model, Generate an image, and Create/List/Delete File Search store call the real Gemini REST API through backend-only credentials.
+- Current models: text defaults to `gemini-3.8-flash`; image generation defaults to `gemini-3.1-flash-image`, with current alternatives selectable in the editor.
+- Honest disabled states: upload, media understanding, image editing, and asynchronous video actions remain visibly disabled until their binary/artifact pipeline is implemented.
+- Credential safety: `GEMINI_API_KEY` is checked server-side, exposed only as a boolean readiness state, and wired into Docker without storing it in workflow JSON.
+- Persistence safety: visual verification opened only the Tool Library and action picker; it did not add a node or mutate the saved MySQL workflow.
+
+## Comparison History
+
+1. Pass 1: added the 15-action catalog, exact labels/groups, and Gemini brand icon.
+2. Pass 2: replaced placeholder behavior with five real backend executors and action-specific editor fields/model selectors.
+3. Final pass: rebuilt Docker, reloaded the actual React route, and verified the mounted picker through accessibility state and a browser screenshot.
+
+final result: passed
+
+---
+
 # AI Agent Node Design QA — 2026-10-29
 
 - Source visual truth: `C:/Users/Hossame/AppData/Local/Temp/codex-clipboard-64d9ee09-6939-48fd-a9b1-3691e55387f9.png` and `C:/Users/Hossame/AppData/Local/Temp/codex-clipboard-06ffb67d-575a-4de6-86bc-829d72a4caf8.png`
@@ -78,7 +132,7 @@ No actionable P0, P1, or P2 visual or interaction mismatches remain.
 - Action picker: shows `Actions (16)` with Text, Image, Audio, File, and Assistant groups, OpenAI brand icons, and clear unavailable reasons for disabled actions.
 - Node editor: matches the reference three-column Input / Parameters / Output structure, with a compact header, Parameters and Settings tabs, Execute step, resource/operation selectors, image prompt, URL input, model, and Simplify Output.
 - Responsive behavior: the same mounted editor switches to Input / Parameters / Output navigation below the desktop breakpoint without clipping the form.
-- Functional truth: Message a model, Classify text for violations, Analyze image, and Generate an image are enabled and connected to backend executors; actions requiring unsupported binary/file/assistant infrastructure are disabled.
+- Functional truth: Message a model, Classify text for violations, Analyze image, Generate an image, and Edit image are enabled and connected to backend executors. Edit image securely downloads bounded public HTTPS inputs, supports an optional PNG mask, and sends the real multipart request; unrelated audio/file/conversation/video actions remain disabled until their artifact pipelines exist.
 - Persistence safety: the verification node and accidental verification duplicate were removed, and workflow `#1` was restored to version 30 with its original 15 nodes.
 
 ## Comparison History
@@ -87,6 +141,7 @@ No actionable P0, P1, or P2 visual or interaction mismatches remain.
 2. Pass 2, P1: the generic editor showed all OpenAI fields for every action. Added action-specific forms and the screenshot-matched Analyze image defaults.
 3. Pass 2, P1: Analyze image had no real executor. Added a server-side vision request with HTTPS URL validation and tests for the exact multimodal payload.
 4. Final pass: verified the production Docker build through the actual mounted React route at desktop and narrow viewports.
+5. Follow-up pass: replaced the `Binary image uploads are not connected yet` placeholder with the real OpenAI image-edit executor and verified the mounted `Edit image` action is enabled.
 
 ## Follow-up Polish
 

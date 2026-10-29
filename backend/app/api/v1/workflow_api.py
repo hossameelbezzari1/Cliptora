@@ -29,7 +29,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.core.database import Base, SessionLocal, engine, get_db
 from app.core.security import current_user
 from app.models import MediaAsset, User
-from app.services.workflow_core import execution_nodes, preset_templates, probe, run_graph, tool_catalog, validate_workflow
+from app.services.workflow_core import execution_nodes, ollama_status as read_ollama_status, preset_templates, probe, run_graph, tool_catalog, validate_workflow
 
 router = APIRouter(prefix="/workflows", tags=["Dynamic Workflows"])
 _schema_lock = Lock()
@@ -181,6 +181,24 @@ class StartRun(BaseModel):
 @router.get("/catalog")
 def catalog(user: User = Depends(current_user)):
     return tool_catalog()
+
+
+@router.get("/openai/status")
+def openai_status(user: User = Depends(current_user)):
+    """Expose credential readiness without ever returning the server-side secret."""
+    return {"configured": bool(os.environ.get("OPENAI_API_KEY", "").strip()), "credential_source": "backend_environment"}
+
+
+@router.get("/gemini/status")
+def gemini_status(user: User = Depends(current_user)):
+    """Expose Gemini credential readiness without ever returning the server-side secret."""
+    return {"configured": bool(os.environ.get("GEMINI_API_KEY", "").strip()), "credential_source": "backend_environment"}
+
+
+@router.get("/ollama/status")
+def ollama_status(user: User = Depends(current_user)):
+    """Report local Ollama reachability and installed model names without exposing secrets."""
+    return read_ollama_status()
 
 
 @router.get("/templates")

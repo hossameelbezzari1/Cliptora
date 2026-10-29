@@ -30,6 +30,26 @@ class WorkflowEngineTests(unittest.TestCase):
         self.assertEqual(openai['actions'][-5:], ['create_conversation', 'get_conversation', 'remove_conversation', 'update_conversation', 'generate_video'])
         self.assertEqual(openai['action_capabilities']['create_conversation']['group'], 'Conversation actions')
         self.assertEqual(openai['action_capabilities']['generate_video']['group'], 'Video actions')
+        self.assertEqual(openai['action_capabilities']['edit_image']['status'], 'implemented')
+        self.assertEqual(openai['settings']['model'], 'gpt-6.1-sol')
+
+    def test_gemini_catalog_matches_the_fifteen_action_picker(self):
+        gemini = next(item for item in core.tool_catalog() if item['type'] == 'ai.gemini')
+        self.assertEqual(len(gemini['actions']), 15)
+        self.assertEqual(gemini['actions'][:3], ['analyze_audio', 'transcribe_recording', 'analyze_document'])
+        self.assertEqual(gemini['actions'][-3:], ['analyze_video', 'generate_video', 'download_video'])
+        self.assertEqual(gemini['action_capabilities']['create_file_search_store']['group'], 'File Search actions')
+        self.assertEqual(gemini['action_capabilities']['message_model']['status'], 'implemented')
+        self.assertEqual(gemini['action_capabilities']['upload_media_file']['status'], 'unavailable')
+        self.assertEqual(gemini['settings']['model'], 'gemini-3.8-flash')
+
+    def test_ollama_catalog_matches_the_two_action_picker(self):
+        ollama = next(item for item in core.tool_catalog() if item['type'] == 'ai.ollama')
+        self.assertEqual(ollama['actions'], ['analyze_image', 'message_model'])
+        self.assertEqual(ollama['action_capabilities']['analyze_image']['group'], 'Image actions')
+        self.assertEqual(ollama['action_capabilities']['message_model']['group'], 'Text actions')
+        self.assertTrue(all(ollama['action_capabilities'][action]['status'] == 'implemented' for action in ollama['actions']))
+        self.assertEqual(ollama['settings']['model'], 'gemma3')
 
     def test_ai_agent_and_chat_model_are_runnable_catalog_nodes(self):
         catalog = {item['type']: item for item in core.tool_catalog()}
@@ -170,6 +190,9 @@ class WorkflowEngineTests(unittest.TestCase):
         self.assertEqual(result['text'], 'real provider text')
         self.assertEqual(result['usage']['total_tokens'], 7)
         request = request_mock.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertEqual(payload['max_completion_tokens'], 1000)
+        self.assertNotIn('max_tokens', payload)
         self.assertEqual(request.get_header('Authorization'), 'Bearer server-only-key')
         self.assertNotIn('server-only-key', json.dumps(result))
 
@@ -185,10 +208,122 @@ class WorkflowEngineTests(unittest.TestCase):
         payload = json.loads(request.data)
         self.assertEqual(payload['messages'][0]['content'][1]['type'], 'image_url')
         self.assertEqual(payload['messages'][0]['content'][1]['image_url']['url'], 'https://images.example.com/sunset.jpg')
+        self.assertEqual(payload['max_completion_tokens'], 1000)
+
+    def test_current_reasoning_model_uses_supported_chat_parameters(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self): return json.dumps({'model': 'gpt-6.1-sol', 'choices': [{'message': {'content': 'ok'}, 'finish_reason': 'stop'}]}).encode()
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'server-only-key'}), patch.object(core.urllib.request, 'urlopen', return_value=Response()) as request_mock:
+            core.openai_chat({'model': 'gpt-6.1-sol', 'prompt': 'Hello', 'reasoning_effort': 'medium', 'temperature': 1.5, 'max_output_tokens': 500}, {})
+        payload = json.loads(request_mock.call_args.args[0].data)
+        self.assertEqual(payload['reasoning_effort'], 'medium')
+        self.assertEqual(payload['max_completion_tokens'], 500)
+        self.assertNotIn('temperature', payload)
+
+    def test_generate_image_migrates_incompatible_text_model(self):
+        with patch.object(core, 'openai_request', return_value={'data': [{'b64_json': 'encoded'}]}) as request_mock:
+            result = core.call_node({'type': 'ai.openai', 'settings': {'action': 'generate_image', 'model': 'gpt-4o-mini', 'prompt': 'A blue sphere'}}, {}, None, Path('.'))
+        self.assertEqual(result['images'][0]['b64_json'], 'encoded')
+        self.assertEqual(request_mock.call_args.args[1]['model'], 'gpt-image-2.5-flare')
+
+    def test_openai_edit_image_fetches_public_inputs_and_sends_multipart(self):
+        downloaded = [
+            (b'primary-image', 'image/webp', 'input.webp'),
+            (b'png-mask', 'image/png', 'input.png'),
+        ]
+        provider = {'data': [{'b64_json': 'edited-image'}]}
+        settings = {
+            'action': 'edit_image', 'model': 'gpt-image-2.5-sunburst', 'prompt': 'Replace the sky',
+            'image_urls': 'https://images.example.com/source.webp',
+            'mask_image_url': 'https://images.example.com/mask.png', 'image_size': '1024x1024',
+            'image_input_fidelity': 'high', 'simplify_output': True,
+        }
+        with patch.object(core, 'fetch_public_image_bytes', side_effect=downloaded) as fetch_mock, patch.object(core, 'openai_multipart_request', return_value=provider) as request_mock:
+            result = core.call_node({'type': 'ai.openai', 'settings': settings}, {}, None, Path('.'))
+        self.assertEqual(result['images'][0]['b64_json'], 'edited-image')
+        self.assertEqual(fetch_mock.call_count, 2)
+        path, fields, files = request_mock.call_args.args
+        self.assertEqual(path, 'images/edits')
+        self.assertEqual(fields['model'], 'gpt-image-2.5-sunburst')
+        self.assertEqual(fields['input_fidelity'], 'high')
+        self.assertEqual(files[0], ('image[]', 'input-1.webp', 'image/webp', b'primary-image'))
+        self.assertEqual(files[1], ('mask', 'mask.png', 'image/png', b'png-mask'))
 
     def test_openai_unavailable_action_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'not supported'):
-            core.call_node({'type': 'ai.openai', 'settings': {'action': 'edit_image'}}, {}, None, Path('.'))
+            core.call_node({'type': 'ai.openai', 'settings': {'action': 'generate_audio'}}, {}, None, Path('.'))
+
+    def test_gemini_message_uses_backend_secret_and_current_model(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self): return json.dumps({'candidates': [{'content': {'parts': [{'text': 'Gemini reply'}]}, 'finishReason': 'STOP'}], 'usageMetadata': {'totalTokenCount': 9}}).encode()
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'server-only-gemini-key'}), patch.object(core.urllib.request, 'urlopen', return_value=Response()) as request_mock:
+            result = core.call_node({'type': 'ai.gemini', 'settings': {'action': 'message_model', 'model': 'gemini-3.8-flash', 'prompt': 'Summarize', 'input_path': 'source.value', 'max_output_tokens': 600}}, {'source': {'value': {'answer': 42}}}, None, Path('.'))
+        self.assertEqual(result['text'], 'Gemini reply')
+        self.assertEqual(result['usage']['totalTokenCount'], 9)
+        request = request_mock.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertIn('/models/gemini-3.8-flash:generateContent', request.full_url)
+        self.assertEqual(request.get_header('X-goog-api-key'), 'server-only-gemini-key')
+        self.assertEqual(payload['generationConfig']['maxOutputTokens'], 600)
+        self.assertIn('"answer":42', payload['contents'][0]['parts'][0]['text'])
+        self.assertNotIn('server-only-gemini-key', json.dumps(result))
+
+    def test_gemini_image_generation_returns_real_inline_artifact(self):
+        provider = {'candidates': [{'content': {'parts': [{'text': 'Created'}, {'inlineData': {'mimeType': 'image/png', 'data': 'encoded-image'}}]}}]}
+        with patch.object(core, 'gemini_request', return_value=provider) as request_mock:
+            result = core.call_node({'type': 'ai.gemini', 'settings': {'action': 'generate_image', 'model': 'gemini-3.1-flash-image', 'prompt': 'A blue sphere', 'image_aspect_ratio': '16:9'}}, {}, None, Path('.'))
+        self.assertEqual(result['images'][0], {'mime_type': 'image/png', 'b64_json': 'encoded-image'})
+        self.assertEqual(request_mock.call_args.args[0:2], ('POST', 'models/gemini-3.1-flash-image:generateContent'))
+        self.assertEqual(request_mock.call_args.args[2]['generationConfig']['imageConfig']['aspectRatio'], '16:9')
+
+    def test_gemini_file_search_store_management_uses_real_endpoints(self):
+        with patch.object(core, 'gemini_request', return_value={'name': 'fileSearchStores/store-1'}) as request_mock:
+            created = core.call_node({'type': 'ai.gemini', 'settings': {'action': 'create_file_search_store', 'display_name': 'Knowledge'}}, {}, None, Path('.'))
+            self.assertEqual(created['name'], 'fileSearchStores/store-1')
+            self.assertEqual(request_mock.call_args.args[0:2], ('POST', 'fileSearchStores'))
+            self.assertEqual(request_mock.call_args.args[2]['embeddingModel'], 'models/gemini-embedding-2')
+        with patch.object(core, 'gemini_request', return_value={'fileSearchStores': []}) as request_mock:
+            core.call_node({'type': 'ai.gemini', 'settings': {'action': 'list_file_search_stores'}}, {}, None, Path('.'))
+            self.assertEqual(request_mock.call_args.args, ('GET', 'fileSearchStores?pageSize=100'))
+        with patch.object(core, 'gemini_request', return_value={}) as request_mock:
+            core.call_node({'type': 'ai.gemini', 'settings': {'action': 'delete_file_search_store', 'store_name': 'fileSearchStores/store-1'}}, {}, None, Path('.'))
+            self.assertEqual(request_mock.call_args.args, ('DELETE', 'fileSearchStores/store-1?force=true'))
+
+    def test_gemini_unavailable_action_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'not supported'):
+            core.call_node({'type': 'ai.gemini', 'settings': {'action': 'analyze_audio'}}, {}, None, Path('.'))
+
+    def test_ollama_message_uses_local_chat_api_and_simplifies_output(self):
+        provider = {'model': 'gemma4', 'message': {'role': 'assistant', 'content': 'Local reply'}, 'done_reason': 'stop', 'prompt_eval_count': 12, 'eval_count': 4, 'total_duration': 99}
+        with patch.object(core, 'ollama_request', return_value=provider) as request_mock:
+            result = core.call_node({'type': 'ai.ollama', 'settings': {'action': 'message_model', 'model': 'gemma4', 'system_prompt': 'Be concise', 'prompt': 'Summarize', 'input_path': 'source.value', 'temperature': 0.3, 'max_output_tokens': 512}}, {'source': {'value': {'answer': 42}}}, None, Path('.'))
+        self.assertEqual(result['text'], 'Local reply')
+        self.assertEqual(result['model'], 'gemma4')
+        self.assertEqual(request_mock.call_args.args[0], 'api/chat')
+        payload = request_mock.call_args.args[1]
+        self.assertFalse(payload['stream'])
+        self.assertEqual(payload['options'], {'temperature': 0.3, 'num_predict': 512})
+        self.assertEqual(payload['messages'][0], {'role': 'system', 'content': 'Be concise'})
+        self.assertIn('"answer":42', payload['messages'][1]['content'])
+
+    def test_ollama_analyze_image_sends_real_base64_vision_payload(self):
+        provider = {'model': 'gemma4', 'message': {'role': 'assistant', 'content': 'A cat.'}, 'done_reason': 'stop'}
+        with patch.object(core, 'fetch_public_ollama_image', return_value='base64-image') as image_fetch, patch.object(core, 'ollama_request', return_value=provider) as request_mock:
+            result = core.call_node({'type': 'ai.ollama', 'settings': {'action': 'analyze_image', 'model': 'gemma4', 'prompt': 'What is shown?', 'image_urls': 'https://images.example.com/cat.jpg'}}, {}, None, Path('.'))
+        self.assertEqual(result['text'], 'A cat.')
+        image_fetch.assert_called_once_with('https://images.example.com/cat.jpg')
+        self.assertEqual(request_mock.call_args.args[1]['messages'][-1]['images'], ['base64-image'])
+
+    def test_ollama_base_url_is_restricted_to_local_or_allowed_hosts(self):
+        with patch.dict(os.environ, {'OLLAMA_BASE_URL': 'http://host.docker.internal:11434'}):
+            self.assertEqual(core.ollama_base_url(), 'http://host.docker.internal:11434')
+        with patch.dict(os.environ, {'OLLAMA_BASE_URL': 'https://remote.example.com'}, clear=False):
+            with self.assertRaisesRegex(ValueError, 'allowed local'):
+                core.ollama_base_url()
 
     def test_ai_agent_requires_chat_model_and_uses_connected_inputs(self):
         with self.assertRaisesRegex(ValueError, 'Chat Model'):

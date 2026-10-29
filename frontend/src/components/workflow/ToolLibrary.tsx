@@ -26,6 +26,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { WorkflowCatalogItem } from './workflowTypes'
+import { defaultModelForGeminiAction } from './geminiModels'
+import { defaultModelForOpenAIAction } from './openAIModels'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
 
@@ -392,12 +394,25 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     const previousIds = new Set(nodes.map(node => node.id))
     addNode(item.type)
     if (action !== undefined) {
-      const actionDefaults: Record<string, Record<string, unknown>> = {
-        message_model: { model: 'gpt-4o-mini', prompt: '' },
-        classify_violations: { model: 'omni-moderation-latest', prompt: '', simplify_output: true },
-        analyze_image: { model: 'gpt-4o-mini', prompt: "What's in this image?", image_urls: '', simplify_output: true },
-        generate_image: { model: 'gpt-image-1', prompt: '', image_size: '1024x1024', simplify_output: true },
+      const openAIDefaults: Record<string, Record<string, unknown>> = {
+        message_model: { model: defaultModelForOpenAIAction('message_model'), prompt: '', reasoning_effort: 'none' },
+        classify_violations: { model: defaultModelForOpenAIAction('classify_violations'), prompt: '', simplify_output: true },
+        analyze_image: { model: defaultModelForOpenAIAction('analyze_image'), prompt: "What's in this image?", image_urls: '', reasoning_effort: 'none', simplify_output: true },
+        generate_image: { model: defaultModelForOpenAIAction('generate_image'), prompt: '', image_size: '1024x1024', simplify_output: true },
+        edit_image: { model: defaultModelForOpenAIAction('edit_image'), prompt: '', image_urls: '', mask_image_url: '', image_size: '1024x1024', image_input_fidelity: 'auto', simplify_output: true },
       }
+      const geminiDefaults: Record<string, Record<string, unknown>> = {
+        message_model: { model: defaultModelForGeminiAction('message_model'), prompt: '', simplify_output: true },
+        generate_image: { model: defaultModelForGeminiAction('generate_image'), prompt: '', image_aspect_ratio: '1:1', simplify_output: true },
+        create_file_search_store: { display_name: '' },
+        delete_file_search_store: { store_name: '' },
+        list_file_search_stores: {},
+      }
+      const ollamaDefaults: Record<string, Record<string, unknown>> = {
+        analyze_image: { model: 'gemma3', prompt: 'What is in this image?', image_urls: '', temperature: 0.2, max_output_tokens: 1000, simplify_output: true },
+        message_model: { model: 'gemma3', prompt: '', system_prompt: 'You are a helpful assistant.', temperature: 0.2, max_output_tokens: 1000, simplify_output: true },
+      }
+      const actionDefaults = item.type === 'ai.gemini' ? geminiDefaults : item.type === 'ai.ollama' ? ollamaDefaults : openAIDefaults
       const property = Object.prototype.hasOwnProperty.call(item.settings, 'action') &&
         !Object.prototype.hasOwnProperty.call(item.settings, 'operation') ? 'action' : 'operation'
       setNodesTransient(previous => previous.map(node => (
@@ -479,7 +494,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
   const pageTitle = page.kind === 'home'
     ? 'What happens next?'
     : page.kind === 'app'
-      ? currentApp?.type === 'ai.openai' ? `Actions (${currentApp.actions?.length ?? 0})` : currentApp?.label ?? 'Tool actions'
+      ? ['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp?.type ?? '') ? `Actions (${currentApp?.actions?.length ?? 0})` : currentApp?.label ?? 'Tool actions'
       : page.kind === 'templates'
         ? 'Workflow Templates'
         : page.kind === 'workflows'
@@ -514,11 +529,11 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
           </button>
         )}
         {page.kind === 'category' && currentCategory && <currentCategory.icon size={26} className="shrink-0 text-[#b9b9b9]" strokeWidth={1.7} />}
-        {page.kind === 'app' && currentApp && currentApp.type !== 'ai.openai' && <div className="shrink-0">{iconForTool(currentApp)}</div>}
+        {page.kind === 'app' && currentApp && !['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp.type) && <div className="shrink-0">{iconForTool(currentApp)}</div>}
         <div className="min-w-0 flex-1">
           <h2 className="break-words text-[18px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
           {page.kind === 'category' && page.category === 'ai' && <p className="mt-2 text-[13px] leading-5 text-[#555]">Select an AI Node to add to your workflow</p>}
-          {page.kind === 'app' && currentApp?.type !== 'ai.openai' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
+          {page.kind === 'app' && !['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp?.type ?? '') && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
         </div>
         <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide Tool Library" title="Hide Tool Library" className={`-mr-2 grid size-8 shrink-0 place-items-center rounded-lg text-[#9b9b9b] opacity-0 transition-opacity hover:bg-[#ececec] hover:text-[#222] group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 ${focusRing}`}><X size={18} /></button>
       </div>
@@ -687,12 +702,13 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
                 const disabled = capability?.status === 'unavailable'
                 return <button key={action} type="button" disabled={disabled} onClick={() => addItem(currentApp, action)} title={disabled ? capability?.reason : `Add ${capability?.label ?? prettyOperation(action)}`}
                   className={`group flex w-full items-center gap-4 px-5 py-[15px] text-left transition-colors ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-[#f8f8f9]'} ${focusRing}`}>
-                  <span className="grid size-9 shrink-0 place-items-center text-[#111]">{currentApp.type === 'ai.openai' ? <WorkflowToolIcon type="ai.openai" label="OpenAI" size={31} /> : <PlayCircle size={22} />}</span>
+                  <span className="grid size-9 shrink-0 place-items-center text-[#111]">{['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp.type) ? <WorkflowToolIcon type={currentApp.type} label={currentApp.label} size={31} /> : <PlayCircle size={22} />}</span>
                   <span className="min-w-0 flex-1"><strong className="block text-[15px] font-normal leading-6 text-[#202020]">{capability?.label ?? prettyOperation(action)}</strong>{disabled && <small className="mt-0.5 block text-[11px] leading-4 text-[#777]">{capability?.reason}</small>}</span>
                   {!disabled && <ArrowRight size={18} className="text-[#c9c9c9] group-hover:text-[#8750ff]" />}
                 </button>
               })}
             </section>)}
+            {currentApp.type === 'ai.ollama' && <p className="px-5 pb-8 pt-6 text-[14px] leading-6 text-[#4a4a4a]">Didn't find the right event? Make a custom Ollama API call</p>}
           </>
         )}
 

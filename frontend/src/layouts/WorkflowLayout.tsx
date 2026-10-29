@@ -1,13 +1,12 @@
 
 import { useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
-
 import { WorkflowTopbar } from '../components/workflow/WorkflowTopbar'
 import { ToolLibrary } from '../components/workflow/ToolLibrary'
 import { WorkflowCanvas } from '../components/workflow/WorkflowCanvas'
 import { WorkflowRuns } from '../components/workflow/WorkflowRuns'
 import { WorkflowNodeEditor } from '../components/workflow/WorkflowNodeEditor'
 import type { WorkflowStudioState } from '../components/workflow/useWorkflowStudio'
+import { Toast, ToastViewport, type ToastVariant } from '../components/ui/Toast'
 
 type WorkflowLayoutProps = {
   children?: ReactNode
@@ -35,10 +34,17 @@ export function WorkflowLayout({
     error,
     setError,
     message,
+    setMessage,
     page,
     libraryOpen,
     selected,
   } = studio
+
+  const messageVariant: ToastVariant = /saved|finished|uploaded|linked|added|copied|pasted|duplicated|restored|arranged|renamed/i.test(message)
+    ? 'success'
+    : /does not|cannot|more than|no nodes|not available|failed|cancelled/i.test(message)
+      ? 'warning'
+      : 'info'
 
   return (
     <main
@@ -47,31 +53,10 @@ export function WorkflowLayout({
     >
       <WorkflowTopbar studio={studio} />
 
-      {error && (
-        <div
-          role="alert"
-          className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800"
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            aria-label="Dismiss error"
-            onClick={() => setError(null)}
-            className="rounded-md p-1 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-500"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
-
-      {message && (
-        <div
-          role="status"
-          className="shrink-0 border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-800"
-        >
-          {message}
-        </div>
-      )}
+      <ToastViewport>
+        {error && <Toast message={error} variant="error" duration={7000} onDismiss={() => setError(null)} />}
+        {message && <Toast message={message} variant={messageVariant} duration={message === 'Changes saved automatically.' ? 2600 : 4500} onDismiss={() => setMessage('')} />}
+      </ToastViewport>
 
       <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {libraryOpen && <ToolLibrary studio={studio} onOpenNode={() => setNodeEditorOpen(true)} />}
