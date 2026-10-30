@@ -493,7 +493,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     const setQuery = left ? setInputQuery : setOutputQuery
     const known = left ? inputSources.length > 0 && inputSources.some(source => source.value != null) : value != null
     return <section className={`min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[#f7f7f7] ${mobilePanel === side ? 'flex' : 'hidden'} lg:flex`} aria-label={`${side.toUpperCase()} data`}>
-      <div className="flex min-h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] px-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] px-3 0.5">
         <span className="text-[12px] font-medium tracking-[0.13em] text-[#777]">{side.toUpperCase()}</span>
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" aria-label={`Search ${side} data`} title="Search data" onClick={() => setDataSearchOpen(v => v === side ? null : side)} className="grid size-8 shrink-0 place-items-center rounded-md text-[#aaa] hover:bg-[#e9e9e9] hover:text-[#444]"><Search size={17}/></button>
@@ -501,7 +501,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         </div>
       </div>
       {dataSearchOpen === side && <div className="flex h-[44px] shrink-0 gap-2 border-b border-[#e7e7e7] p-1.5"><input autoFocus type="search" aria-label={`Filter ${side} data`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search fields or values..." className="min-w-0 flex-1 rounded-md border border-[#d4d4d4] bg-white px-2.5 text-[12px] outline-none focus:border-[#9461fc]"/><button type="button" title="Close search" onClick={() => { setDataSearchOpen(null); setQuery('') }} className="rounded-md px-2 text-[#777] hover:bg-[#e9e9e9]"><X size={15}/></button></div>}
-      {left && inputSources.length > 0 && <div className="flex min-h-[49px] shrink-0 items-center gap-2 border-b border-[#ededed] px-3">
+      {left && inputSources.length > 0 && <div className="flex shrink-0 items-center gap-2 border-b border-[#ededed] px-3 py-0.5">
         <span className="grid size-6 shrink-0 place-items-center"><BrandIcon type={studio.nodes.find(node => node.id === activeInput?.id)?.type ?? ''} text={activeInput?.label ?? 'Input'} size={21}/></span>
         <select aria-label="Select upstream node input" className="min-w-0 flex-1 truncate rounded-md border border-[#dedede] bg-white px-2 py-1.5 text-[12px] text-[#333] outline-none focus:border-[#9461fc]" value={activeInput?.id ?? ''} onChange={e => setSelectedInputId(e.target.value)}>
           {inputSources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}
