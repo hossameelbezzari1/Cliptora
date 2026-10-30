@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.api.v1.deps import owned_project
+from backend.app.api.deps import owned_project
 from app.core.database import get_db
 from app.core.security import current_user
 from app.models import Project, User, Track, Clip

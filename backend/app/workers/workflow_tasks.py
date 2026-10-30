@@ -5,7 +5,7 @@ from app.workers.celery_app import celery_app
 def run_workflow(self, run_id: int) -> None:
     """Execute a persisted run. Database state makes duplicate deliveries safe."""
     try:
-        from app.api.v1.workflow_api import process_run
+        from backend.app.api.workflow_api import process_run
 
         process_run(run_id)
     except Exception as exc:
