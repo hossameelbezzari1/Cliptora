@@ -26,8 +26,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { WorkflowCatalogItem } from './workflowTypes'
-import { defaultModelForGeminiAction } from './geminiModels'
-import { defaultModelForOpenAIAction } from './openAIModels'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
 
@@ -42,6 +40,7 @@ type CategoryId =
   | 'video'
   | 'audio'
   | 'editing'
+  | `custom:${string}`
 
 type PickerPage =
   | { kind: 'home' }
@@ -64,14 +63,14 @@ const PRIMARY_CATEGORIES: CategoryDefinition[] = [
     id: 'ai',
     title: 'AI',
     pageTitle: 'AI Nodes',
-    description: 'AI tools and models available in CLIPTORA',
+    description: 'Build autonomous agents, summarize or search documents, etc.',
     icon: Bot,
   },
   {
     id: 'apps',
     title: 'Action in an app',
     pageTitle: 'Action in an app',
-    description: 'Connect to the installed apps and services',
+    description: 'Do something in an app or service like Google Sheets, Telegram or Notion',
     icon: Globe2,
   },
   {
@@ -99,7 +98,7 @@ const PRIMARY_CATEGORIES: CategoryDefinition[] = [
     id: 'review',
     title: 'Human review',
     pageTitle: 'Human review',
-    description: 'Review and approval tools registered in your workspace',
+    description: 'Request approval via services like Slack and Telegram before making tool calls',
     icon: UserCheck,
   },
 ]
@@ -138,7 +137,7 @@ const TRIGGER_CATEGORY: CategoryDefinition = {
 
 const CATEGORY_BY_ID = Object.fromEntries(
   [...PRIMARY_CATEGORIES, ...CLIPTORA_CATEGORIES, TRIGGER_CATEGORY].map(category => [category.id, category]),
-) as Record<CategoryId, CategoryDefinition>
+) as Partial<Record<CategoryId, CategoryDefinition>>
 
 const LIBRARY_WIDTH_KEY = 'cliptora.workflow.toolLibraryWidth'
 const LIBRARY_MIN_WIDTH = 280
@@ -157,6 +156,14 @@ function clampLibraryWidth(width: number) {
  * tools for display; it never creates nonexistent plugins or executors.
  */
 function categoryOf(item: WorkflowCatalogItem): CategoryId {
+  const groupName = item.group.trim()
+  const builtinGroups = new Set([
+    'AI', 'Action in an app', 'Analysis', 'Creative', 'Data transformation',
+    'Editing', 'Flow', 'Output', 'Triggers', 'Video & Media',
+  ])
+  if (groupName && !builtinGroups.has(groupName)) {
+    return `custom:${groupName}`
+  }
   const id = item.type.toLowerCase()
   const label = item.label.toLowerCase()
   const group = item.group.toLowerCase()
@@ -206,7 +213,8 @@ function sectionOf(category: CategoryId, item: WorkflowCatalogItem): string {
   }
   if (category === 'ai') {
     if (item.group.startsWith('AI · ')) return item.group.slice(5)
-    return 'CLIPTORA AI'
+    if (item.status === 'implemented') return 'CLIPTORA AI'
+    return 'Other AI Nodes'
   }
   return 'Available nodes'
 }
@@ -218,6 +226,7 @@ function iconForTool(item: WorkflowCatalogItem) {
 function rowText(item: WorkflowCatalogItem): string {
   const custom = (item as WorkflowCatalogItem & { description?: string }).description
   if (custom?.trim()) return custom
+  if (item.status !== 'implemented') return item.availability_reason ?? 'Backend executor not installed'
   const text = `${item.type} ${item.label}`.toLowerCase()
   if (/gmail/.test(text)) return 'Send and receive emails through Gmail'
   if (/excel/.test(text)) return 'Read, write and manage spreadsheets'
@@ -253,6 +262,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     versions,
     setVersions,
     working,
+    groups,
     nodeGroup,
     setNodeGroup,
     openDefinition,
@@ -323,31 +333,24 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(width)) } catch {}
   }
 
-  const browseCatalog = useMemo(() => catalog.filter(item =>
-    item.status === 'implemented' && (
-      !item.actions?.length || item.actions.some(action => item.action_capabilities?.[action]?.status !== 'unavailable')
-    )
-  ), [catalog])
+  const browseCatalog = useMemo(() => catalog.filter(item => item.status === 'implemented' && Boolean(item.backend_executor)), [catalog])
   const classified = useMemo(() => browseCatalog.map(item => ({ ...item, category: categoryOf(item) })), [browseCatalog])
-  const availableCategories = useMemo(() => new Set(classified.map(item => item.category)), [classified])
-  const primaryCategories = PRIMARY_CATEGORIES.filter(category => availableCategories.has(category.id))
-  const cliptoraCategories = CLIPTORA_CATEGORIES.filter(category => availableCategories.has(category.id))
-  const hasTriggerCategory = availableCategories.has('triggers')
-  const activeGroups = useMemo(() => [...new Set(browseCatalog.map(item => item.group))], [browseCatalog])
-  const availableTemplates = useMemo(() => {
-    const types = new Set(browseCatalog.map(item => item.type))
-    return templates.filter(template => template.nodes.length > 0 && template.nodes.every(node => types.has(node.type)))
-  }, [templates, browseCatalog])
-
-  useEffect(() => {
-    if (page.kind === 'category' && !availableCategories.has(page.category)) setPage({ kind: 'home' })
-    if (page.kind === 'app' && !browseCatalog.some(item => item.type === page.type)) setPage({ kind: 'home' })
-    if (page.kind === 'templates' && !availableTemplates.length) setPage({ kind: 'home' })
-    if (page.kind === 'alltools' && !browseCatalog.length) setPage({ kind: 'home' })
-  }, [availableCategories, browseCatalog, availableTemplates, page])
-
+  const dynamicCategories = useMemo<CategoryDefinition[]>(() => {
+    const groups = new Map<CategoryId, string>()
+    for (const item of browseCatalog) {
+      const category = categoryOf(item)
+      if (category.startsWith('custom:')) groups.set(category, item.group)
+    }
+    return [...groups].sort((a, b) => a[1].localeCompare(b[1])).map(([id, group]) => ({
+      id,
+      title: group,
+      pageTitle: group,
+      description: `Available ${group} nodes`,
+      icon: Workflow,
+    }))
+  }, [browseCatalog])
   const query = nodeSearch.trim()
-  const currentCategory = page.kind === 'category' ? CATEGORY_BY_ID[page.category] : null
+  const currentCategory = page.kind === 'category' ? (CATEGORY_BY_ID[page.category] ?? dynamicCategories.find(category => category.id === page.category)) : null
   const currentApp = page.kind === 'app' ? browseCatalog.find(item => item.type === page.type) : undefined
   const filtered = useMemo(() => {
     if (page.kind === 'home') return classified.filter(item => toolMatches(item, nodeSearch))
@@ -384,6 +387,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
 
   function addItem(item: WorkflowCatalogItem, action?: string) {
     if (item.status !== 'implemented') return
+    if (action && item.action_capabilities?.[action]?.status === 'unavailable') return
     if (item.actions?.length && action === undefined) {
       goApp(item, categoryOf(item))
       return
@@ -394,25 +398,12 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     const previousIds = new Set(nodes.map(node => node.id))
     addNode(item.type)
     if (action !== undefined) {
-      const openAIDefaults: Record<string, Record<string, unknown>> = {
-        message_model: { model: defaultModelForOpenAIAction('message_model'), prompt: '', reasoning_effort: 'none' },
-        classify_violations: { model: defaultModelForOpenAIAction('classify_violations'), prompt: '', simplify_output: true },
-        analyze_image: { model: defaultModelForOpenAIAction('analyze_image'), prompt: "What's in this image?", image_urls: '', reasoning_effort: 'none', simplify_output: true },
-        generate_image: { model: defaultModelForOpenAIAction('generate_image'), prompt: '', image_size: '1024x1024', simplify_output: true },
-        edit_image: { model: defaultModelForOpenAIAction('edit_image'), prompt: '', image_urls: '', mask_image_url: '', image_size: '1024x1024', image_input_fidelity: 'auto', simplify_output: true },
+      const actionDefaults: Record<string, Record<string, unknown>> = {
+        message_model: { model: 'gpt-4o-mini', prompt: '' },
+        classify_violations: { model: 'omni-moderation-latest', prompt: '', simplify_output: true },
+        analyze_image: { model: 'gpt-4o-mini', prompt: "What's in this image?", image_urls: '', simplify_output: true },
+        generate_image: { model: 'gpt-image-1', prompt: '', image_size: '1024x1024', simplify_output: true },
       }
-      const geminiDefaults: Record<string, Record<string, unknown>> = {
-        message_model: { model: defaultModelForGeminiAction('message_model'), prompt: '', simplify_output: true },
-        generate_image: { model: defaultModelForGeminiAction('generate_image'), prompt: '', image_aspect_ratio: '1:1', simplify_output: true },
-        create_file_search_store: { display_name: '' },
-        delete_file_search_store: { store_name: '' },
-        list_file_search_stores: {},
-      }
-      const ollamaDefaults: Record<string, Record<string, unknown>> = {
-        analyze_image: { model: 'gemma3', prompt: 'What is in this image?', image_urls: '', temperature: 0.2, max_output_tokens: 1000, simplify_output: true },
-        message_model: { model: 'gemma3', prompt: '', system_prompt: 'You are a helpful assistant.', temperature: 0.2, max_output_tokens: 1000, simplify_output: true },
-      }
-      const actionDefaults = item.type === 'ai.gemini' ? geminiDefaults : item.type === 'ai.ollama' ? ollamaDefaults : openAIDefaults
       const property = Object.prototype.hasOwnProperty.call(item.settings, 'action') &&
         !Object.prototype.hasOwnProperty.call(item.settings, 'operation') ? 'action' : 'operation'
       setNodesTransient(previous => previous.map(node => (
@@ -426,23 +417,27 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
   }
 
   const renderTool = (item: WorkflowCatalogItem, category: CategoryId) => {
+    const disabled = item.status !== 'implemented'
+    const statusLabel = item.status === 'unavailable' ? 'Unavailable' : 'Coming soon'
     return (
       <button
         key={item.type}
         type="button"
-        draggable
+        draggable={!disabled}
         onDragStart={event => {
           event.dataTransfer.effectAllowed = 'copy'
           event.dataTransfer.setData('text/cliptora-node', item.type)
         }}
         onClick={() => item.actions?.length ? goApp(item, category) : addItem(item)}
-        title={`Add ${item.label}`}
-        className={`group flex w-full min-w-0 items-start gap-4 px-5 py-[17px] text-left transition-colors hover:bg-[#f8f8f9] focus-visible:bg-[#f6f2ff] ${focusRing}`}
+        disabled={disabled}
+        title={disabled ? (item.availability_reason ?? 'Backend executor not installed') : `Add ${item.label}`}
+        className={`group flex w-full min-w-0 items-start gap-4 px-5 py-[17px] text-left transition-colors hover:bg-[#f8f8f9] focus-visible:bg-[#f6f2ff] disabled:cursor-not-allowed disabled:opacity-75 ${focusRing}`}
       >
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center" aria-hidden="true">{iconForTool(item)}</span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <strong className="block break-words text-[15px] font-medium leading-6 text-[#202020]">{item.label}</strong>
+            {disabled && <span className="rounded border border-[#e4e4e7] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#777]">{statusLabel}</span>}
           </span>
           <span className="mt-0.5 block break-words text-[13px] leading-5 text-[#575757]">{rowText(item)}</span>
         </span>
@@ -452,6 +447,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
   }
 
   const renderCategory = (category: CategoryDefinition) => {
+    if (!classified.some(item => belongsTo(item, category.id))) return null
     const Icon = category.icon
     return (
       <button
@@ -475,7 +471,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     : page.kind === 'category' && page.category === 'flow'
       ? ['Popular', 'Other']
       : page.kind === 'category' && page.category === 'ai'
-        ? ['CLIPTORA AI', 'Agents & Chains', 'Chat Models', 'Memory', 'Embeddings', 'Vector Stores', 'Document Processing', 'Retrievers & Rerankers', 'Output Parsers', 'Tools']
+        ? ['CLIPTORA AI', 'Agents & Chains', 'Chat Models', 'Memory', 'Embeddings', 'Vector Stores', 'Document Processing', 'Retrievers & Rerankers', 'Output Parsers', 'Tools', 'Other AI Nodes']
         : ['Available nodes']
 
   const groupSections = (() => {
@@ -486,15 +482,14 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
       const key = sectionOf(category, item)
       grouped.set(key, [...(grouped.get(key) ?? []), item])
     })
-    const ordered = [...sectionOrder.filter(section => grouped.has(section)), ...[...grouped.keys()].filter(section => !sectionOrder.includes(section)).sort()]
-    return ordered.map(section => ({ title: section, items: [...grouped.get(section)!].sort((a, b) => a.label.localeCompare(b.label)) }))
+    return sectionOrder.filter(section => grouped.has(section)).map(section => ({ title: section, items: grouped.get(section)! }))
   })()
 
   const isSearch = query.length > 0
   const pageTitle = page.kind === 'home'
     ? 'What happens next?'
     : page.kind === 'app'
-      ? ['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp?.type ?? '') ? `Actions (${currentApp?.actions?.length ?? 0})` : currentApp?.label ?? 'Tool actions'
+      ? currentApp?.type === 'ai.openai' ? `Actions (${currentApp.actions?.length ?? 0})` : currentApp?.label ?? 'Tool actions'
       : page.kind === 'templates'
         ? 'Workflow Templates'
         : page.kind === 'workflows'
@@ -505,7 +500,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
 
   const appActionSections = (() => {
     if (!currentApp) return [] as Array<{ title: string; actions: string[] }>
-    const visible = (currentApp.actions ?? []).filter(action => !isSearch || `${action} ${currentApp.action_capabilities?.[action]?.label ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+    const visible = (currentApp.actions ?? []).filter(action => currentApp.action_capabilities?.[action]?.status !== 'unavailable' && (!isSearch || `${action} ${currentApp.action_capabilities?.[action]?.label ?? ''}`.toLowerCase().includes(query.toLowerCase())))
     const grouped = new Map<string, string[]>()
     visible.forEach(action => {
       const group = currentApp.action_capabilities?.[action]?.group ?? 'Actions'
@@ -529,11 +524,11 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
           </button>
         )}
         {page.kind === 'category' && currentCategory && <currentCategory.icon size={26} className="shrink-0 text-[#b9b9b9]" strokeWidth={1.7} />}
-        {page.kind === 'app' && currentApp && !['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp.type) && <div className="shrink-0">{iconForTool(currentApp)}</div>}
+        {page.kind === 'app' && currentApp && currentApp.type !== 'ai.openai' && <div className="shrink-0">{iconForTool(currentApp)}</div>}
         <div className="min-w-0 flex-1">
           <h2 className="break-words text-[18px] font-medium leading-[1.2] tracking-[-0.025em] text-[#111111]">{pageTitle}</h2>
           {page.kind === 'category' && page.category === 'ai' && <p className="mt-2 text-[13px] leading-5 text-[#555]">Select an AI Node to add to your workflow</p>}
-          {page.kind === 'app' && !['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp?.type ?? '') && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
+          {page.kind === 'app' && currentApp?.type !== 'ai.openai' && <p className="mt-1 text-[12px] text-[#666]">Select an action to add to your workflow</p>}
         </div>
         <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide Tool Library" title="Hide Tool Library" className={`-mr-2 grid size-8 shrink-0 place-items-center rounded-lg text-[#9b9b9b] opacity-0 transition-opacity hover:bg-[#ececec] hover:text-[#222] group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 ${focusRing}`}><X size={18} /></button>
       </div>
@@ -558,11 +553,11 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
         {page.kind === 'home' && !isSearch && (
           <>
             <nav aria-label="Node categories" className="pt-1">
-              {primaryCategories.map(renderCategory)}
+              {PRIMARY_CATEGORIES.map(renderCategory)}
             </nav>
-            {primaryCategories.length > 0 && hasTriggerCategory && <div className="ml-5 mr-4 my-4 border-t border-[#dedede]" />}
-            {hasTriggerCategory && renderCategory(TRIGGER_CATEGORY)}
-            {availableTemplates.length > 0 && (
+            <div className="ml-5 mr-4 my-4 border-t border-[#dedede]" />
+            {renderCategory(TRIGGER_CATEGORY)}
+            {templates.length > 0 && (
               <button type="button" onClick={() => { setPage({ kind: 'templates' }); setNodeSearch('') }}
                 className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Layers3 size={29} strokeWidth={1.7} /></span>
@@ -570,30 +565,28 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
                   <strong className="block text-[13px] font-medium leading-6 text-[#202020]">Workflow Templates</strong>
                   <span className="mt-0.5 block text-[11px] leading-[1.45] text-[#505050]">Start with a ready-made set of connected nodes</span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{availableTemplates.length}</span><ArrowRight size={21} /></span>
+                <span className="flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{templates.length}</span><ArrowRight size={21} /></span>
               </button>
             )}
-            {cliptoraCategories.length > 0 && <>
-              <div className="mx-5 mb-4 mt-8 border-t border-[#e6e6e6]" />
-              <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#969696]">CLIPTORA tools</p>
-              {cliptoraCategories.map(renderCategory)}
-            </>}
+            <div className="mx-5 mb-4 mt-[76px] border-t border-[#e6e6e6]" />
+            <p className="px-5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#969696]">CLIPTORA tools</p>
+            {CLIPTORA_CATEGORIES.map(renderCategory)}
+            {dynamicCategories.map(renderCategory)}
             <div className="mx-5 my-4 border-t border-[#e6e6e6]" />
-            {definitions.length > 0 && <button type="button" onClick={() => { setPage({ kind: 'workflows' }); setNodeSearch('') }}
+            <button type="button" onClick={() => { setPage({ kind: 'workflows' }); setNodeSearch('') }}
               className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><FolderOpen size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">Saved Workflows</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Open saved workflows and restore previous versions</span></span>
               <span className="mt-1 flex shrink-0 items-center gap-2 text-[#777]"><span className="text-xs">{definitions.length}</span><ArrowRight size={21} /></span>
-            </button>}
-            {browseCatalog.length > 0 && <button type="button" onClick={() => { setPage({ kind: 'alltools' }); setNodeSearch(''); setNodeGroup('All') }}
+            </button>
+            <button type="button" onClick={() => { setPage({ kind: 'alltools' }); setNodeSearch(''); setNodeGroup('All') }}
               className={`group flex w-full items-center gap-3 border-l-[2px] border-l-transparent py-[11px] pl-[18px] pr-6 text-left transition-colors hover:bg-[#f8f8f9] ${focusRing}`}>
               <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-[#b6b6b6]" aria-hidden="true"><Database size={29} strokeWidth={1.7} /></span>
               <span className="min-w-0 flex-1"><strong className="block text-[17px] font-medium leading-6 text-[#202020]">All tools</strong>
                 <span className="mt-0.5 block text-[13px] leading-[1.45] text-[#505050]">Browse tools by their original backend groups</span></span>
               <ArrowRight size={21} className="mt-2 shrink-0 text-[#777]" />
-            </button>}
-            {!browseCatalog.length && <div className="px-5 py-6 text-[13px] text-[#818181]">No executable tools are registered in this workspace.</div>}
+            </button>
           </>
         )}
 
@@ -620,7 +613,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
         {page.kind === 'alltools' && (
           <>
             <div className="flex gap-1 overflow-x-auto border-b border-[#e7e7e7] px-4 pb-3 pt-2 [scrollbar-width:thin]" aria-label="Tool groups">
-              {['All', ...activeGroups].map(group => (
+              {['All', ...groups].map(group => (
                 <button key={group} type="button" onClick={() => setNodeGroup(group)}
                   aria-pressed={nodeGroup === group}
                   className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium ${focusRing} ${nodeGroup === group ? 'bg-[#222] text-white' : 'text-[#606060] hover:bg-[#f2f2f2]'}`}>{group}</button>
@@ -683,7 +676,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
         {page.kind === 'templates' && (
           <>
             <div className="px-5 pb-2 pt-4 text-[12px] font-medium text-[#858585]">WORKFLOW TEMPLATES</div>
-            {availableTemplates.filter(template => !isSearch || `${template.name} ${template.description}`.toLowerCase().includes(query.toLowerCase())).map(template => (
+            {templates.filter(template => !isSearch || `${template.name} ${template.description}`.toLowerCase().includes(query.toLowerCase())).map(template => (
               <button key={template.key} type="button" onClick={() => { openTemplate(template); setLibraryOpen(false) }} className={`group flex w-full items-start gap-4 px-5 py-[17px] text-left hover:bg-[#f8f8f9] ${focusRing}`}>
                 <span className="mt-1 grid size-9 shrink-0 place-items-center text-[#888]"><Layers3 size={22} /></span>
                 <span className="min-w-0 flex-1"><strong className="block text-[15px] font-medium">{template.name}</strong><small className="mt-1 block text-[12px] leading-5 text-[#666]">{template.description}</small></span>
@@ -702,21 +695,20 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
                 const disabled = capability?.status === 'unavailable'
                 return <button key={action} type="button" disabled={disabled} onClick={() => addItem(currentApp, action)} title={disabled ? capability?.reason : `Add ${capability?.label ?? prettyOperation(action)}`}
                   className={`group flex w-full items-center gap-4 px-5 py-[15px] text-left transition-colors ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-[#f8f8f9]'} ${focusRing}`}>
-                  <span className="grid size-9 shrink-0 place-items-center text-[#111]">{['ai.openai', 'ai.gemini', 'ai.ollama'].includes(currentApp.type) ? <WorkflowToolIcon type={currentApp.type} label={currentApp.label} size={31} /> : <PlayCircle size={22} />}</span>
+                  <span className="grid size-9 shrink-0 place-items-center text-[#111]">{currentApp.type === 'ai.openai' ? <WorkflowToolIcon type="ai.openai" label="OpenAI" size={31} /> : <PlayCircle size={22} />}</span>
                   <span className="min-w-0 flex-1"><strong className="block text-[15px] font-normal leading-6 text-[#202020]">{capability?.label ?? prettyOperation(action)}</strong>{disabled && <small className="mt-0.5 block text-[11px] leading-4 text-[#777]">{capability?.reason}</small>}</span>
                   {!disabled && <ArrowRight size={18} className="text-[#c9c9c9] group-hover:text-[#8750ff]" />}
                 </button>
               })}
             </section>)}
-            {currentApp.type === 'ai.ollama' && <p className="px-5 pb-8 pt-6 text-[14px] leading-6 text-[#4a4a4a]">Didn't find the right event? Make a custom Ollama API call</p>}
           </>
         )}
 
-        {page.kind !== 'home' && page.kind !== 'templates' && page.kind !== 'app' && page.kind !== 'workflows' && filtered.length === 0 && (
+        {page.kind !== 'home' && page.kind !== 'templates' && filtered.length === 0 && (
           <div className="mx-5 mt-5 rounded-xl border border-dashed border-[#dfdfdf] px-5 py-7 text-center">
             <CircleHelp size={23} className="mx-auto mb-2 text-[#b0b0b0]" />
             <p className="text-[13px] font-medium text-[#484848]">{isSearch ? 'No matching nodes' : 'No tools registered in this category'}</p>
-            <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'No implemented tools are available in this section.'}</p>
+            <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'Install or enable the required tool in the backend registry.'}</p>
           </div>
         )}
       </div>

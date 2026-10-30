@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  ArrowLeft, ArrowRight, Check, CircleAlert, Copy, Search, GripVertical, ChevronRight, Database,
+  ArrowLeft, ArrowRight, Check, CircleAlert, Copy, Search, GripVertical, ChevronDown, ChevronRight, Database,
   Film, FolderOpen, LoaderCircle, Play, Plus, RefreshCw, Settings2, Upload, X, Zap,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { WorkflowNode } from './workflowTypes'
 import type { WorkflowStudioState } from './useWorkflowStudio'
+import { getNodeUI } from './nodeRegistry'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
 import { defaultModelForGeminiAction, modelsForGeminiAction } from './geminiModels'
 import { defaultModelForOpenAIAction, modelsForOpenAIAction } from './openAIModels'
@@ -75,6 +76,17 @@ function dataRows(value: unknown): JsonObject[] {
 }
 
 function countItems(value: unknown) { return dataRows(value).length }
+function itemCountLabel(value: unknown) {
+  const count = countItems(value)
+  return `${count} ${count === 1 ? 'item' : 'items'}`
+}
+
+function confirmedManualEvent(result: { state: string; [key: string]: unknown }) {
+  for (const key of ['output', 'data', 'payload', 'items']) {
+    if (result[key] !== undefined && result[key] !== null) return result[key]
+  }
+  return [{ trigger: { type: 'manual', status: 'received' } }]
+}
 
 function JsonSyntax({ value }: { value: unknown }) {
   const source = formatJSON(value)
@@ -172,7 +184,7 @@ function DynamicField({ name, schema, value, onChange }: { name: string; schema?
   if (schema?.enum?.length) return <label className="block"><SectionLabel>{label}</SectionLabel><select className={inputClass} value={String(effective ?? '')} onChange={e => onChange(schema.enum?.find(option => String(option) === e.target.value) ?? e.target.value)}><option value="">Choose…</option>{schema.enum.map(option => <option key={String(option)} value={String(option)}>{titleize(String(option))}</option>)}</select>{schema.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
   if (type === 'boolean') return <label className="flex cursor-pointer items-center gap-3 py-1"><button type="button" role="switch" aria-checked={Boolean(effective)} onClick={() => onChange(!effective)} className={`relative h-6 w-11 rounded-full transition-colors ${effective ? 'bg-[#8550e9]' : 'bg-[#b6b6b6]'}`}><span className={`absolute left-[3px] top-[3px] size-[18px] rounded-full bg-white shadow-sm transition-transform ${effective ? 'translate-x-5' : ''}`} /></button><span className="text-[13px] text-[#393939]">{label}</span></label>
   if (type === 'object' || type === 'array') return <JsonField label={label} value={effective ?? (type === 'array' ? [] : {})} onChange={onChange}/>
-  if (['prompt','system_prompt','image_urls','mask_image_url'].includes(name)) return <label className="block"><SectionLabel>{label}</SectionLabel><textarea rows={name === 'system_prompt' ? 3 : name === 'mask_image_url' ? 2 : 4} className={`${inputClass} resize-y`} value={String(effective ?? '')} placeholder={name === 'image_urls' ? 'e.g. https://example.com/image.jpeg' : name === 'mask_image_url' ? 'e.g. https://example.com/mask.png' : name === 'prompt' ? "What's in this image?" : undefined} onChange={e => onChange(e.target.value)} />{schema?.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
+  if (['prompt','system_prompt','image_urls'].includes(name)) return <label className="block"><SectionLabel>{label}</SectionLabel><textarea rows={name === 'system_prompt' ? 3 : 4} className={`${inputClass} resize-y`} value={String(effective ?? '')} placeholder={name === 'image_urls' ? 'e.g. https://example.com/image.jpeg' : name === 'prompt' ? "What's in this image?" : undefined} onChange={e => onChange(e.target.value)} />{schema?.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
   return <label className="block"><SectionLabel>{label}</SectionLabel><input type={type === 'number' || type === 'integer' ? 'number' : 'text'} min={schema?.minimum} max={schema?.maximum} className={inputClass} value={String(effective ?? '')} onChange={e => onChange(type === 'number' || type === 'integer' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)} />{schema?.description && <span className="mt-1 block text-[11px] leading-4 text-[#888]">{schema.description}</span>}</label>
 }
 
@@ -207,7 +219,6 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [openAIConfigured, setOpenAIConfigured] = useState<boolean | null>(null)
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null)
-  const [ollamaStatus, setOllamaStatus] = useState<{ configured: boolean; reachable: boolean; base_url: string; models: string[] } | null>(null)
   const dataRequestRef = useRef(0)
   const layoutRef = useRef<HTMLDivElement>(null)
   const activeResize = useRef<{ side: 'input' | 'output'; startX: number; sizes: [number, number, number] } | null>(null)
@@ -302,6 +313,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     try { window.localStorage.setItem('cliptora.workflow.nodeEditor.panelSizes', JSON.stringify(next)) } catch {}
   }
 
+  const CustomParameters = selected ? getNodeUI(selected.type)?.Parameters : undefined
   const selectedType = selected?.type?.toLowerCase() ?? ''
   const selectedLabel = (selectedCatalog?.label ?? '').toLowerCase()
   const isManualTrigger = /manual[._-]?trigger|trigger[._-]?manual|when[._ -]?click|execute[._ -]?workflow/.test(`${selectedType} ${selectedLabel}`)
@@ -318,10 +330,9 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     if (isEntryTrigger && mobilePanel === 'input') setMobilePanel('parameters')
   }, [isEntryTrigger, mobilePanel])
 
-  const openAINode = selected?.type === 'ai.openai'
+  const openAINode = selected?.type === 'ai.openai' 
   const geminiNode = selected?.type === 'ai.gemini'
-  const ollamaNode = selected?.type === 'ai.ollama'
-  const providerNode = openAINode || geminiNode || ollamaNode
+  const providerNode = openAINode || geminiNode
   const agentNode = selected?.type === 'ai.agent'
   const providerAction = String(selected?.settings?.action ?? 'message_model')
   const providerCapability = selectedCatalog?.action_capabilities?.[providerAction]
@@ -333,7 +344,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
             : providerAction.includes('video') ? 'Video'
             : 'Text'
   const title = providerNode ? (providerCapability?.label ?? selectedCatalog?.label ?? 'AI') : selectedCatalog?.label ?? selected?.type ?? 'Node'
-  const isApp = /excel|gmail|google|telegram|outlook|onedrive|openai|gemini|ollama|anthropic/i.test(`${title} ${selected?.type ?? ''}`)
+  const isApp = /excel|gmail|google|telegram|outlook|onedrive|openai|gemini|anthropic/i.test(`${title} ${selected?.type ?? ''}`)
   const selectedId = selected?.id
   const result = selectedId ? run?.results?.[selectedId] : undefined
   const dependencies = useMemo(() => selected?.depends_on ?? [], [selected?.depends_on])
@@ -354,7 +365,6 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     classify_violations: ['prompt','input_path','simplify_output'],
     analyze_image: ['reasoning_effort','prompt','image_urls','max_output_tokens','simplify_output'],
     generate_image: ['prompt','image_size','simplify_output'],
-    edit_image: ['prompt','image_urls','mask_image_url','image_size','image_input_fidelity','simplify_output'],
   }
   const geminiFields: Record<string, string[]> = {
     message_model: ['system_prompt','prompt','input_path','max_output_tokens','simplify_output'],
@@ -363,22 +373,17 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     delete_file_search_store: ['store_name'],
     list_file_search_stores: [],
   }
-  const ollamaFields: Record<string, string[]> = {
-    message_model: ['system_prompt','prompt','input_path','temperature','max_output_tokens','simplify_output'],
-    analyze_image: ['system_prompt','prompt','image_urls','input_path','temperature','max_output_tokens','simplify_output'],
-  }
   const allKeys = [...new Set([...Object.keys(fields), ...Object.keys(settings)])].filter(key => !['credential_id','credential','operation','action','resource','filters','source_id','__cliptora_ui_source_handles','__cliptora_ui_target_handles','__cliptora_ui_notes','__cliptora_ui_note_visible','__cliptora_ui_label','__cliptora_ui_pinned'].includes(key))
-  const keys = openAINode ? (openAIFields[providerAction] ?? []) : geminiNode ? (geminiFields[providerAction] ?? []) : ollamaNode ? (ollamaFields[providerAction] ?? []) : allKeys
+  const keys = openAINode ? (openAIFields[providerAction] ?? []) : geminiNode ? (geminiFields[providerAction] ?? []) : allKeys
   const operationKey = Object.prototype.hasOwnProperty.call(settings, 'action') && !Object.prototype.hasOwnProperty.call(settings, 'operation') ? 'action' : 'operation'
   const resourceValue = String(settings.resource ?? (excelNode ? 'Workbook' : 'Message'))
   const operationValue = String(settings[operationKey] ?? (actions[0] ?? ''))
-  const credentialNeeded = !ollamaNode && (isApp || Boolean(selectedCatalog?.credentials?.length))
+  const credentialNeeded = isApp || Boolean(selectedCatalog?.credentials?.length)
   const targetHandles = getObject(settings.__cliptora_ui_target_handles)
   const agentInputs = Object.values(targetHandles).map(String)
   const hasAgentModel = !agentNode || agentInputs.includes('chat_model')
   const requiresOpenAI = openAINode || agentNode
   const requiresGemini = geminiNode
-  const requiresOllama = ollamaNode
 
   useEffect(() => {
     if (!requiresOpenAI) { setOpenAIConfigured(null); return }
@@ -398,19 +403,10 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     return () => { active = false }
   }, [requiresGemini])
 
-  useEffect(() => {
-    if (!requiresOllama) { setOllamaStatus(null); return }
-    let active = true
-    api<{ configured: boolean; reachable: boolean; base_url: string; models: string[] }>('/workflows/ollama/status')
-      .then(status => { if (active) setOllamaStatus(status) })
-      .catch(() => { if (active) setOllamaStatus({ configured: false, reachable: false, base_url: 'http://host.docker.internal:11434', models: [] }) })
-    return () => { active = false }
-  }, [requiresOllama])
-
   const changeProviderAction = (action: string) => {
     if (!selected) return
-    const model = geminiNode ? defaultModelForGeminiAction(action) : ollamaNode ? String(selected.settings.model || ollamaStatus?.models[0] || 'gemma3') : defaultModelForOpenAIAction(action)
-    updateNode(selected.id, { settings: { ...selected.settings, action, model, ...(openAINode && (action === 'message_model' || action === 'analyze_image') ? { reasoning_effort: 'none' } : {}) } })
+    const model = geminiNode ? defaultModelForGeminiAction(action) : defaultModelForOpenAIAction(action)
+    updateNode(selected.id, { settings: { ...selected.settings, action, model, ...(!geminiNode && (action === 'message_model' || action === 'analyze_image') ? { reasoning_effort: 'none' } : {}) } })
   }
 
   const loadData = useCallback(async () => {
@@ -433,10 +429,15 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         }))
         if (parentEntries.length) nextInput = Object.fromEntries(parentEntries)
         if (result) {
-          nextOutput = result
+          nextOutput = isManualTrigger
+            ? result.state === 'completed' ? confirmedManualEvent(result) : null
+            : result
           if (result.artifact && result.state === 'completed') {
-            try { nextOutput = await api<JsonObject>(`/workflows/${projectId}/runs/${run.id}/artifacts/${encodeURIComponent(selectedId)}`) }
+            try { nextOutput = await api<unknown>(`/workflows/${projectId}/runs/${run.id}/artifacts/${encodeURIComponent(selectedId)}`) }
             catch (error) { if (dataRequestRef.current === request) setLocalError(error instanceof Error ? error.message : String(error)) }
+          }
+          if (isManualTrigger && result.state === 'failed' && dataRequestRef.current === request) {
+            setLocalError(typeof result.error === 'string' ? result.error : run.error ?? 'Manual trigger execution failed.')
           }
         }
       }
@@ -449,7 +450,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     } finally {
       if (dataRequestRef.current === request) setLoadingData(false)
     }
-  }, [dependencies, projectId, result?.state, result?.artifact, run?.id, selectedId])
+  }, [dependencies, projectId, result?.state, result?.artifact, run?.id, run?.error, selectedId, isManualTrigger])
 
   useEffect(() => { void loadData(); return () => { dataRequestRef.current += 1 } }, [loadData])
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey) }, [onClose])
@@ -493,7 +494,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     const setQuery = left ? setInputQuery : setOutputQuery
     const known = left ? inputSources.length > 0 && inputSources.some(source => source.value != null) : value != null
     return <section className={`min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[#f7f7f7] ${mobilePanel === side ? 'flex' : 'hidden'} lg:flex`} aria-label={`${side.toUpperCase()} data`}>
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] px-3 0.5">
+      <div className="flex min-h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] px-3">
         <span className="text-[12px] font-medium tracking-[0.13em] text-[#777]">{side.toUpperCase()}</span>
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" aria-label={`Search ${side} data`} title="Search data" onClick={() => setDataSearchOpen(v => v === side ? null : side)} className="grid size-8 shrink-0 place-items-center rounded-md text-[#aaa] hover:bg-[#e9e9e9] hover:text-[#444]"><Search size={17}/></button>
@@ -501,15 +502,15 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         </div>
       </div>
       {dataSearchOpen === side && <div className="flex h-[44px] shrink-0 gap-2 border-b border-[#e7e7e7] p-1.5"><input autoFocus type="search" aria-label={`Filter ${side} data`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search fields or values..." className="min-w-0 flex-1 rounded-md border border-[#d4d4d4] bg-white px-2.5 text-[12px] outline-none focus:border-[#9461fc]"/><button type="button" title="Close search" onClick={() => { setDataSearchOpen(null); setQuery('') }} className="rounded-md px-2 text-[#777] hover:bg-[#e9e9e9]"><X size={15}/></button></div>}
-      {left && inputSources.length > 0 && <div className="flex shrink-0 items-center gap-2 border-b border-[#ededed] px-3 py-0.5">
+      {left && inputSources.length > 0 && <div className="flex min-h-[49px] shrink-0 items-center gap-2 border-b border-[#ededed] px-3">
         <span className="grid size-6 shrink-0 place-items-center"><BrandIcon type={studio.nodes.find(node => node.id === activeInput?.id)?.type ?? ''} text={activeInput?.label ?? 'Input'} size={21}/></span>
         <select aria-label="Select upstream node input" className="min-w-0 flex-1 truncate rounded-md border border-[#dedede] bg-white px-2 py-1.5 text-[12px] text-[#333] outline-none focus:border-[#9461fc]" value={activeInput?.id ?? ''} onChange={e => setSelectedInputId(e.target.value)}>
           {inputSources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}
         </select>
-        <span className="shrink-0 whitespace-nowrap text-[11px] text-[#888]">{countItems(value)} items</span>
+        <span className="shrink-0 whitespace-nowrap text-[11px] text-[#888]">{itemCountLabel(value)}</span>
         <button type="button" onClick={() => void loadData()} title="Refresh data" aria-label="Refresh input data" className="grid size-7 shrink-0 place-items-center rounded-md text-[#888] hover:bg-[#e8e8e8]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''}/></button>
       </div>}
-      {!left && known && <div className="flex h-[34px] shrink-0 items-center justify-between border-b border-[#ededed] px-3 text-[11px] text-[#999]"><span>{countItems(value)} items</span><button type="button" onClick={() => void loadData()} aria-label="Refresh output data" title="Refresh" className="hover:text-[#555]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''}/></button></div>}
+      {!left && known && <div className="flex h-[34px] shrink-0 items-center justify-between border-b border-[#ededed] px-3 text-[11px] text-[#999]"><span>{itemCountLabel(value)}</span><button type="button" onClick={() => void loadData()} aria-label="Refresh output data" title="Refresh" className="hover:text-[#555]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''}/></button></div>}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loadingData && !known ? <div className="flex h-full items-center justify-center gap-2 text-xs text-[#888]"><LoaderCircle size={16} className="animate-spin"/> Loading data…</div>
           : value != null ? <DataInspector value={value} view={view} label={side} query={query} onCopy={() => void copyData(side, value)}/>
@@ -517,7 +518,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
               title={!left && isEntryTrigger ? 'No trigger output' : left ? 'No input data' : 'No output data'}
               icon={!left && isEntryTrigger ? <Zap size={23} fill="currentColor" strokeWidth={1.3} /> : undefined}
               message={!left && isEntryTrigger ? 'Run the trigger to inspect its real output.' : left ? 'Run the workflow to load actual upstream data.' : 'Run this node or workflow to inspect execution results.'}
-              action={<button type="button" disabled={working || testing || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false) || (requiresOllama && ollamaStatus?.reachable === false)} onClick={() => void (left ? start() : onExecuteStep && selected ? execute() : start())} className={lightButton}><Play size={13}/>{!left && isEntryTrigger ? 'Test this trigger' : left ? 'Run workflow' : onExecuteStep ? 'Execute step' : 'Run workflow'}</button>}
+              action={<button type="button" disabled={working || testing || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => void (left ? start() : onExecuteStep && selected ? execute() : start())} className={lightButton}><Play size={13}/>{!left && isEntryTrigger ? 'Test this trigger' : left ? 'Run workflow' : onExecuteStep ? 'Execute step' : 'Run workflow'}</button>}
             /> }
         {left && <details className="mx-3 mt-4 border-t border-[#e3e3e3] py-3 text-xs text-[#555]"><summary className="cursor-pointer font-medium text-[#555]">Variables and context</summary><div className="mt-2 space-y-1 font-mono text-[11px] text-[#777]"><p>projectId: {projectId}</p><p>workflowRunId: {run?.id ?? 'Not executed'}</p><p>nodeId: {selectedId}</p></div></details>}
       </div>
@@ -529,7 +530,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     <div role="dialog" aria-modal="true" aria-label={`${title} node configuration`} className="flex h-[min(92dvh,960px)] w-full max-w-[1780px] flex-col overflow-hidden rounded-2xl border border-[#d5d5d5] bg-white text-[#292929] shadow-[0_35px_110px_#0005]">
       <header className="relative flex min-h-[48px] shrink-0 items-center justify-between gap-3 border-b border-[#e6e6e6] bg-white px-4 py-0.5">
         <div className="flex min-w-0 max-w-[44%] items-center gap-2 sm:max-w-[36%]"><BrandIcon text={title} type={selected.type}/><span className="truncate text-[14px] font-medium text-[#212121]">{title}</span></div>
-        <div className="flex shrink-0 items-center gap-3">{providerNode && <a href={geminiNode ? 'https://ai.google.dev/gemini-api/docs' : ollamaNode ? 'https://docs.ollama.com/api/chat' : 'https://platform.openai.com/docs'} target="_blank" rel="noreferrer" className="hidden text-[12px] font-medium text-[#555] underline underline-offset-2 hover:text-[#111] lg:block">Docs ↗</a>}<span className="hidden text-[11px] text-[#888] 2xl:block">Node: {selected.id}</span><button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="rounded-md p-1.5 text-[#444] hover:bg-[#f4f4f4]"><X size={22}/></button></div>
+        <div className="flex shrink-0 items-center gap-3">{providerNode && <a href={geminiNode ? 'https://ai.google.dev/gemini-api/docs' : 'https://platform.openai.com/docs'} target="_blank" rel="noreferrer" className="hidden text-[12px] font-medium text-[#555] underline underline-offset-2 hover:text-[#111] lg:block">Docs ↗</a>}<span className="hidden text-[11px] text-[#888] 2xl:block">Node: {selected.id}</span><button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="rounded-md p-1.5 text-[#444] hover:bg-[#f4f4f4]"><X size={22}/></button></div>
       </header>
       <nav aria-label="Node editor sections" className="flex shrink-0 items-center justify-around border-b border-[#e5e5e5] bg-white px-1 py-1 lg:hidden">{(isEntryTrigger ? ['parameters','output'] as const : ['input','parameters','output'] as const).map(panel => <button key={panel} type="button" onClick={() => setMobilePanel(panel)} className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize ${mobilePanel === panel ? 'bg-violet-100 text-violet-800' : 'text-[#888]'}`}>{panel}</button>)}</nav>
       <div ref={layoutRef} className="flex min-h-0 flex-1 overflow-hidden lg:grid" style={{ gridTemplateColumns: isEntryTrigger
@@ -540,19 +541,15 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 min-w-0 w-full flex-col bg-white lg:flex`}>
           <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] px-4">
             <div className="flex h-full gap-5">{(['parameters','settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#202020]' : 'text-[#666]'}`}>{t}</button>)}</div>
-            <button type="button" disabled={!onExecuteStep || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false) || (requiresOllama && ollamaStatus?.reachable === false)} onClick={() => void execute()} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure OPENAI_API_KEY in the backend environment first.' : requiresGemini && geminiConfigured === false ? 'Configure GEMINI_API_KEY in the backend environment first.' : requiresOllama && ollamaStatus?.reachable === false ? 'Start Ollama and make it reachable from the backend first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex  shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin"/> : <Play size={14}/>} Execute step</button>
+            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure OPENAI_API_KEY in the backend environment first.' : requiresGemini && geminiConfigured === false ? 'Configure GEMINI_API_KEY in the backend environment first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex  shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin"/> : <Play size={14}/>} Execute step</button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700"><CircleAlert size={16} className="shrink-0"/>{localError}</div>}
             {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0"/><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
             {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0"/><span><strong className="block">Gemini API key is not configured</strong>Add <code>GEMINI_API_KEY</code> to the backend environment, then recreate the backend container. Gemini execution stays disabled until the secret is available.</span></div>}
-            {requiresOllama && ollamaStatus?.reachable === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0"/><span><strong className="block">Ollama is not running</strong>Start Ollama on the host and keep <code>OLLAMA_BASE_URL</code> reachable from the backend. Execution stays disabled until <code>/api/tags</code> responds.</span></div>}
             {tab === 'parameters' ? <>
               {isManualTrigger ? <>
-                <div className="rounded-[9px] border border-[#eab308] bg-[#fffbeb] p-3 text-[12px] leading-[1.5] text-[#66461c]">
-                  This node starts the workflow when you manually execute it. Other trigger types can start workflows from schedules or incoming events.
-                </div>
-                <p className="text-[13px] text-[#454545]">This node does not have any parameters.</p>
+                {CustomParameters ? <CustomParameters node={selected} catalog={selectedCatalog} onChange={updateSelectedSetting} /> : <p className="text-xs text-[#777]">This node does not have any parameters.</p>}
               </> : agentNode ? <>
                 {!hasAgentModel && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] leading-5 text-red-700"><CircleAlert size={17} className="mt-0.5 shrink-0"/><span><strong className="block">Chat Model is required</strong>Connect an OpenAI Chat Model using the bottom port on the canvas.</span></div>}
                 <label className="block"><SectionLabel>Source for Prompt (User Message)</SectionLabel><select className={inputClass} value={String(settings.prompt_source ?? 'connected_chat_trigger')} onChange={event => updateSelectedSetting('prompt_source', event.target.value)}><option value="connected_chat_trigger">Connected Chat Trigger Node</option><option value="define_below">Define below</option></select></label>
@@ -571,16 +568,14 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
                 <p className="flex gap-2 text-[11px] leading-5 text-[#777]"><FolderOpen size={14} className="mt-0.5 shrink-0"/>Originals stay unchanged. The selected source is saved with this node.</p>
               </div>}
               {credentialNeeded && <div className="space-y-2"><SectionLabel>Credential</SectionLabel><button type="button" disabled={!onManageCredentials} onClick={onManageCredentials} title={onManageCredentials ? 'Manage credentials' : providerNode ? `${geminiNode ? 'Gemini' : 'OpenAI'} uses the backend environment credential` : 'Credential management is not yet connected to the backend'} className={`${lightButton} rounded-lg px-3` }><BrandIcon text={title} type={selected.type} size={18}/>{settings.credential_id ? `Credential ${String(settings.credential_id)}` : `Connect to ${geminiNode ? 'Google Gemini' : openAINode ? 'OpenAI' : isExcel(`${title} ${selected.type}`) ? 'Microsoft Excel' : title}`}</button>{!onManageCredentials && <p className="text-[11px] leading-5 text-[#888]">{providerNode ? `Uses ${geminiNode ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY'} configured securely in the backend environment.` : 'Configure OAuth credentials through a dedicated backend credential manager. Secrets must never be stored in workflow JSON.'}</p>}</div>}
-              {ollamaNode && <div className="space-y-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3"><SectionLabel>Local Ollama connection</SectionLabel><p className="break-all font-mono text-[11px] text-[#555]">{ollamaStatus?.base_url ?? 'Checking local server…'}</p><p className="text-[11px] leading-5 text-[#777]">{ollamaStatus?.reachable ? `${ollamaStatus.models.length} installed model${ollamaStatus.models.length === 1 ? '' : 's'} detected.` : 'No API key is required. Start Ollama on the host to enable execution.'}</p></div>}
               {excelNode && <div className="rounded-lg border border-amber-400 bg-[#fffae6] p-3 text-[12px] leading-[1.45] text-[#68471c]">Microsoft Excel 365 works with workbooks in OneDrive or SharePoint. Local .xlsx files need a different file-processing tool.</div>}
               {providerNode
                 ? <label className="block"><SectionLabel>Resource</SectionLabel><select className={inputClass} value={providerResource} disabled><option>{providerResource}</option></select></label>
                 : (isApp || Object.prototype.hasOwnProperty.call(settings,'resource')) && <DynamicField name="resource" value={resourceValue} onChange={value => updateSelectedSetting('resource',value)} schema={fields.resource}/>
               }
               {!sourceNode && (actions.length > 0 || excelNode || settings.operation != null) && <label className="block"><SectionLabel>Operation</SectionLabel>{actions.length > 0 ? <select className={inputClass} value={operationValue} onChange={e => providerNode ? changeProviderAction(e.target.value) : updateSelectedSetting(operationKey,e.target.value)}>{actions.map(action => <option key={action} value={action} disabled={selectedCatalog?.action_capabilities?.[action]?.status === 'unavailable'}>{selectedCatalog?.action_capabilities?.[action]?.label ?? titleize(action)}</option>)}</select> : <input className={`${inputClass} bg-[#f8f8f8]`} readOnly value={operationValue || (excelNode ? 'Get Many' : title)} title="This tool does not advertise selectable actions in the catalog" />}</label>}
-              {providerNode && !ollamaNode && (!geminiNode || ['message_model','generate_image'].includes(providerAction)) && <ProviderModelField provider={geminiNode ? 'Gemini' : 'OpenAI'} action={providerAction} value={String(settings.model ?? (geminiNode ? defaultModelForGeminiAction(providerAction) : defaultModelForOpenAIAction(providerAction)))} onChange={value => updateSelectedSetting('model', value)}/>}
-              {ollamaNode && <label className="block"><SectionLabel>Model</SectionLabel>{ollamaStatus?.models.length ? <select className={inputClass} value={String(settings.model ?? ollamaStatus.models[0])} onChange={event => updateSelectedSetting('model', event.target.value)}>{!ollamaStatus.models.includes(String(settings.model ?? '')) && <option value={String(settings.model ?? '')}>{String(settings.model ?? '')}</option>}{ollamaStatus.models.map(model => <option key={model} value={model}>{model}</option>)}</select> : <input className={inputClass} value={String(settings.model ?? 'gemma3')} placeholder="gemma3" onChange={event => updateSelectedSetting('model', event.target.value)} />}</label>}
-              {keys.map(key => <DynamicField key={`${selectedId}:${key}`} name={key} schema={fields[key]} value={settings[key]} onChange={value => updateSelectedSetting(key,value)}/>)}
+              {providerNode && (!geminiNode || ['message_model','generate_image'].includes(providerAction)) && <ProviderModelField provider={geminiNode ? 'Gemini' : 'OpenAI'} action={providerAction} value={String(settings.model ?? (geminiNode ? defaultModelForGeminiAction(providerAction) : defaultModelForOpenAIAction(providerAction)))} onChange={value => updateSelectedSetting('model', value)}/>}
+              {CustomParameters ? <CustomParameters node={selected} catalog={selectedCatalog} onChange={updateSelectedSetting} /> : keys.map(key => <DynamicField key={`${selectedId}:${key}`} name={key} schema={fields[key]} value={settings[key]} onChange={value => updateSelectedSetting(key,value)}/>)}
               {(excelNode || Object.prototype.hasOwnProperty.call(settings,'filters')) && <div><div className="flex items-center justify-between border-b border-[#e7e7e7] pb-2"><SectionLabel>Filters</SectionLabel><button type="button" onClick={() => setFiltersOpen(v => !v)} title="Edit filters" aria-expanded={filtersOpen} className="grid size-7 place-items-center rounded-md text-[#777] hover:bg-[#f3f3f3]"><Plus size={20}/></button></div>{filtersOpen && <div className="pt-3"><JsonField label="Filter rules (JSON)" value={settings.filters ?? []} onChange={value => updateSelectedSetting('filters',value)}/></div>}</div>}
               {!sourceNode && !keys.length && actions.length === 0 && !isApp && <div className="rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-xs text-[#777]">This node has no registered parameter fields. Use the Settings tab for execution options, or register <code>parameters_schema</code> in the Tool Catalog.</div>}
               </>}
