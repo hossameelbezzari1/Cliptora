@@ -42,3 +42,14 @@ def executor(node_type: str) -> NodeHandler:
         return discovered()[node_type].execute
     except KeyError as exc:
         raise ValueError(f'Unknown or unauthorized node: {node_type}') from exc
+
+
+class WorkflowRegistry:
+    def discover(self):
+        return discovered()
+
+    def metadata(self):
+        return node_metadata()
+
+    def executor(self, node_type: str):
+        return executor(node_type)

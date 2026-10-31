@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -300,7 +307,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
       resizeRef.current = null
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
-      try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(widthRef.current)) } catch {}
+      try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(widthRef.current)) } catch { }
     }
     window.addEventListener('pointermove', resize)
     window.addEventListener('pointerup', stop)
@@ -322,7 +329,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     document.body.style.userSelect = 'none'
   }
 
-  const resizeWithKeyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const resizeWithKeyboard = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const delta = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0
     const requested = event.key === 'Home' ? LIBRARY_MIN_WIDTH : event.key === 'End' ? LIBRARY_MAX_WIDTH : widthRef.current + delta
     if (!delta && event.key !== 'Home' && event.key !== 'End') return
@@ -330,7 +337,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     const width = clampLibraryWidth(requested)
     widthRef.current = width
     setLibraryWidth(width)
-    try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(width)) } catch {}
+    try { window.localStorage.setItem(LIBRARY_WIDTH_KEY, String(width)) } catch { }
   }
 
   const browseCatalog = useMemo(() => catalog.filter(item => item.status === 'implemented' && Boolean(item.backend_executor)), [catalog])
@@ -354,11 +361,10 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
   const currentApp = page.kind === 'app' ? browseCatalog.find(item => item.type === page.type) : undefined
   const filtered = useMemo(() => {
     if (page.kind === 'home') return classified.filter(item => toolMatches(item, nodeSearch))
-    if (page.kind === 'templates' || page.kind === 'workflows') return []
+    if (page.kind === 'templates' || page.kind === 'workflows' || page.kind === 'app') return []
     if (page.kind === 'alltools') return classified.filter(item => (nodeGroup === 'All' || item.group === nodeGroup) && toolMatches(item, nodeSearch))
-    const cat = page.kind === 'category' ? page.category : page.parent
-    return classified.filter(item => belongsTo(item, cat) && toolMatches(item, nodeSearch))
-  }, [classified, nodeSearch, page])
+    return classified.filter(item => belongsTo(item, page.category) && toolMatches(item, nodeSearch))
+  }, [classified, nodeSearch, nodeGroup, page])
 
   function goHome() {
     setPage({ kind: 'home' })
@@ -398,17 +404,20 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
     const previousIds = new Set(nodes.map(node => node.id))
     addNode(item.type)
     if (action !== undefined) {
-      const actionDefaults: Record<string, Record<string, unknown>> = {
-        message_model: { model: 'gpt-4o-mini', prompt: '' },
+      // Do not apply OpenAI defaults to Gemini, Ollama or other providers.
+      // Their current model/settings come from the backend node catalog.
+      const openAiActionDefaults: Record<string, Record<string, unknown>> = {
+        message_model: { prompt: '' },
         classify_violations: { model: 'omni-moderation-latest', prompt: '', simplify_output: true },
-        analyze_image: { model: 'gpt-4o-mini', prompt: "What's in this image?", image_urls: '', simplify_output: true },
+        analyze_image: { prompt: "What's in this image?", image_urls: '', simplify_output: true },
         generate_image: { model: 'gpt-image-1', prompt: '', image_size: '1024x1024', simplify_output: true },
       }
+      const actionDefaults = item.type === 'ai.openai' ? (openAiActionDefaults[action] ?? {}) : {}
       const property = Object.prototype.hasOwnProperty.call(item.settings, 'action') &&
         !Object.prototype.hasOwnProperty.call(item.settings, 'operation') ? 'action' : 'operation'
       setNodesTransient(previous => previous.map(node => (
         node.type === item.type && !previousIds.has(node.id)
-          ? { ...node, settings: { ...node.settings, ...(actionDefaults[action] ?? {}), [property]: action } }
+          ? { ...node, settings: { ...node.settings, ...actionDefaults, [property]: action } }
           : node
       )))
     }
@@ -482,7 +491,12 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
       const key = sectionOf(category, item)
       grouped.set(key, [...(grouped.get(key) ?? []), item])
     })
-    return sectionOrder.filter(section => grouped.has(section)).map(section => ({ title: section, items: grouped.get(section)! }))
+    // Preserve any sections added by future backend node categories.
+    const ordered = [
+      ...sectionOrder.filter(section => grouped.has(section)),
+      ...[...grouped.keys()].filter(section => !sectionOrder.includes(section)),
+    ]
+    return ordered.map(section => ({ title: section, items: grouped.get(section)! }))
   })()
 
   const isSearch = query.length > 0
@@ -500,7 +514,11 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
 
   const appActionSections = (() => {
     if (!currentApp) return [] as Array<{ title: string; actions: string[] }>
-    const visible = (currentApp.actions ?? []).filter(action => currentApp.action_capabilities?.[action]?.status !== 'unavailable' && (!isSearch || `${action} ${currentApp.action_capabilities?.[action]?.label ?? ''}`.toLowerCase().includes(query.toLowerCase())))
+    const visible = (currentApp.actions ?? []).filter(action =>
+      currentApp.action_capabilities?.[action]?.status !== 'unavailable' &&
+      (!isSearch || `${action} ${currentApp.action_capabilities?.[action]?.label ?? ''}`
+        .toLocaleLowerCase().includes(query.toLocaleLowerCase())),
+    )
     const grouped = new Map<string, string[]>()
     visible.forEach(action => {
       const group = currentApp.action_capabilities?.[action]?.group ?? 'Actions'
@@ -516,8 +534,9 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
       className="absolute inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-visible border-r border-[#e5e5e5] bg-white text-[#202020] shadow-[8px_0_28px_#00000018] lg:relative lg:z-auto lg:shadow-none"
       style={{ width: `min(${libraryWidth}px, calc(100vw - 16px))` }}
     >
-      {/* n8n-style page title and back navigation */}
-      <div className={`group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-2 ${page.kind === 'category' && page.category === 'ai' ? 'min-h-[88px] py-3' : page.kind === 'app' ? 'min-h-[74px] py-3' : 'h-[62px]'}`}>
+      {/* Tool Library page title and back navigation */}
+
+      <div className="group flex shrink-0 items-center gap-3 border-b border-[#dedede] bg-[#f6f6f6] px-4 py-3.5">
         {page.kind !== 'home' && (
           <button type="button" onClick={goBack} title="Back" aria-label="Back" className={`-ml-2 grid size-9 shrink-0 place-items-center rounded-md text-[#777] hover:bg-[#eeeeee] hover:text-[#222] ${focusRing}`}>
             <ArrowLeft size={25} strokeWidth={1.9} />
@@ -535,7 +554,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
 
       {/* Search always uses the backend catalog, and is scoped to the active page. */}
 
-      <label className="flex h-[45px] items-center gap-[9px] bg-white px-[14px] text-[#777777]  focus-within:border-[#8e26ff] focus-within:ring-1 focus-within:ring-[#8e26ff]">
+      <label className="flex items-center gap-[9px] bg-white px-[14px] py-3 text-[#777777] focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#8e26ff]">
         <Search size={20} strokeWidth={2} className="shrink-0" />
         <input
           ref={toolSearchRef}
@@ -545,7 +564,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
           onChange={event => setNodeSearch(event.target.value)}
           placeholder={page.kind === 'app' ? 'Search actions...' : page.kind === 'templates' ? 'Search templates...' : page.kind === 'workflows' ? 'Search workflows...' : 'Search nodes...'}
           aria-label={page.kind === 'app' ? 'Search actions' : page.kind === 'templates' ? 'Search templates' : page.kind === 'workflows' ? 'Search workflows' : 'Search nodes'}
-          className="h-full min-w-0 w-full flex-1 border-0 bg-transparent p-0 text-[16px] leading-normal text-[#222] outline-none placeholder:text-[#777]"
+          className="min-w-0 w-full flex-1 border-0 bg-transparent p-0 text-[16px] leading-normal text-[#222] outline-none placeholder:text-[#777]"
         />
       </label>
 
@@ -594,6 +613,7 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
           <>
             <p className="px-5 pb-2 pt-3 text-[12px] text-[#777]">{filtered.length} matching nodes</p>
             {filtered.map(item => renderTool(item, categoryOf(item)))}
+            {filtered.length === 0 && <p className="px-5 py-6 text-[13px] text-[#777]">No matching nodes. Try another keyword.</p>}
           </>
         )}
 
@@ -704,11 +724,18 @@ export function ToolLibrary({ studio, onOpenNode }: { studio: WorkflowStudioStat
           </>
         )}
 
-        {page.kind !== 'home' && page.kind !== 'templates' && filtered.length === 0 && (
+        {page.kind === 'category' && filtered.length === 0 && (
           <div className="mx-5 mt-5 rounded-xl border border-dashed border-[#dfdfdf] px-5 py-7 text-center">
             <CircleHelp size={23} className="mx-auto mb-2 text-[#b0b0b0]" />
             <p className="text-[13px] font-medium text-[#484848]">{isSearch ? 'No matching nodes' : 'No tools registered in this category'}</p>
             <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'Install or enable the required tool in the backend registry.'}</p>
+          </div>
+        )}
+        {page.kind === 'app' && currentApp && appActionSections.length === 0 && (
+          <div className="mx-5 mt-5 rounded-xl border border-dashed border-[#dfdfdf] px-5 py-7 text-center">
+            <CircleHelp size={23} className="mx-auto mb-2 text-[#b0b0b0]" />
+            <p className="text-[13px] font-medium text-[#484848]">{isSearch ? 'No matching actions' : 'No actions available'}</p>
+            <p className="mt-2 text-[12px] leading-5 text-[#888]">{isSearch ? 'Try another keyword.' : 'No actions are registered for this tool.'}</p>
           </div>
         )}
       </div>

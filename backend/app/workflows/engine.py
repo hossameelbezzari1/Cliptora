@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Callable
 
 def run_graph(nodes: list[dict], source: Path | None, workspace: Path, update: Callable[[int, str, dict], None], cancelled: Callable[[], bool] = lambda: False) -> dict:
-    from app.services.workflow_core import validate_workflow, get_input, call_node
+    from app.workflows.validation import validate_workflow
+    from app.helpers.transcript import get_input
+    from app.workflows.registry import executor as node_executor
     ordered = validate_workflow(nodes)
     workspace.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, dict] = {}
@@ -38,15 +40,25 @@ def run_graph(nodes: list[dict], source: Path | None, workspace: Path, update: C
         if node.get("cache", True) and artifact.is_file() and checkpoint.is_file() and checkpoint.read_text(encoding="ascii") == fingerprint:
             try:
                 result = json.loads(artifact.read_text(encoding="utf-8"))
-                cached = True
+                if not isinstance(result, dict):
+                    result = None
+                else:
+                    cached = True
             except (OSError, ValueError):
                 result = None
         attempts = 0
         last_error: Exception | None = None
         while result is None and attempts <= node.get("retry_limit", 1):
+            if cancelled():
+                return {"status": "cancelled", "nodes": summary}
             attempts += 1
             try:
-                result = call_node(node, deps, source, workspace)
+                candidate = node_executor(node["type"])(node, deps, source, workspace)
+                if not isinstance(candidate, dict):
+                    raise ValueError(f"Node {node['id']} must return a JSON object")
+                # Check serializability inside retry handling, before touching artifacts.
+                json.dumps(candidate, ensure_ascii=False, allow_nan=False)
+                result = candidate
             except Exception as exc:
                 last_error = exc
         if result is None:
@@ -70,3 +82,7 @@ def run_graph(nodes: list[dict], source: Path | None, workspace: Path, update: C
         update(int(100 * (index + 1) / len(ordered)), node["id"], summary)
     return {"status": "completed", "nodes": summary}
 
+
+class WorkflowEngine:
+    def execute(self, nodes, source, workspace, update, cancelled=lambda: False):
+        return run_graph(nodes, source, workspace, update, cancelled)

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import User, Session as LoginSession
-from app.models.entities import now
+from app.models.timestamps import now
 
 _hasher = PasswordHasher()
 class password_hash:
