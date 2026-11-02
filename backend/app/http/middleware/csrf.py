@@ -1,5 +1,5 @@
 from fastapi.responses import JSONResponse
-from app.core.security import CSRF_COOKIE, valid_csrf
+from app.core.Security import CSRF_COOKIE, valid_csrf
 
 class CSRFMiddleware:
     """Stateless ASGI middleware for browser mutation protection."""

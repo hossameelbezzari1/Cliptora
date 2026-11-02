@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
-from app.workflows.model_constants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
+from app.workflows.ModelConstants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
     OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS)
 
 MAX_CUTS = 36

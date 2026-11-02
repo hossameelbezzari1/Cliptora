@@ -6,8 +6,8 @@ from sqlalchemy.engine import URL, make_url
 import app.models
 import app.models  # Registers ORM entities with shared metadata.
 
-from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.Config import settings
+from app.core.Database import Base, engine
 
 
 def main():

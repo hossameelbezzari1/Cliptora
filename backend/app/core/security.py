@@ -7,10 +7,10 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.core.config import settings
-from app.core.database import get_db
+from app.core.Config import settings
+from app.core.Database import get_db
 from app.models import User, Session as LoginSession
-from app.models.timestamps import now
+from app.models.Timestamps import now
 
 _hasher = PasswordHasher()
 class password_hash:

@@ -14,10 +14,10 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
-from app.workflows.model_constants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
+from app.workflows.ModelConstants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
     OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS)
 
-from app.workflows.catalog import NODE_TYPES
+from app.workflows.Catalog import NODE_TYPES
 MAX_NODES = 100
 
 
@@ -41,6 +41,17 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
         if node.get("when", "always") not in ("always", "has_video", "has_transcript", "ai_enabled", "condition_true", "condition_false", "route_0", "route_1", "route_2", "route_3", "route_4", "route_fallback"):
             raise ValueError(f"Invalid condition for {ident}")
         settings = node.get("settings", {})
+        def contains_secret(value):
+            forbidden={'api_key','apiKey','api_token','secret','client_secret','password','access_token','refresh_token'}
+            if isinstance(value,dict):
+                return any(str(k) in forbidden or contains_secret(v) for k,v in value.items())
+            if isinstance(value,list):return any(contains_secret(v) for v in value)
+            return False
+        if contains_secret(settings):
+            raise ValueError('Workflow settings cannot store API keys or secrets; select a credential_id')
+        credential_ref=settings.get('credential_id') if isinstance(settings,dict) else None
+        if credential_ref is not None and (type(credential_ref) is not int or credential_ref<1):
+            raise ValueError('credential_id must be a positive integer')
         if not isinstance(settings, dict):
             raise ValueError(f"Settings must be an object for {ident}")
         try:

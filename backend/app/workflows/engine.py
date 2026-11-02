@@ -1,4 +1,3 @@
-
 """CLIPTORA native workflow execution engine.
 
 Supports dependency ordering, branch conditions, caching,
@@ -25,9 +24,10 @@ def run_graph(
     cancelled: Callable[[], bool] = lambda: False,
 ) -> dict:
 
-    from app.workflows.validation import validate_workflow
-    from app.helpers.transcript import get_input
-    from app.workflows.registry import executor as node_executor
+    from app.workflows.Validation import validate_workflow
+    from app.helpers.Transcript import get_input
+    from app.workflows.Registry import executor as node_executor
+    from app.workflows.Credentials import bind_for_node
 
     ordered = validate_workflow(nodes)
 
@@ -81,7 +81,7 @@ def run_graph(
             )
             or (
                 condition == "ai_enabled"
-                and bool(os.environ.get("OPENAI_API_KEY"))
+                and bool((node.get("settings") or {}).get("credential_id"))
             )
             or (
                 condition == "condition_true"
@@ -349,14 +349,8 @@ def run_graph(
                     ),
                 }
 
-                candidate = node_executor(
-                    node_type
-                )(
-                    execution_node,
-                    deps,
-                    source,
-                    workspace,
-                )
+                with bind_for_node(execution_node):
+                    candidate = node_executor(node_type)(execution_node, deps, source, workspace)
 
                 if not isinstance(candidate, dict):
                     raise ValueError(

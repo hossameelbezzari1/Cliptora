@@ -4,7 +4,7 @@ Safe to re-run: only missing columns are added. Existing clips, layers and
 projects stay untouched. Works with MySQL / MariaDB and SQLite (for tests).
 """
 from sqlalchemy import inspect, text
-from app.core.database import engine
+from app.core.Database import engine
 
 
 MISSING_COLUMNS = (

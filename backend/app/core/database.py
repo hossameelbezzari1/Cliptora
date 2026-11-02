@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session as DBSession, sessionmaker
-from .config import settings
+from .Config import settings
 
 class Base(DeclarativeBase):
     pass

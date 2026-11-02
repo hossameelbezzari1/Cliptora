@@ -2,8 +2,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.core.database import Base
-from app.models.timestamps import now
+from app.core.Database import Base
+from app.models.Timestamps import now
 
 class Clip(Base):
     __tablename__ = 'clips'

@@ -1,1 +1,1 @@
-"""Importable, automatically discovered workflow node plugins."""
+"""Class-based node families; each contains its own operation methods."""

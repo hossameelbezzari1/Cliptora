@@ -14,11 +14,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
-from app.workflows.model_constants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
+from app.workflows.ModelConstants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
     OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS)
 
-from app.workflows.registry import node_metadata
-from app.workflows.schemas import node_catalog_entry
+from app.workflows.Registry import node_metadata
+from app.workflows.Schemas import node_catalog_entry
 NODE_TYPES: dict[str, dict[str, Any]] = node_metadata()
 
 
@@ -29,7 +29,7 @@ def _n(id: str, kind: str, depends: list[str] | None = None, settings: dict | No
 
 def tool_catalog() -> list[dict[str, Any]]:
     """Only executable, registered nodes; no incomplete inventory."""
-    from app.workflows.schemas import node_catalog_entry
+    from app.workflows.Schemas import node_catalog_entry
     return [node_catalog_entry(key, value) for key, value in NODE_TYPES.items()]
 
 
