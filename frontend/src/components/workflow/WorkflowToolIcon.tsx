@@ -1,3 +1,4 @@
+import { GeminiBrandIcon } from './GeminiBrandIcon'
 import { getNodeUI } from './nodeRegistry'
 import type { ReactNode } from 'react'
 import {
@@ -16,7 +17,6 @@ type WorkflowToolIconProps = {
 type Brand = { test: RegExp; letter: string; background: string; foreground: string }
 
 const OTHER_BRANDS: Brand[] = [
-  { test: /gemini/, letter: '✦', background: '#796bdf', foreground: '#fff' },
   { test: /anthropic|claude/, letter: 'A', background: '#d87859', foreground: '#fff' },
   { test: /openai|chatgpt/, letter: '◎', background: '#181818', foreground: '#fff' },
   { test: /telegram/, letter: '➤', background: '#229ed9', foreground: '#fff' },
@@ -133,6 +133,7 @@ export function WorkflowToolIcon({ type, label = '', size = 32 }: WorkflowToolIc
   if (PluginIcon) return <span aria-hidden="true" className="pointer-events-none inline-grid shrink-0 place-items-center text-[#666]" style={{ width: size, height: size }}><PluginIcon size={size} /></span>
 
   const text = `${type} ${label}`.toLowerCase()
+  if (/gemini/.test(text)) return <GeminiBrandIcon size={size} />
   if (/gmail/.test(text)) return <GmailIcon size={size} />
   if (/google[ ._-]?sheets|\bsheets\b/.test(text)) return <SheetsIcon size={size} />
   if (/\bexcel\b/.test(text)) return <ExcelIcon size={size} />

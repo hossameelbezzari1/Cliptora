@@ -1,10 +1,10 @@
-import type { WorkflowNodeUI } from '../nodeTypes'
 import { GitBranch } from 'lucide-react'
+import type { WorkflowNodeParametersProps, WorkflowNodeUI } from '../nodeTypes'
+import { WorkflowIfParameters } from '../WorkflowIfParameters'
 
-/** UI extension for backend node `flow.if`. Add Card or Parameters here when needed. */
-const node: WorkflowNodeUI = {
-  type: 'flow.if',
-  Icon: GitBranch,
+function Parameters({ node, onChange }: WorkflowNodeParametersProps) {
+  return <WorkflowIfParameters settings={node.settings} onChange={onChange} />
 }
 
+const node: WorkflowNodeUI = { type: 'flow.if', Icon: GitBranch, Parameters }
 export default node

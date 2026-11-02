@@ -1,0 +1,17 @@
+{
+  "action": "message_model",
+  "resource": "Text",
+  "model": "gemini-2.5-flash",
+  "system_prompt": "You are an expert video editor. Select only passages supported by the provided transcript. Never invent events or word IDs.",
+  "prompt": "Create a coherent, engaging 2-minute summary with a strong introduction, the key information, and a meaningful ending.",
+  "output_mode": "highlights",
+  "output_content_as_json": true,
+  "target_duration": 120,
+  "max_highlights": 12,
+  "min_clip_seconds": 3,
+  "max_clip_seconds": 35,
+  "chunk_chars": 14000,
+  "temperature": 0.2,
+  "max_output_tokens": 4096,
+  "timeout_seconds": 120
+}

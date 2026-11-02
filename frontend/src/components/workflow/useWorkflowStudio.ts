@@ -12,9 +12,18 @@ export type WorkflowStudioProps = { projectId: number; initialWorkflowId?: numbe
 type Mode = 'nodes' | 'runs'
 const workflowSnapshot = (name: string, nodes: WorkflowNode[]) => JSON.stringify({ name: name.trim(), nodes })
 const sameNodes = (left: WorkflowNode[], right: WorkflowNode[]) => JSON.stringify(left) === JSON.stringify(right)
-const sourceIdFromNodes = (nodes: WorkflowNode[]) => {
-  const value = nodes.find(node => node.type === 'core.video_source')?.settings.source_id
-  return typeof value === 'number' && value > 0 ? value : null
+// The selected source belongs to the workflow, even when it has no Source Video node.
+// Persist the choice in the video-consuming node settings (saved in MySQL).
+const VIDEO_SOURCE_TYPES = new Set(['core.video_source', 'media.probe', 'audio.extract', 'video.render'])
+const sourceIdFromNodes = (nodes: WorkflowNode[]): number | null => {
+  for (const type of ['core.video_source', 'media.probe', 'audio.extract', 'video.render']) {
+    for (const node of nodes) {
+      if (node.type !== type) continue
+      const value = node.settings.source_id
+      if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value
+    }
+  }
+  return null
 }
 
 export function useWorkflowStudio({ projectId, initialWorkflowId = null, initialName = 'Untitled Workflow', onSaved, onClose }: WorkflowStudioProps) {
@@ -179,10 +188,14 @@ export function useWorkflowStudio({ projectId, initialWorkflowId = null, initial
   const visibleCatalog = useMemo(() => catalog.filter(item => (nodeGroup === 'All' || item.group === nodeGroup) && `${item.label} ${item.type}`.toLowerCase().includes(nodeSearch.toLowerCase())), [catalog, nodeGroup, nodeSearch])
   const updateNode = (id: string, delta: Partial<WorkflowNode>) => setNodes(prev => prev.map(node => node.id === id ? { ...node, ...delta } : node))
   const setWorkflowSourceId = (value: number | null) => {
-    setSourceId(value)
-    setNodes(previous => previous.map(node => node.type === 'core.video_source'
-      ? { ...node, settings: { ...node.settings, source_id: value } }
-      : node))
+    const nextId = typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null
+    setSourceId(nextId)
+    // Synchronize every video-consuming node with the workflow's shared source.
+    // This also works when Inspect Video is the first/only video node.
+    setNodes(previous => previous.map(node => {
+      if (!VIDEO_SOURCE_TYPES.has(node.type) || node.settings.source_id === nextId) return node
+      return { ...node, settings: { ...node.settings, source_id: nextId } }
+    }))
   }
   const updateSelectedSetting = (key: string, value: unknown) => {
     if (!selected) return

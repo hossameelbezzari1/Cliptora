@@ -1,3 +1,4 @@
+import { GeminiBrandIcon } from './GeminiBrandIcon'
 import { AudioLines, Captions, Film, GitBranch, Move3D, Scissors, Sparkles } from 'lucide-react'
 import type { WorkflowNode } from './workflowTypes'
 
@@ -24,6 +25,7 @@ export const toneFor = (type: string) =>
   'border-violet-300 bg-violet-50 text-violet-700'
 
 export const iconFor = (type: string, size = 15) => {
+  if (/gemini/.test(type.toLowerCase())) return <GeminiBrandIcon size={size} />
   if (type.includes('transcribe')) return <AudioLines size={size} />
   if (type.includes('highlight') || type.includes('summary')) return <Sparkles size={size} />
   if (type.includes('caption')) return <Captions size={size} />

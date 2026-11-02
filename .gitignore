@@ -15,3 +15,15 @@ storage/transcripts/
 /backend/commands.env
 /.env.docker
 /workflow-studio-*.png
+/storage/workflows/
+
+
+/backend/storage/logs/*.log
+
+*.mp4
+
+/backend/storage/logs/*.log
+
+/storage/workflows/
+
+*.mp4

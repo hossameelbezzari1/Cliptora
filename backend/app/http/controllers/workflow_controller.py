@@ -71,6 +71,11 @@ class WorkflowController:
     def artifact(self, project_id: int, run_id: int, node_id: str, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.artifact(project_id=project_id, run_id=run_id, node_id=node_id, db=db, user=user)
 
+    def audio_file(self, project_id: int, run_id: int, node_id: str, track: int, download: bool = False,
+                   db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.audio_file(project_id=project_id, run_id=run_id, node_id=node_id,
+                                       track=track, download=download, db=db, user=user)
+
     def rendered_video(self, project_id: int, run_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.rendered_video(project_id=project_id, run_id=run_id, db=db, user=user)
 
@@ -97,4 +102,5 @@ router.add_api_route('/{project_id}/runs/{run_id}', controller.run_detail, metho
 router.add_api_route('/{project_id}/runs/{run_id}/cancel', controller.cancel_run, methods=["POST"])
 router.add_api_route('/{project_id}/runs/{run_id}/retry', controller.retry_run, methods=["POST"], status_code=202)
 router.add_api_route('/{project_id}/runs/{run_id}/artifacts/{node_id}', controller.artifact, methods=["GET"])
+router.add_api_route('/{project_id}/runs/{run_id}/audio/{node_id}/{track}', controller.audio_file, methods=["GET"])
 router.add_api_route('/{project_id}/runs/{run_id}/video', controller.rendered_video, methods=["GET"])

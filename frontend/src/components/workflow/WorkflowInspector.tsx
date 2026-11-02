@@ -3,6 +3,7 @@ import type { WorkflowNode } from './workflowTypes'
 import { ArrowRight, CheckCircle2, CircleHelp, FolderOpen, GitBranch, Settings2, Upload, X } from 'lucide-react'
 import { mediaName } from '../editor/library/mediaLibraryUtils'
 import { btn, CONDS, iconFor, toneFor } from './workflowUI'
+import { InspectVideoParameters } from './InspectVideoPanels'
 
 const field = 'mt-1.5 min-h-10 w-full rounded-lg border border-[#dedede] bg-white px-3 py-2 text-xs text-[#292929] outline-none transition-colors focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50'
 const label = 'block text-xs font-semibold text-[#52525b]'
@@ -15,6 +16,13 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
     nodes, jsonEditor, setJsonEditor, setJsonError, jsonError,
     applySettings, downstream, save,
   } = studio
+
+  const nodeName = (node: WorkflowNode | undefined) => {
+    if (!node) return 'Previous node'
+    const custom = node.settings.__cliptora_ui_label
+    return typeof custom === 'string' && custom.trim()
+      ? custom : studio.catalog.find(item => item.type === node.type)?.label ?? 'Workflow node'
+  }
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-[#262626]" aria-label="Node Inspector">
@@ -74,6 +82,7 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
             {page === 'nodes' && selected ? (
               <div className="space-y-4 p-4">
                 <h3 className="text-sm font-semibold">{selectedCatalog?.label ?? selected.type}</h3>
+                {selected.type === 'media.probe' && <InspectVideoParameters settings={selected.settings} onChange={updateSelectedSetting} />}
                 {selected.type === 'ai.highlights' && (
                   <section className="space-y-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-3">
                     <label className={label}>AI Mode
@@ -98,9 +107,6 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
                   </section>
                 )}
 
-                <label className={label}>Node ID
-                  <input value={selected.id} readOnly className={`${field} cursor-not-allowed bg-[#f7f7f7] font-mono text-[#777]`} />
-                </label>
                 <label className={label}>Condition
                   <select value={selected.when} onChange={event => updateNode(selected.id, { when: event.target.value as WorkflowNode['when'] })} className={field}>
                     {CONDS.map(condition => <option key={condition} value={condition}>{condition}</option>)}
@@ -119,7 +125,7 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
                   {nodes.filter(node => node.id !== selected.id).map(node => (
                     <label key={node.id} className="flex items-center gap-2 rounded-lg border border-[#ededed] px-3 py-2 text-[11px] text-[#555]">
                       <input type="checkbox" className="size-4 accent-violet-600" checked={selected.depends_on.includes(node.id)} onChange={event => updateNode(selected.id, { depends_on: event.target.checked ? [...selected.depends_on, node.id] : selected.depends_on.filter(dep => dep !== node.id) })} />
-                      <span className="min-w-0 break-all font-mono">{node.id}</span>
+                      <span className="min-w-0 break-words">{nodeName(node)}</span>
                     </label>
                   ))}
                   {nodes.length < 2 && <p className="text-[11px] text-[#929292]">Add another node to configure dependencies.</p>}
@@ -157,7 +163,7 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
                   <span className="inline-flex rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Input</span>
                   <label className="flex items-center gap-2"><GitBranch size={15} className="text-[#888]" />
                     <select aria-label={`Change dependency ${id}`} value={id} onChange={event => updateNode(selected.id, { depends_on: [...selected.depends_on.filter(dep => dep !== id), event.target.value] })} className={`${field} min-w-0 flex-1`}>
-                      {nodes.filter(node => node.id !== selected.id).map(node => <option key={node.id} value={node.id}>{node.id}</option>)}
+                      {nodes.filter(node => node.id !== selected.id).map(node => <option key={node.id} value={node.id}>{nodeName(node)}</option>)}
                     </select>
                   </label>
                 </div>
@@ -166,7 +172,7 @@ export function WorkflowInspector({ studio }: { studio: WorkflowStudioState }) {
 
             <section className="space-y-3">
               <h3 className="flex items-center justify-between text-xs font-bold uppercase tracking-wide text-[#777]">Outputs <CircleHelp size={15} /></h3>
-              {downstream.length ? downstream.map(node => <div key={node.id} className="flex items-center gap-2 rounded-lg border border-[#e5e7eb] p-3 text-[11px] text-[#555]"><ArrowRight size={15} className="text-violet-600" /><span className="min-w-0 break-all font-mono">{node.id}</span></div>) : <p className="rounded-lg border border-dashed border-[#dedede] p-4 text-center text-xs text-[#939393]">Nothing wired</p>}
+              {downstream.length ? downstream.map(node => <div key={node.id} className="flex items-center gap-2 rounded-lg border border-[#e5e7eb] p-3 text-[11px] text-[#555]"><ArrowRight size={15} className="text-violet-600" /><span className="min-w-0 break-words">{nodeName(node)}</span></div>) : <p className="rounded-lg border border-dashed border-[#dedede] p-4 text-center text-xs text-[#939393]">Nothing wired</p>}
             </section>
 
             <section className="space-y-3">

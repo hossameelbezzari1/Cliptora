@@ -1,8 +1,9 @@
-import type { WorkflowNodeUI } from '../nodeTypes'
+import type { WorkflowNodeParametersProps, WorkflowNodeUI } from '../nodeTypes'
+import { WorkflowProviderParameters } from '../editor/WorkflowProviderParameters'
 
-/** UI extension for backend node `ai.openai`. Add Card or Parameters here when needed. */
-const node: WorkflowNodeUI = {
-  type: 'ai.openai',
+function Parameters(props: WorkflowNodeParametersProps) {
+  return <WorkflowProviderParameters {...props} provider="OpenAI" />
 }
 
+const node: WorkflowNodeUI = { type: 'ai.openai', Parameters }
 export default node

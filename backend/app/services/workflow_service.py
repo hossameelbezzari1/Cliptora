@@ -10,6 +10,8 @@ For deployment, review database/migrations.
 
 from __future__ import annotations
 
+from app.workflows.source_selection import select_workflow_source_id
+
 import json
 
 import os
@@ -373,18 +375,10 @@ class WorkflowService:
             nodes = execution_nodes(json.loads(definition.nodes_json), body.target_node_id)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
-        node_source_ids = {
-            node.get("settings", {}).get("source_id") for node in nodes
-            if node.get("type") == "core.video_source" and node.get("settings", {}).get("source_id") is not None
-        }
-        if len(node_source_ids) > 1:
-            raise HTTPException(422, "A workflow can use only one Source Video")
-        node_source_id = next(iter(node_source_ids), None)
-        if node_source_id is not None and (not isinstance(node_source_id, int) or node_source_id < 1):
-            raise HTTPException(422, "Source Video has an invalid source")
-        if body.source_id is not None and node_source_id is not None and body.source_id != node_source_id:
-            raise HTTPException(422, "Run source does not match the Source Video node")
-        source_id = node_source_id if node_source_id is not None else body.source_id
+        try:
+            source_id = select_workflow_source_id(nodes, body.source_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         if source_id is not None:
             owner(db, WorkflowSource, source_id, user.id, project_id)
         if source_id is None and any(node["type"] in ("core.video_source", "media.probe", "audio.extract", "video.render") and node.get("when") != "has_video" for node in nodes):
@@ -440,6 +434,53 @@ class WorkflowService:
         if not path.is_file():
             raise HTTPException(404, "Artifact is not available")
         return FileResponse(path, media_type="application/json", filename=f"{node_id}.json")
+
+    def audio_file(self, project_id: int, run_id: int, node_id: str, track: int,
+                   download: bool = False, db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        """Stream only an extracted audio artifact belonging to the authenticated user/run.
+
+        The artifact path is never accepted from a URL. It must be recorded in
+        the matching workflow node's JSON artifact and confined to this run's
+        audio folder. No other file under the server can be fetched.
+        """
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowRun, run_id, user.id, project_id)
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,47}", node_id) or track < 0 or track > 255:
+            raise HTTPException(422, "Invalid audio artifact identifier")
+        workspace = project_dir(user.id, project_id) / "runs" / str(run_id)
+        artifact = workspace / f"{node_id}.json"
+        if not artifact.is_file():
+            raise HTTPException(404, "Audio artifact not available")
+        try:
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise HTTPException(404, "Audio artifact unavailable") from exc
+        if not isinstance(data, dict):
+            raise HTTPException(404, "Audio artifact unavailable")
+        files = data.get("audio_files")
+        if not isinstance(files, list):
+            raise HTTPException(404, "This node has no extracted audio")
+        entry = next((item for item in files if isinstance(item, dict) and item.get("track") == track), None)
+        if not entry or not isinstance(entry.get("path"), str):
+            raise HTTPException(404, "Audio track not available")
+        base = (workspace / "audio").resolve()
+        target = Path(entry["path"]).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError as exc:
+            raise HTTPException(404, "Audio artifact unavailable") from exc
+        suffix = target.suffix.lower()
+        content_types = {
+            ".wav": "audio/wav", ".mp3": "audio/mpeg", ".m4a": "audio/mp4",
+            ".flac": "audio/flac", ".mka": "audio/x-matroska",
+        }
+        if suffix not in content_types or not target.is_file():
+            raise HTTPException(404, "Audio file missing")
+        return FileResponse(
+            target, media_type=content_types[suffix], filename=target.name,
+            content_disposition_type="attachment" if download else "inline",
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
     def rendered_video(self, project_id: int, run_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
