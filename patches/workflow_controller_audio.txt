@@ -1,5 +1,0 @@
-    def audio_file(self, project_id: int, run_id: int, node_id: str, track: int, download: bool = False,
-                   db: Session=Depends(wf_db), user: User=Depends(current_user)):
-        return self.service.audio_file(project_id=project_id, run_id=run_id, node_id=node_id,
-                                       track=track, download=download, db=db, user=user)
-

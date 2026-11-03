@@ -1,4 +1,0 @@
-services:
-  backend:
-    environment:
-      GEMINI_ENABLE_PAID_ACTIONS: ${GEMINI_ENABLE_PAID_ACTIONS:-0}

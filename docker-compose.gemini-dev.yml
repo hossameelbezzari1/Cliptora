@@ -1,4 +1,0 @@
-﻿services:
-  frontend:
-    volumes:
-      - ./frontend/src:/app/src
