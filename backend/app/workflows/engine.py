@@ -11,6 +11,7 @@ import json
 import math
 import os
 import time
+from datetime import datetime, timezone
 
 from pathlib import Path
 from typing import Callable
@@ -48,6 +49,8 @@ def run_graph(
 
         node_id = node["id"]
         node_type = node["type"]
+        node_started_at = datetime.now(timezone.utc).isoformat()
+        node_started_clock = time.monotonic()
 
         deps = {
             key: outputs[key]
@@ -173,152 +176,71 @@ def run_graph(
             except (OSError, ValueError):
                 result = None
 
-        # Live progress support for all node types.
-        # The callback is runtime-only and is never
-        # included in workflow JSON or cache fingerprints.
-
+        # The callback is runtime-only and never enters a cache fingerprint.
+        # Each node can publish stages and type-specific numeric metrics.
         node_progress_callback = None
 
         if result is None:
-
             last_emit_time = 0.0
-            last_signature = None
+            latest_status: dict = {}
 
-            def node_progress_callback(
-                event: dict,
-            ) -> None:
-
-                nonlocal last_emit_time
-                nonlocal last_signature
-
+            def node_progress_callback(event: dict) -> None:
+                nonlocal last_emit_time, latest_status
                 if not isinstance(event, dict):
                     return
 
-                raw_percent = event.get(
-                    "progress",
-                    event.get("percent"),
-                )
-
-                try:
-                    parsed = (
-                        float(raw_percent)
-                        if raw_percent is not None
-                        else None
-                    )
-
-                    percent = (
-                        max(0.0, min(99.0, parsed))
-                        if parsed is not None
-                        and math.isfinite(parsed)
-                        else None
-                    )
-
-                except (TypeError, ValueError):
-                    percent = None
-
-                stage = str(
-                    event.get("stage") or "processing"
-                )[:64]
-
-                message = str(
-                    event.get("message") or ""
-                )[:200]
+                previous = latest_status
+                stage = str(event.get('stage') or 'processing')[:64]
+                message = str(event.get('message') or '')[:200]
+                raw_percent = event.get('progress', event.get('percent'))
+                percent = previous.get('progress')
+                if raw_percent is not None:
+                    try:
+                        value = float(raw_percent)
+                        if math.isfinite(value):
+                            percent = round(max(0.0, min(99.0, value)), 2)
+                    except (TypeError, ValueError):
+                        pass
 
                 status = {
-                    "state": "running",
-                    "type": node_type,
-                    "stage": stage,
-                    "message": message,
-                    "progress": (
-                        round(percent)
-                        if percent is not None
-                        else None
-                    ),
+                    **previous,
+                    'state': 'running',
+                    'type': node_type,
+                    'stage': stage,
+                    'message': message,
+                    'progress': percent,
+                    'started_at': node_started_at,
+                    'elapsed_seconds': round(time.monotonic() - node_started_clock, 2),
                 }
 
-                for field in (
-                    "processed",
-                    "total",
-                    "processed_seconds",
-                    "total_seconds",
-                ):
+                for field in ('processed', 'total', 'processed_seconds', 'total_seconds',
+                              'words_processed', 'segments_processed', 'frames_processed',
+                              'requests_processed'):
                     value = event.get(field)
+                    if isinstance(value, (int, float)) and not isinstance(value, bool) \
+                            and math.isfinite(value) and 0 <= value < 10**12:
+                        status[field] = round(float(value), 2)
 
-                    if (
-                        isinstance(value, (int, float))
-                        and not isinstance(value, bool)
-                        and math.isfinite(value)
-                        and 0 <= value < 10**12
-                    ):
-                        status[field] = round(
-                            float(value),
-                            2,
-                        )
+                if isinstance(event.get('unit'), str):
+                    status['unit'] = event['unit'][:24]
 
-                unit = event.get("unit")
-
-                if isinstance(unit, str):
-                    status["unit"] = unit[:24]
-
-                words_processed = event.get(
-                    "words_processed"
-                )
-
-                if (
-                    isinstance(words_processed, int)
-                    and not isinstance(
-                        words_processed,
-                        bool,
-                    )
-                    and words_processed >= 0
-                ):
-                    status["words_processed"] = (
-                        words_processed
-                    )
-
+                latest_status = status
                 now = time.monotonic()
-
-                signature = (
-                    stage,
-                    message,
-                )
-
-                # Avoid excessive database writes.
-                # At most one progress update per second
-                # for the same stage and message.
-
-                if (
-                    signature == last_signature
-                    and now - last_emit_time < 1.0
-                ):
+                important = stage != summary.get(node_id, {}).get('stage') or bool(event.get('force'))
+                # Prevent a DB commit for every Whisper segment/frame.
+                # Keep the freshest percentage + metrics at most once per second.
+                if not important and now - last_emit_time < 1.0:
                     return
 
                 last_emit_time = now
-                last_signature = signature
-
                 summary[node_id] = status
-
-                node_fraction = (
-                    percent / 100.0
-                    if percent is not None
-                    else 0.0
-                )
-
-                overall_progress = int(
-                    100
-                    * (index + node_fraction)
-                    / total_nodes
-                )
-
-                update(
-                    overall_progress,
-                    node_id,
-                    summary,
-                )
+                fraction = (percent or 0) / 100.0
+                overall = int(100 * (index + fraction) / total_nodes)
+                update(overall, node_id, summary)
 
             node_progress_callback({
-                "stage": "starting",
-                "message": "Starting node execution...",
+                'stage': 'starting',
+                'message': 'Starting node execution...',
             })
 
         attempts = 0
@@ -333,12 +255,21 @@ def run_graph(
         ):
 
             if cancelled():
-                return {
-                    "status": "cancelled",
-                    "nodes": summary,
+                summary[node_id] = {
+                    **summary.get(node_id, {}),
+                    'state': 'cancelled',
+                    'stage': 'cancelled',
+                    'elapsed_seconds': round(time.monotonic() - node_started_clock, 2),
+                    'finished_at': datetime.now(timezone.utc).isoformat(),
                 }
+                return {'status': 'cancelled', 'nodes': summary}
 
             attempts += 1
+            if attempts > 1 and node_progress_callback:
+                node_progress_callback({
+                    'stage': 'retrying',
+                    'message': f'Retrying node (attempt {attempts})',
+                })
 
             try:
 
@@ -370,11 +301,21 @@ def run_graph(
                 last_error = exc
 
         if result is None:
-            raise RuntimeError(
-                f"Node {node_id} failed "
-                f"after {attempts} attempt(s): "
-                f"{last_error}"
-            ) from last_error
+            error = (f'Node {node_id} failed after {attempts} attempt(s): '
+                     f'{last_error}')
+            summary[node_id] = {
+                **summary.get(node_id, {}),
+                'state': 'failed',
+                'type': node_type,
+                'stage': 'failed',
+                'message': 'Execution failed',
+                'error': error[:500],
+                'started_at': node_started_at,
+                'finished_at': datetime.now(timezone.utc).isoformat(),
+                'elapsed_seconds': round(time.monotonic() - node_started_clock, 2),
+            }
+            update(int(100 * index / total_nodes), node_id, summary)
+            raise RuntimeError(error) from last_error
 
         target = workspace / f".{node_id}.tmp"
 
@@ -398,13 +339,25 @@ def run_graph(
 
         outputs[node_id] = result
 
+        previous_progress = summary.get(node_id, {})
         public = {
-            "state": "completed",
-            "type": node_type,
-            "artifact": True,
-            "cached": cached,
-            "attempts": attempts,
+            'state': 'completed',
+            'type': node_type,
+            'stage': 'completed',
+            'message': 'Finished (cached)' if cached else 'Execution completed',
+            'progress': 100,
+            'started_at': node_started_at,
+            'finished_at': datetime.now(timezone.utc).isoformat(),
+            'elapsed_seconds': round(time.monotonic() - node_started_clock, 2),
+            'artifact': True,
+            'cached': cached,
+            'attempts': attempts,
         }
+        for metric in ('processed', 'total', 'processed_seconds', 'total_seconds',
+                       'words_processed', 'segments_processed', 'frames_processed',
+                       'requests_processed', 'unit'):
+            if metric in previous_progress:
+                public[metric] = previous_progress[metric]
 
         for key in (
             "output_duration",

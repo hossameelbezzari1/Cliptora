@@ -10,6 +10,7 @@ import { WorkflowNodeDataPanel, WorkflowNodePanelDivider } from './editor/Workfl
 import { WorkflowNodeParameters } from './editor/WorkflowNodeParameters'
 import { WorkflowNodeSettings } from './editor/WorkflowNodeSettings'
 import { WorkflowNodeSideRail } from './editor/WorkflowNodeSideRail'
+import { NodeProgress } from './editor/NodeProgress'
 
 type Props = {
   studio: WorkflowStudioState
@@ -364,6 +365,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700"><CircleAlert size={16} className="shrink-0" />{localError}</div>}
+            <NodeProgress run={inspectedRun} nodeId={selected.id} label={title} />
             {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
             {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Gemini API key is not configured</strong>Add <code>GEMINI_API_KEY</code> to the backend environment, then recreate the backend container. Gemini execution stays disabled until the secret is available.</span></div>}
             {tab === 'parameters'

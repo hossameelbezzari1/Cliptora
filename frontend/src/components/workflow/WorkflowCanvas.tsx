@@ -2613,15 +2613,16 @@ export function WorkflowCanvas({
                     event.clientY,
                   )
                 }}
-                onPaneClick={() => {
-                  closeContextMenu()
-                  stickyNotesRef.current?.clearSelection()
-                  setQuickAdd(null)
-                  setActiveNoteId(null)
-                  setSelectedId(null)
-                  setSelectedNodeIds([])
-                  setSelectedEdges([])
-                }}
+                
+onPaneClick={() => {
+  closeContextMenu()
+  stickyNotesRef.current?.clearSelection()
+  setQuickAdd(null)
+  setSelectedId(null)
+  setSelectedNodeIds([])
+  setSelectedEdges([])
+}}
+
                 onNodeClick={(_, node) => {
                   closeContextMenu()
                   stickyNotesRef.current?.clearSelection()

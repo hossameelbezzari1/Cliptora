@@ -437,11 +437,12 @@ export function useWorkflowStudio({
             ? `${String(count)} items`
             : node.when === 'always' ? 'Ready' : `If ${node.when}`,
           status,
+          run,
         },
         selected: selectedId === node.id,
       }
     }),
-  [nodes, catalog, selectedId, run?.results, run?.state, run?.current_node, sources])
+  [nodes, catalog, selectedId, run, sources])
 
   const flowEdges = useMemo<Edge[]>(() =>
     nodes.flatMap(node =>

@@ -3,6 +3,7 @@ import type { WorkflowStudioState } from './useWorkflowStudio'
 import { Check, Film, Maximize2, Play, Sparkles } from 'lucide-react'
 import { fileUrl } from '../../lib/api'
 import { btn } from './workflowUI'
+import { NodeProgress } from './editor/NodeProgress'
 
 export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) {
   const { nodes, run, catalog, completedNodes, cancel, previewMedia, applyCutPlan } = studio
@@ -46,6 +47,7 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
                 </div>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-[#ececec]"><div className="h-full rounded-full bg-violet-600 transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(run?.progress ?? 0, 100))}%` }} /></div>
+              {activeNode && <NodeProgress run={run} nodeId={activeNode.id} variant="compact" label={catalog.find(item => item.type === activeNode.type)?.label ?? activeNode.id} />}
               <div className="flex flex-wrap justify-end gap-2">
                 <button type="button" className={btn} disabled={!run || !['queued', 'running'].includes(run.state)} onClick={() => void cancel()}>Cancel</button>
                 <button type="button" className={btn} onClick={() => setTab('logs')}>View details</button>
@@ -59,6 +61,7 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
             {run ? <div className="space-y-2">
               <p className="font-medium text-[#333]">Run #{run.id} · {run.state}</p>
               {run.error && <pre className="whitespace-pre-wrap break-words rounded-lg border border-red-200 bg-red-50 p-2 text-red-700">{run.error}</pre>}
+              {activeNode && <NodeProgress run={run} nodeId={activeNode.id} label={catalog.find(item => item.type === activeNode.type)?.label ?? activeNode.id} showCompleted />}
               {results.map(([id, result]) => <div key={id} className="flex items-center justify-between gap-2 rounded-md border border-[#e8e8e8] px-3 py-2"><span className="truncate font-mono">{id}</span><span className="shrink-0 capitalize">{result.state}</span></div>)}
             </div> : <p>Run the workflow to see execution results and errors.</p>}
           </div>

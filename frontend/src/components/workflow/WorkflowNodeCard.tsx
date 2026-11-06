@@ -1,4 +1,3 @@
-
 import { useContext, type CSSProperties } from 'react'
 import {
   Check,
@@ -19,6 +18,8 @@ import {
 import { WorkflowToolIcon } from './WorkflowToolIcon'
 import { WorkflowQuickAddContext } from './WorkflowNodeContexts'
 import { getNodeUI } from './nodeRegistry'
+import { NodeProgress } from './editor/NodeProgress'
+import type { WorkflowRun } from './workflowTypes'
 
 export type StudioFlowNode = FlowNode<{
   label: string
@@ -26,6 +27,7 @@ export type StudioFlowNode = FlowNode<{
   subtitle: string
   meta: string
   status: 'done' | 'running' | 'waiting' | 'failed'
+  run?: WorkflowRun | null
   pinned?: boolean
   note?: string
 }, 'studio'>
@@ -269,6 +271,16 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
             ? data.meta
             : data.subtitle}
       </span>
+
+      {(data.status === 'running' || data.status === 'failed') && (
+        <NodeProgress
+          run={data.run}
+          nodeId={id}
+          label={data.label}
+          variant="compact"
+          className="mt-2 max-w-[190px]"
+        />
+      )}
 
       {data.note && (
         <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] bg-[#fffbe6] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37]">
