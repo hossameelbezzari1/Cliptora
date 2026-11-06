@@ -1,5 +1,5 @@
 
-import { NodeIcon, useNodeIcon } from './NodeIcon'
+import { NodeIcon, getNodeIconColor, useNodeIcon } from './NodeIcon'
 
 /**
  * Compatibility component for existing Workflow UI.
@@ -23,6 +23,7 @@ export function WorkflowToolIcon({
     <NodeIcon
       icon={icon}
       size={size}
+      color={getNodeIconColor(type)}
     />
   )
 }

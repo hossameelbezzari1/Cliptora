@@ -481,7 +481,7 @@ export function ToolLibrary({
                               expanded ? 'bg-[#faf9ff]' : ''
                             }`}
                           >
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#eeeef1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.035)]">
+                            <span className="flex size-10 shrink-0 items-center justify-center">
                               <WorkflowToolIcon type={item.type} size={29} />
                             </span>
                             <span className="min-w-0 flex-1">
@@ -516,7 +516,7 @@ export function ToolLibrary({
                                   onClick={() => add(item, action.id)}
                                   className="group flex w-full items-center gap-2.5 py-2.5 pl-7 pr-5 text-left text-xs transition-colors hover:bg-[#f0ecfb] disabled:cursor-not-allowed disabled:opacity-40"
                                 >
-                                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-[#ece7fa] bg-white">
+                                  <span className="flex size-7 shrink-0 items-center justify-center">
                                     <WorkflowToolIcon type={item.type} actionId={action.id} size={21} />
                                   </span>
                                   <span className="min-w-0 flex-1 truncate text-[#555461]">

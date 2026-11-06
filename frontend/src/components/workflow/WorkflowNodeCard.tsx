@@ -171,13 +171,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
           />
         )}
 
-        <div className={`pointer-events-none grid size-[66px] place-items-center rounded-[14px] ${
-          data.nodeType.startsWith('ai.')
-            ? 'border border-[#ffb0d5] bg-[#fff2f9]'
-            : isBranch
-              ? 'bg-[#f6fcfb]'
-              : 'bg-white'
-        }`}>
+        <div className="pointer-events-none grid size-[66px] place-items-center">
           <WorkflowToolIcon
             type={data.nodeType}
             label={data.label}

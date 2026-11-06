@@ -94,6 +94,66 @@ const brandFiles: Record<string, string> = {
   ollama: '/icons/nodes/ollama.svg',
 }
 
+/**
+ * CLIPTORA - Centralized Node Icon Colors
+ *
+ * Applies only to Lucide icons.
+ * Brand logos, images and external SVG files remain unchanged.
+ * No icon background is added.
+ */
+
+const NODE_ICON_COLORS: Record<string, string> = {
+  'flow.if': '#16a34a',
+  'flow.switch': '#059669',
+  'flow.merge': '#0d9488',
+
+  'audio.extract': '#ea580c',
+  'audio.transcribe': '#d97706',
+
+  'media.probe': '#7c3aed',
+  'core.video_source': '#0284c7',
+
+  'integration.http_request': '#2563eb',
+  'data.json_extract': '#0f766e',
+
+  'animation.storyboard': '#db2777',
+  'animation.keyframes': '#c026d3',
+
+  'ai.highlights': '#a21caf',
+  'ai.summary': '#9333ea',
+  'ai.agent': '#9333ea',
+  'ai.chat_model': '#7c3aed',
+
+  'caption.generate': '#0891b2',
+  'video.render': '#475569',
+  'timeline.cut_plan': '#475569',
+
+  'core.manual_trigger': '#d97706',
+  'core.schedule_trigger': '#d97706',
+}
+
+const NODE_ICON_FAMILY_COLORS: Record<string, string> = {
+  flow: '#16a34a',
+  audio: '#ea580c',
+  media: '#7c3aed',
+  core: '#0284c7',
+  integration: '#2563eb',
+  data: '#0f766e',
+  animation: '#c026d3',
+  ai: '#8b5cf6',
+  caption: '#0891b2',
+  video: '#475569',
+  timeline: '#64748b',
+}
+
+export function getNodeIconColor(type: string): string {
+  return (
+    NODE_ICON_COLORS[type] ??
+    NODE_ICON_FAMILY_COLORS[type.split('.')[0]] ??
+    '#475569'
+  )
+}
+
 type Action = {
   id: string
   label?: string
@@ -252,11 +312,13 @@ export function NodeIcon({
   size = 24,
   className,
   title,
+  color,
 }: {
   icon?: string
   size?: number
   className?: string
   title?: string
+  color?: string
 }) {
   const [broken, setBroken] = useState(false)
 
@@ -304,6 +366,7 @@ export function NodeIcon({
   return (
     <Icon
       size={safeSize}
+      color={prefix === 'lucide' ? color : undefined}
       className={className}
       aria-label={title}
       aria-hidden={title ? undefined : true}
@@ -338,7 +401,7 @@ export function WorkflowNodeIcon({
       <NodeIcon icon={main} size={size} />
 
       {showActionBadge && actionId && sub !== main && (
-        <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-md bg-white shadow-sm ring-1 ring-black/10">
+        <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center">
           <NodeIcon icon={sub} size={14} />
         </span>
       )}
