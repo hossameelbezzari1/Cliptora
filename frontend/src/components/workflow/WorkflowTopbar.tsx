@@ -14,6 +14,7 @@ import {
   Copy,
 } from 'lucide-react'
 import { btn, accent } from './workflowUI'
+import { ThemeToggle } from '../common/ThemeToggle'
 
 export function WorkflowTopbar({
   studio,
@@ -104,6 +105,7 @@ export function WorkflowTopbar({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <ThemeToggle compact />
         <div
           className="flex shrink-0 items-center gap-1 rounded-xl border border-[#ededf0] bg-[#fafafa] p-1"
           aria-label="Workflow edit history"

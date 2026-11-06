@@ -1,3 +1,5 @@
 import { AuthProvider } from './AuthProvider'
 import { AppRouter } from './router'
-export default function App(){return <AuthProvider><AppRouter/></AuthProvider>}
+import { ThemeProvider } from './ThemeProvider'
+
+export default function App(){return <ThemeProvider><AuthProvider><AppRouter/></AuthProvider></ThemeProvider>}

@@ -18,26 +18,26 @@
   overflow-y: scroll !important;
   overscroll-behavior: contain;
   scrollbar-width: auto !important;
-  scrollbar-color: #8850cf #17191d !important;
+  scrollbar-color: var(--cl-scrollbar-thumb) var(--cl-scrollbar-track) !important;
   scrollbar-gutter: stable;
 }
 .cliptora-timeline-scroll::-webkit-scrollbar {
   display: block !important;
   width: 12px !important;
   height: 12px !important;
-  background: #17191d !important;
+  background: var(--cl-scrollbar-track) !important;
 }
 .cliptora-timeline-scroll::-webkit-scrollbar-thumb {
-  background: #8850cf !important;
-  border: 2px solid #17191d !important;
+  background: var(--cl-scrollbar-thumb) !important;
+  border: 2px solid var(--cl-scrollbar-track) !important;
   border-radius: 10px !important;
 }
 .cliptora-timeline-scroll::-webkit-scrollbar-thumb:hover {
-  background: #a878f4 !important;
+  background: var(--cl-scrollbar-thumb-hover) !important;
 }
 .cliptora-timeline-scroll::-webkit-scrollbar-track {
-  background: #17191d !important;
+  background: var(--cl-scrollbar-track) !important;
 }
 .cliptora-timeline-scroll::-webkit-scrollbar-corner {
-  background: #17191d !important;
+  background: var(--cl-scrollbar-track) !important;
 }
