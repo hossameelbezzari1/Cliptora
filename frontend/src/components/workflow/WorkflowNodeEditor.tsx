@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleAlert, Database, LoaderCircle, Play, Save, Settings2, X } from 'lucide-react'
+import { CircleAlert, LoaderCircle, Play, Save, Settings2, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import type { WorkflowRun } from './workflowTypes'
@@ -314,9 +314,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
             {result?.state ?? (inspectedRun?.state === 'running' || inspectedRun?.state === 'queued' ? inspectedRun.state : 'Not executed')}
           </span>
           <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-[#e5e5e5] xl:block" />
-          <span className="hidden shrink-0 items-center gap-1 text-[11px] text-[#888] xl:inline-flex">
-            <Database size={13} /> CLIPTORA · Node editor
-          </span>
+          
           <span className="hidden min-w-0 truncate text-[11px] text-[#888] lg:inline" title={copyStatus || (inspectedRun ? `Execution #${inspectedRun.id} · ${inspectedRun.state}` : 'No execution selected')}>
             {copyStatus || (inspectedRun ? `Execution #${inspectedRun.id} · ${inspectedRun.state}` : 'No execution selected')}
           </span>

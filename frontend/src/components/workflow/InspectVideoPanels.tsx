@@ -1,6 +1,6 @@
-import { useState, type ChangeEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react'
 import {
-  AlertTriangle, AudioLines, Bookmark, CheckCircle2, Clock3, Clapperboard,
+  AlertTriangle, AudioLines, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Clapperboard,
   FileJson, FileVideo, Film, FolderOpen, Gauge, Info, Layers3,
   ListChecks, SlidersHorizontal, Upload, Video, Zap,
 } from 'lucide-react'
@@ -245,8 +245,13 @@ function DetailList({ data }: { data: Json }) {
 
 export function InspectVideoOutput({ value }: { value: unknown }) {
   const probe = object(object(value).probe)
+  const hasProbe = Object.keys(probe).length > 0
   const [tab, setTab] = useState<'overview' | 'video' | 'audio' | 'subtitles' | 'chapters'>('overview')
-  if (!Object.keys(probe).length) return <p className="p-4 text-xs text-[#888]">No Inspect Video output found. Run the workflow to inspect the source.</p>
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+  const tabContentRef = useRef<HTMLDivElement>(null)
+  const [canScrollBack, setCanScrollBack] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
+
   const videos = array(probe.videos)
   const audio = array(probe.audio)
   const subtitles = array(probe.subtitles)
@@ -260,15 +265,94 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
     { id: 'chapters', label: `Chapters (${chapters.length})` },
   ] as const
   const collection = tab === 'video' ? videos : tab === 'audio' ? audio : tab === 'subtitles' ? subtitles : chapters
+
+  const updateScrollButtons = useCallback(() => {
+    const container = tabScrollRef.current
+    if (!container) return
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
+    setCanScrollBack(container.scrollLeft > 1)
+    setCanScrollNext(container.scrollLeft < maxScrollLeft - 1)
+  }, [])
+
+  useEffect(() => {
+    if (!hasProbe) return
+    const container = tabScrollRef.current
+    if (!container) return
+
+    updateScrollButtons()
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateScrollButtons)
+      : null
+    observer?.observe(container)
+    if (tabContentRef.current) observer?.observe(tabContentRef.current)
+    window.addEventListener('resize', updateScrollButtons)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updateScrollButtons)
+    }
+  }, [hasProbe, videos.length, audio.length, subtitles.length, chapters.length, updateScrollButtons])
+
+  const scrollTabs = (direction: -1 | 1) => {
+    const container = tabScrollRef.current
+    if (!container) return
+    container.scrollBy({
+      left: direction * Math.max(120, Math.round(container.clientWidth * 0.7)),
+      behavior: 'smooth',
+    })
+  }
+
+  if (!hasProbe) return <p className="p-4 text-xs text-[#888]">No Inspect Video output found. Run the workflow to inspect the source.</p>
+
   return <div className="space-y-4 p-4" data-inspect-video-output>
     <div className="flex items-center gap-2 border-b border-[#ededed] pb-3">
-      <Film size={17} className="text-violet-600" aria-hidden="true"/>
+      <Film size={17} className="text-violet-600" aria-hidden="true" />
       <div className="min-w-0"><p className="text-[13px] font-semibold text-[#303030]">Video inspection</p><p className="text-[11px] text-[#888]">{show(probe.inspection_mode ?? 'legacy')} · Non-destructive FFprobe</p></div>
     </div>
-    <div role="tablist" aria-label="Video metadata sections" className="flex gap-4 overflow-x-auto border-b border-[#ededed] [scrollbar-width:thin]">
-      {tabs.map(item => <button role="tab" aria-selected={tab === item.id} key={item.id} type="button" onClick={() => setTab(item.id)}
-        className={`shrink-0 border-b-2 px-1 pb-2 text-[11px] font-medium ${tab === item.id ? 'border-[#303030] text-[#252525]' : 'border-transparent text-[#888] hover:text-[#333]'}`}>{item.label}</button>)}
+
+    <div className="flex min-w-0 items-center gap-1 border-b border-[#ededed]" data-inspect-tabs-navigation>
+      <button
+        type="button"
+        onClick={() => scrollTabs(-1)}
+        disabled={!canScrollBack}
+        aria-label="Scroll tabs back"
+        title="Back"
+        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] bg-white text-[#555] transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] disabled:hover:bg-white disabled:hover:text-[#555]"
+      >
+        <ChevronLeft size={15} aria-hidden="true" />
+      </button>
+
+      <div
+        ref={tabScrollRef}
+        role="tablist"
+        aria-label="Video metadata sections"
+        onScroll={updateScrollButtons}
+        className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div ref={tabContentRef} className="flex w-max gap-4">
+          {tabs.map(item => <button
+            role="tab"
+            aria-selected={tab === item.id}
+            key={item.id}
+            type="button"
+            onClick={() => setTab(item.id)}
+            className={`shrink-0 whitespace-nowrap border-b-2 px-1 pb-2 pt-1 text-[11px] font-medium ${tab === item.id ? 'border-[#303030] text-[#252525]' : 'border-transparent text-[#888] hover:text-[#333]'}`}
+          >{item.label}</button>)}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => scrollTabs(1)}
+        disabled={!canScrollNext}
+        aria-label="Scroll tabs next"
+        title="Next"
+        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] bg-white text-[#555] transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] disabled:hover:bg-white disabled:hover:text-[#555]"
+      >
+        <ChevronRight size={15} aria-hidden="true" />
+      </button>
     </div>
+
     {tab === 'overview' ? <>
       <div className="divide-y divide-[#eaeaea]">
         <Metric name="Duration" value={duration(probe.duration)} />
@@ -281,12 +365,12 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
       {Object.keys(format).length > 0 && <section><h3 className="border-b border-[#eaeaea] pb-2 text-[12px] font-semibold text-[#303030]">Container</h3><DetailList data={format} /></section>}
     </> : collection.length ? collection.map((entry, index) => <section key={`${tab}-${index}`} className="space-y-2 border-b border-[#ededed] pb-3">
       <h3 className="flex items-center gap-2 text-[12px] font-semibold text-[#444]">
-        {tab === 'video' ? <Video size={15}/> : tab === 'audio' ? <AudioLines size={15}/> : tab === 'subtitles' ? <ListChecks size={15}/> : <Clapperboard size={15}/>}
+        {tab === 'video' ? <Video size={15} /> : tab === 'audio' ? <AudioLines size={15} /> : tab === 'subtitles' ? <ListChecks size={15} /> : <Clapperboard size={15} />}
         {tab === 'chapters' ? `Chapter ${index + 1}` : `Stream #${show(entry.index)}`}
       </h3>
       <DetailList data={entry} />
     </section>) : <p className="py-6 text-center text-[12px] text-[#888]">No {tab} metadata found or this section was disabled.</p>}
-    {warnings.length > 0 && <div className="border-l-2 border-amber-400 bg-amber-50 p-3"><p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber-800"><AlertTriangle size={15}/> Warnings</p>{warnings.map((item, index) => <p key={index} className="text-[11px] leading-5 text-amber-900">{item}</p>)}</div>}
+    {warnings.length > 0 && <div className="border-l-2 border-amber-400 bg-amber-50 p-3"><p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber-800"><AlertTriangle size={15} /> Warnings</p>{warnings.map((item, index) => <p key={index} className="text-[11px] leading-5 text-amber-900">{item}</p>)}</div>}
     <p className="text-[11px] leading-4 text-[#999]">Switch to JSON view to copy the full output for downstream workflow nodes.</p>
   </div>
 }
