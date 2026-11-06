@@ -92,10 +92,10 @@ export function WorkflowPage() {
 
   const pageError = invalidProject ? 'Invalid project.' : invalidWorkflow ? 'Invalid workflow.' : error
   if (loading) {
-    return <main className="fixed inset-0 z-[100] animate-pulse bg-[#f7f7f8] p-5" aria-label="Loading CLIPTORA Workflow Studio"><div className="mb-4 h-14 rounded-xl bg-[#e4e4e7]" /><div className="h-[calc(100%-4.5rem)] rounded-xl border border-[#e4e4e7] bg-white" /></main>
+    return <main className="fixed inset-0 z-[100] animate-pulse bg-[#f7f7f8] dark:bg-[#1f2937] p-5" aria-label="Loading CLIPTORA Workflow Studio"><div className="mb-4 h-14 rounded-xl bg-[#e4e4e7] dark:bg-[#1f2937]" /><div className="h-[calc(100%-4.5rem)] rounded-xl border border-[#e4e4e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel" /></main>
   }
   if (pageError || !project) {
-    return <main className="fixed inset-0 z-[100] grid place-items-center bg-[#f7f7f8] p-6"><section className="max-w-md rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm"><h1 className="text-base font-semibold text-[#27272a]">Workflow Studio unavailable</h1><p role="alert" className="mt-2 text-sm text-red-700">{pageError || 'Project could not be loaded.'}</p><button type="button" onClick={() => navigate(`/projects/${projectId}/editor`)} className="mt-5 rounded-lg bg-[#27272a] px-4 py-2 text-xs font-semibold text-white hover:bg-[#3f3f46]">Back to Timeline</button></section></main>
+    return <main className="fixed inset-0 z-[100] grid place-items-center bg-[#f7f7f8] dark:bg-[#1f2937] p-6"><section className="max-w-md rounded-2xl border border-red-200 dark:border-red-900/70 bg-white dark:bg-cl-dark-panel p-6 text-center shadow-sm"><h1 className="text-base font-semibold text-[#27272a] dark:text-[#f3f4f6]">Workflow Studio unavailable</h1><p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">{pageError || 'Project could not be loaded.'}</p><button type="button" onClick={() => navigate(`/projects/${projectId}/editor`)} className="mt-5 rounded-lg bg-[#f8fafc] dark:bg-[#27272a] px-4 py-2 text-xs font-semibold text-gray-900 dark:text-white hover:bg-[#f8fafc] dark:hover:bg-[#3f3f46]">Back to Timeline</button></section></main>
   }
 
   return (

@@ -133,12 +133,12 @@ function DropLane({ trackId, zoom, preview, onPreview, children, backgroundColor
                 <div aria-hidden className="pointer-events-none absolute inset-y-0 z-20 w-px border-l border-dashed border-emerald-400/80" style={{ left: preview.gapStart * zoom }} />
                 {preview.gapEnd !== null && <div aria-hidden className="pointer-events-none absolute inset-y-0 z-20 w-px border-l border-dashed border-emerald-400/80" style={{ left: preview.gapEnd * zoom }} />}
                 {preview.gapEnd !== null && preview.gapEnd > preview.gapStart && <div aria-hidden className="pointer-events-none absolute top-0 z-20 h-0.5 bg-emerald-400/70" style={{ left: preview.gapStart * zoom, width: (preview.gapEnd - preview.gapStart) * zoom }} />}
-                <span aria-live="polite" className="pointer-events-none absolute top-1 z-40 whitespace-nowrap rounded bg-[#111819]/95 px-1.5 py-0.5 text-[9px] text-emerald-300 shadow-md" style={{ left: Math.max(3, preview.start * zoom + 8) }}>
+                <span aria-live="polite" className="pointer-events-none absolute top-1 z-40 whitespace-nowrap rounded bg-[#f8fafc]/95 dark:bg-[#111819]/95 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-300 shadow-md" style={{ left: Math.max(3, preview.start * zoom + 8) }}>
                     {preview.gapEnd === null ? `Free after ${formatTime(preview.gapStart)}` : `Free gap ${formatTime(Math.max(0, preview.gapEnd - preview.gapStart))}`}
                 </span>
             </>}
             {preview.snapEdge !== null && <div aria-hidden className="pointer-events-none absolute -top-1 bottom-[-4px] z-40 w-[2px] bg-[#e8d5ff] shadow-[0_0_9px_#a473ff]" style={{ left: preview.snapEdge * zoom }} />}
-            <div aria-hidden className={`pointer-events-none absolute inset-y-1 z-30 flex items-center overflow-hidden rounded border-2 border-dashed px-2 text-[10px] font-semibold ${preview.valid ? 'border-[#b78aff] bg-[#813edb]/40 text-white' : 'border-red-400 bg-red-950/70 text-red-100'}`} style={{ left: preview.start * zoom, width: Math.max(preview.duration * zoom, 12) }}>
+            <div aria-hidden className={`pointer-events-none absolute inset-y-1 z-30 flex items-center overflow-hidden rounded border-2 border-dashed px-2 text-[10px] font-semibold ${preview.valid ? 'border-[#b78aff] bg-[#f2ecfb] dark:bg-[#813edb]/40 text-white' : 'border-red-400 bg-red-50/70 dark:bg-red-950/70 text-red-700 dark:text-red-100'}`} style={{ left: preview.start * zoom, width: Math.max(preview.duration * zoom, 12) }}>
                 {preview.valid ? `Drop ${preview.type}` : 'No space / locked'}
             </div>
         </>}
@@ -564,38 +564,38 @@ export function TimelinePanel() {
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [])
 
-    return <><section ref={timelineRoot} tabIndex={-1} data-timeline-panel className="cliptora-timeline-panel relative flex h-full min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel [contain:layout]" style={{ maxHeight: timelineCeiling === null ? '62dvh' : `${timelineCeiling}px` }}>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2">
+    return <><section ref={timelineRoot} tabIndex={-1} data-timeline-panel className="cliptora-timeline-panel relative flex h-full min-h-0 min-w-0 w-full max-w-full flex-col overflow-hidden rounded-lg bg-cl-panel dark:bg-cl-dark-panel [contain:layout]" style={{ maxHeight: timelineCeiling === null ? '62dvh' : `${timelineCeiling}px` }}>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white dark:border-cl-dark-line/5 px-3 py-2">
             <span className="mr-2 text-xs font-bold tracking-wide">TIMELINE</span>
-            <button type="button" aria-pressed={selectionMode} title="Toggle selection mode (click clips or drag empty space to select multiple)" onClick={() => setSelectionMode(value => !value)} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs ${selectionMode ? 'border-[#a879f3] bg-[#6236a0] text-white' : 'border-white/10 bg-cl-panel-2 hover:bg-[#35383d]'}`}><MousePointer2 size={14} />Select</button>
-            {selectedClipIds.length > 0 && <span className="flex items-center gap-1 rounded-md bg-[#392552] px-2 py-1 text-[11px] text-[#d8baff]" aria-live="polite">{selectedClipIds.length} selected <button type="button" aria-label="Delete selected clips" title="Delete selected unlocked clips" onClick={deleteSelectedClips} className="rounded p-0.5 hover:bg-red-700/40"><Trash2 size={12} /></button><button type="button" aria-label="Clear clip selection" title="Clear selection (Esc)" onClick={() => commitSelection([])} className="rounded p-0.5 hover:bg-white/15"><X size={12} /></button></span>}
+            <button type="button" aria-pressed={selectionMode} title="Toggle selection mode (click clips or drag empty space to select multiple)" onClick={() => setSelectionMode(value => !value)} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs ${selectionMode ? 'border-[#a879f3] bg-[#efebf6] dark:bg-[#6236a0] text-gray-900 dark:text-white' : 'border-white dark:border-cl-dark-line/10 bg-cl-panel-2 dark:bg-cl-dark-panel-2 hover:bg-[#f8fafc] dark:hover:bg-[#35383d]'}`}><MousePointer2 size={14} />Select</button>
+            {selectedClipIds.length > 0 && <span className="flex items-center gap-1 rounded-md bg-[#ebe9ee] dark:bg-[#392552] px-2 py-1 text-[11px] text-[#d8baff]" aria-live="polite">{selectedClipIds.length} selected <button type="button" aria-label="Delete selected clips" title="Delete selected unlocked clips" onClick={deleteSelectedClips} className="rounded p-0.5 hover:bg-red-700/40"><Trash2 size={12} /></button><button type="button" aria-label="Clear clip selection" title="Clear selection (Esc)" onClick={() => commitSelection([])} className="rounded p-0.5 hover:bg-white dark:hover:bg-cl-dark-panel/15"><X size={12} /></button></span>}
 
-            <button title="Add a layer at the TOP of the stack" aria-label="Add top layer" disabled={tracks.length >= MAX_LAYERS} onClick={() => addLayerFromToolbar('top')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15} />Layer <ArrowUp size={12} /></button>
-            <button title="Add a layer at the BOTTOM of the stack" aria-label="Add bottom layer" disabled={tracks.length >= MAX_LAYERS} onClick={() => addLayerFromToolbar('bottom')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#35383d] disabled:opacity-40"><Plus size={15} />Layer <ArrowDown size={12} /></button>
-            <button aria-label="Crop selected video or image" aria-pressed={previewTool === 'crop'} title="Crop selected image/video in Preview (drag green crop edges)" disabled={!cropAllowed} onClick={() => { const store = useEditor.getState(); store.setPreviewTool(previewTool === 'crop' ? 'select' : 'crop'); if (selected && previewTool !== 'crop') store.setPlayhead(selected.clip.start + Math.min(.02, selected.clip.duration / 4)) }} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${previewTool === 'crop' ? 'bg-[#55377b] text-white' : 'bg-cl-panel-2 text-cl-muted hover:text-white'}`}><Crop size={15} />Crop</button>
-            <span className="hidden text-[10px] text-cl-muted 2xl:inline">Drag empty space = select clips · Ctrl+click = multi-select · Esc = clear</span>
+            <button title="Add a layer at the TOP of the stack" aria-label="Add top layer" disabled={tracks.length >= MAX_LAYERS} onClick={() => addLayerFromToolbar('top')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 dark:bg-cl-dark-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#f8fafc] dark:hover:bg-[#35383d] disabled:opacity-40"><Plus size={15} />Layer <ArrowUp size={12} /></button>
+            <button title="Add a layer at the BOTTOM of the stack" aria-label="Add bottom layer" disabled={tracks.length >= MAX_LAYERS} onClick={() => addLayerFromToolbar('bottom')} className="flex items-center gap-1 rounded-lg bg-cl-panel-2 dark:bg-cl-dark-panel-2 px-2.5 py-1.5 text-xs hover:bg-[#f8fafc] dark:hover:bg-[#35383d] disabled:opacity-40"><Plus size={15} />Layer <ArrowDown size={12} /></button>
+            <button aria-label="Crop selected video or image" aria-pressed={previewTool === 'crop'} title="Crop selected image/video in Preview (drag green crop edges)" disabled={!cropAllowed} onClick={() => { const store = useEditor.getState(); store.setPreviewTool(previewTool === 'crop' ? 'select' : 'crop'); if (selected && previewTool !== 'crop') store.setPlayhead(selected.clip.start + Math.min(.02, selected.clip.duration / 4)) }} className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${previewTool === 'crop' ? 'bg-[#eeebf2] dark:bg-[#55377b] text-gray-900 dark:text-white' : 'bg-cl-panel-2 dark:bg-cl-dark-panel-2 text-cl-muted dark:text-cl-dark-muted hover:text-gray-900 dark:text-white'}`}><Crop size={15} />Crop</button>
+            <span className="hidden text-[10px] text-cl-muted dark:text-cl-dark-muted 2xl:inline">Drag empty space = select clips · Ctrl+click = multi-select · Esc = clear</span>
             <div className="ml-auto flex items-center gap-2">
-                <button title="Zoom out" aria-label="Zoom out" onClick={() => zoomTo(zoom / 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Minus size={16} /></button>
+                <button title="Zoom out" aria-label="Zoom out" onClick={() => zoomTo(zoom / 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2 dark:hover:bg-cl-dark-panel-2"><Minus size={16} /></button>
                 <input aria-label="Timeline zoom" type="range" min={0} max={100} step={1} value={zoomSlider} onChange={e => zoomTo(sliderToZoom(Number(e.target.value)))} className="w-16 accent-[#a87cf4] sm:w-24" />
-                <button title="Zoom in" aria-label="Zoom in" onClick={() => zoomTo(zoom * 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Plus size={16} /></button>
-                <button title="Fit timeline" aria-label="Fit timeline" onClick={() => fit()} className="rounded-lg p-1.5 hover:bg-cl-panel-2"><Maximize2 size={15} /></button>
-                <span className="w-16 text-right text-[10px] tabular-nums text-cl-muted">{zoom.toFixed(zoom < 10 ? 2 : 1)}px/s</span>
+                <button title="Zoom in" aria-label="Zoom in" onClick={() => zoomTo(zoom * 1.25)} className="rounded-lg p-1.5 hover:bg-cl-panel-2 dark:hover:bg-cl-dark-panel-2"><Plus size={16} /></button>
+                <button title="Fit timeline" aria-label="Fit timeline" onClick={() => fit()} className="rounded-lg p-1.5 hover:bg-cl-panel-2 dark:hover:bg-cl-dark-panel-2"><Maximize2 size={15} /></button>
+                <span className="w-16 text-right text-[10px] tabular-nums text-cl-muted dark:text-cl-dark-muted">{zoom.toFixed(zoom < 10 ? 2 : 1)}px/s</span>
             </div>
         </div>
         <div data-timeline-scroll ref={scroll} className="cliptora-timeline-scroll relative min-h-0 min-w-0 w-full max-w-full flex-1 overscroll-contain" style={{ flex: '1 1 0px', overflowX: 'scroll', overflowY: 'scroll' }} onScroll={syncPan} onDragEnd={() => {
             useEditor.getState().startDrag(null); setPreviewByTrack({})
         }}>
             <div style={{ width: LABEL_W + timelineWidth, minWidth: '100%' }} className="relative">
-                <div className="sticky top-0 z-20 flex h-9 border-b border-white/5 bg-cl-panel">
-                    <div className="sticky left-0 z-30 flex shrink-0 items-center border-r border-white/5 bg-cl-panel px-3 text-[10px] text-cl-muted" style={{ width: LABEL_W }}>Time · {formatTime(duration)}</div>
-                    <div data-timeline-ruler className={`relative h-full touch-none select-none bg-[#212427] ${isScrubbing ? 'cursor-grabbing' : 'cursor-crosshair'}`} style={{ width: timelineWidth }}
+                <div className="sticky top-0 z-20 flex h-9 border-b border-white dark:border-cl-dark-line/5 bg-cl-panel dark:bg-cl-dark-panel">
+                    <div className="sticky left-0 z-30 flex shrink-0 items-center border-r border-white dark:border-cl-dark-line/5 bg-cl-panel dark:bg-cl-dark-panel px-3 text-[10px] text-cl-muted dark:text-cl-dark-muted" style={{ width: LABEL_W }}>Time · {formatTime(duration)}</div>
+                    <div data-timeline-ruler className={`relative h-full touch-none select-none bg-[#f8fafc] dark:bg-[#212427] ${isScrubbing ? 'cursor-grabbing' : 'cursor-crosshair'}`} style={{ width: timelineWidth }}
                         onPointerDown={beginScrub} onPointerMove={moveScrub} onPointerUp={endScrub} onPointerCancel={cancelScrub} onLostPointerCapture={cancelScrub}
                         title="Click or drag the orange playhead to scrub Preview in real time">
-                        {ticks.map(t => <div key={t} className="pointer-events-none absolute bottom-0 top-1 border-l border-white/10" style={{ left: t * zoom }}><span className="relative left-1 text-[10px] tabular-nums text-cl-muted">{formatTime(t)}</span></div>)}
+                        {ticks.map(t => <div key={t} className="pointer-events-none absolute bottom-0 top-1 border-l border-white dark:border-cl-dark-line/10" style={{ left: t * zoom }}><span className="relative left-1 text-[10px] tabular-nums text-cl-muted dark:text-cl-dark-muted">{formatTime(t)}</span></div>)}
                         <div aria-label="Drag playhead" aria-hidden="true" className="pointer-events-none absolute top-0 z-30 flex -translate-x-1/2 flex-col items-center" style={{ left: playhead * zoom }}>
                             <div className="h-[23px] w-[20px] rounded-b-[7px] rounded-t-[3px] bg-cl-orange shadow-[0_0_10px_#fe752699]" />
                             <div className="h-[13px] w-[2px] bg-cl-orange" />
-                            {isScrubbing && <span className="absolute top-[22px] left-[18px] z-40 whitespace-nowrap rounded bg-[#17181e] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-[#ffc29e] shadow-lg">{formatTime(playhead)}</span>}
+                            {isScrubbing && <span className="absolute top-[22px] left-[18px] z-40 whitespace-nowrap rounded bg-[#f8fafc] dark:bg-[#17181e] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-[#ffc29e] shadow-lg">{formatTime(playhead)}</span>}
                         </div>
                     </div>
                 </div>
@@ -604,25 +604,25 @@ export function TimelinePanel() {
                     <div aria-hidden className="pointer-events-none absolute bottom-0 top-0 z-20 w-[2px] bg-cl-orange shadow-[0_0_15px_#fe7526]" style={{ left: LABEL_W + playhead * zoom }} />
 
                     {/* Real top drop zone: visible ABOVE the first layer, not on the ruler. */}
-                    {dragged && tracks.length < MAX_LAYERS && <div className="flex h-[52px] border-b border-dashed border-[#8752dc] bg-[#7547b3]/20">
-                        <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff]" style={{ width: LABEL_W }}><Plus size={16} />New top layer</div>
+                    {dragged && tracks.length < MAX_LAYERS && <div className="flex h-[52px] border-b border-dashed border-[#e5d9f7] dark:border-[#8752dc] bg-[#f1edf7] dark:bg-[#7547b3]/20">
+                        <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-r border-[#e1d7ee] dark:border-[#7547b3]/40 bg-[#f8fafc] dark:bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff]" style={{ width: LABEL_W }}><Plus size={16} />New top layer</div>
                         <div style={{ width: timelineWidth }} className="flex min-w-0 flex-1">
                             <DropLane insertion="top" trackId={null} zoom={zoom} preview={previewByTrack['new-top'] ?? null} onPreview={value => preview('new-top', value)}>
-                                <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#945fe2]/80" />
+                                <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#e7dcf9] dark:border-[#945fe2]/80" />
                             </DropLane>
                         </div>
                     </div>}
                     {[...tracks].reverse().map(track => <TrackRow key={track.client_id} track={track} selectedClipIds={selectedClipIds} onClipSelect={clickSelectClip} selectionMode={selectionMode} layerDraggingId={reorderingLayerId} onLayerDragStart={setReorderingLayerId} onLayerDragEnd={() => setReorderingLayerId(null)} zoom={zoom} timelineWidth={timelineWidth} repeatTimings={repeatTimings} repeatProjectEnd={repeatProjectEnd} onPointerDrag={pointerMoveClip}
                         preview={previewByTrack[track.client_id] ?? null} onPreview={value => preview(track.client_id, value)} onMenu={setMenu} />)}
-                    {tracks.length < MAX_LAYERS && <div className={`flex border-b border-dashed border-[#8752dc]/60 ${dragged ? 'h-[62px] bg-[#7547b3]/20' : 'h-[48px] bg-[#1d1b23]'}`}>
-                        <button type="button" aria-label="Add layer below all layers" title="Add layer at the bottom" onClick={() => addLayerFromToolbar('bottom')} className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#7547b3]/40 bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff] hover:bg-[#322543]" style={{ width: LABEL_W }}><Plus size={16} />Layer below <ArrowDown size={13} /></button>
+                    {tracks.length < MAX_LAYERS && <div className={`flex border-b border-dashed border-[#e5d9f7] dark:border-[#8752dc]/60 ${dragged ? 'h-[62px] bg-[#f1edf7] dark:bg-[#7547b3]/20' : 'h-[48px] bg-[#f8fafc] dark:bg-[#1d1b23]'}`}>
+                        <button type="button" aria-label="Add layer below all layers" title="Add layer at the bottom" onClick={() => addLayerFromToolbar('bottom')} className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-[#e1d7ee] dark:border-[#7547b3]/40 bg-[#f8fafc] dark:bg-[#20192c] px-3 text-[11px] font-semibold text-[#c9a6ff] hover:bg-[#f8fafc] dark:hover:bg-[#322543]" style={{ width: LABEL_W }}><Plus size={16} />Layer below <ArrowDown size={13} /></button>
                         <div style={{ width: timelineWidth }} className="flex min-w-0 flex-1">
                             {dragged ? <DropLane insertion="bottom" trackId={null} zoom={zoom} preview={previewByTrack['new-bottom'] ?? null} onPreview={value => preview('new-bottom', value)}>
-                                <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#945fe2]/80" />
-                            </DropLane> : <div className="flex flex-1 items-center px-3 text-[10px] text-cl-muted">Drag a clip here to create a layer below</div>}
+                                <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-[#e7dcf9] dark:border-[#945fe2]/80" />
+                            </DropLane> : <div className="flex flex-1 items-center px-3 text-[10px] text-cl-muted dark:text-cl-dark-muted">Drag a clip here to create a layer below</div>}
                         </div>
                     </div>}
-                    {!tracks.length && !dragged && <div className="grid h-28 place-items-center text-xs text-cl-muted">Drag media here to begin editing.</div>}
+                    {!tracks.length && !dragged && <div className="grid h-28 place-items-center text-xs text-cl-muted dark:text-cl-dark-muted">Drag media here to begin editing.</div>}
                 </div>
             </div>
         </div>
@@ -676,19 +676,19 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPo
         setLayerDropAbove(null)
         onLayerDragEnd()
     }
-    return <div data-timeline-track-row className="flex border-b border-white/5" style={{ height: ROW_H }}>
-        <div onContextMenu={showMenu} onDragOver={handleLayerDragOver} onDrop={handleLayerDrop} onDragLeave={() => setLayerDropAbove(null)} className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white/5 px-2.5 ${layerDropAbove !== null ? (layerDropAbove ? "border-t-2 border-t-[#b58cff]" : "border-b-2 border-b-[#b58cff]") : ""} ${active === track.client_id ? 'bg-[#272131]' : 'bg-cl-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
-            <span draggable={!track.locked} role="button" tabIndex={0} title="Drag to reorder layer (or use right-click → Move layer up/down)" aria-label={`Drag to reorder ${track.name}`} onDragStart={event => { event.stopPropagation(); event.dataTransfer.setData('application/x-cliptora-layer', track.client_id); event.dataTransfer.effectAllowed = 'move'; onLayerDragStart(track.client_id) }} onDragEnd={() => { setLayerDropAbove(null); onLayerDragEnd() }} className={`shrink-0 touch-none ${track.locked ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}><GripVertical size={13} className="text-cl-muted" /></span>
+    return <div data-timeline-track-row className="flex border-b border-white dark:border-cl-dark-line/5" style={{ height: ROW_H }}>
+        <div onContextMenu={showMenu} onDragOver={handleLayerDragOver} onDrop={handleLayerDrop} onDragLeave={() => setLayerDropAbove(null)} className={`sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-white dark:border-cl-dark-line/5 px-2.5 ${layerDropAbove !== null ? (layerDropAbove ? "border-t-2 border-t-[#b58cff]" : "border-b-2 border-b-[#b58cff]") : ""} ${active === track.client_id ? 'bg-[#f8fafc] dark:bg-[#272131]' : 'bg-cl-panel dark:bg-cl-dark-panel'}`} style={{ width: LABEL_W }} onClick={() => selectTrack(track.client_id)}>
+            <span draggable={!track.locked} role="button" tabIndex={0} title="Drag to reorder layer (or use right-click → Move layer up/down)" aria-label={`Drag to reorder ${track.name}`} onDragStart={event => { event.stopPropagation(); event.dataTransfer.setData('application/x-cliptora-layer', track.client_id); event.dataTransfer.effectAllowed = 'move'; onLayerDragStart(track.client_id) }} onDragEnd={() => { setLayerDropAbove(null); onLayerDragEnd() }} className={`shrink-0 touch-none ${track.locked ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}><GripVertical size={13} className="text-cl-muted dark:text-cl-dark-muted" /></span>
             <div className="mr-auto min-w-0 flex-1">
-                {editing ? <input autoFocus aria-label="Layer name" maxLength={100} className="w-full rounded bg-[#30343a] px-1 text-[11px] outline-none focus:ring-1 focus:ring-[#b387fd]" value={name} onChange={e => setName(e.target.value)} onBlur={finish} onKeyDown={e => { if (e.key === 'Enter') finish(); if (e.key === 'Escape') { setName(track.name); setEditing(false) } }} onClick={e => e.stopPropagation()} />
+                {editing ? <input autoFocus aria-label="Layer name" maxLength={100} className="w-full rounded bg-[#f8fafc] dark:bg-[#30343a] px-1 text-[11px] outline-none focus:ring-1 focus:ring-[#b387fd]" value={name} onChange={e => setName(e.target.value)} onBlur={finish} onKeyDown={e => { if (e.key === 'Enter') finish(); if (e.key === 'Escape') { setName(track.name); setEditing(false) } }} onClick={e => e.stopPropagation()} />
                     : <button title="Double-click to rename layer" onDoubleClick={() => { setName(track.name); setEditing(true) }} className="block max-w-full truncate text-left text-[11px] font-bold text-[#d4c0ff]">{track.name}</button>}
-                <span className="text-[9px] text-cl-muted">Mixed clips</span>
+                <span className="text-[9px] text-cl-muted dark:text-cl-dark-muted">Mixed clips</span>
             </div>
             <div className="grid grid-cols-2 gap-1">
-                <button title={track.hidden ? 'Show' : 'Hide'} aria-label={track.hidden ? 'Show layer' : 'Hide layer'} onClick={() => toggle(track.client_id, 'hidden')} className="rounded bg-cl-panel-2 p-1.5 hover:bg-[#353a3e]">{track.hidden ? <EyeOff size={12} /> : <Eye size={12} />}</button>
-                <button title={track.muted ? 'Unmute' : 'Mute'} aria-label={track.muted ? 'Unmute layer' : 'Mute layer'} onClick={() => toggle(track.client_id, 'muted')} className="rounded bg-cl-panel-2 p-1.5 hover:bg-[#353a3e]">{track.muted ? <VolumeX size={12} /> : <Volume2 size={12} />}</button>
-                <button title={track.locked ? 'Unlock' : 'Lock'} aria-label={track.locked ? 'Unlock layer' : 'Lock layer'} onClick={() => toggle(track.client_id, 'locked')} className="rounded bg-cl-panel-2 p-1.5 hover:bg-[#353a3e]">{track.locked ? <Lock size={12} /> : <Unlock size={12} />}</button>
-                <button title="Delete layer" aria-label="Delete layer" onClick={() => window.confirm(`Delete ${track.name} and all clips inside?`) && remove(track.client_id)} className="rounded bg-cl-panel-2 p-1.5 text-cl-muted hover:text-red-400"><Trash2 size={12} /></button>
+                <button title={track.hidden ? 'Show' : 'Hide'} aria-label={track.hidden ? 'Show layer' : 'Hide layer'} onClick={() => toggle(track.client_id, 'hidden')} className="rounded bg-cl-panel-2 dark:bg-cl-dark-panel-2 p-1.5 hover:bg-[#f8fafc] dark:hover:bg-[#353a3e]">{track.hidden ? <EyeOff size={12} /> : <Eye size={12} />}</button>
+                <button title={track.muted ? 'Unmute' : 'Mute'} aria-label={track.muted ? 'Unmute layer' : 'Mute layer'} onClick={() => toggle(track.client_id, 'muted')} className="rounded bg-cl-panel-2 dark:bg-cl-dark-panel-2 p-1.5 hover:bg-[#f8fafc] dark:hover:bg-[#353a3e]">{track.muted ? <VolumeX size={12} /> : <Volume2 size={12} />}</button>
+                <button title={track.locked ? 'Unlock' : 'Lock'} aria-label={track.locked ? 'Unlock layer' : 'Lock layer'} onClick={() => toggle(track.client_id, 'locked')} className="rounded bg-cl-panel-2 dark:bg-cl-dark-panel-2 p-1.5 hover:bg-[#f8fafc] dark:hover:bg-[#353a3e]">{track.locked ? <Lock size={12} /> : <Unlock size={12} />}</button>
+                <button title="Delete layer" aria-label="Delete layer" onClick={() => window.confirm(`Delete ${track.name} and all clips inside?`) && remove(track.client_id)} className="rounded bg-cl-panel-2 dark:bg-cl-dark-panel-2 p-1.5 text-cl-muted dark:text-cl-dark-muted hover:text-red-700 dark:hover:text-red-400"><Trash2 size={12} /></button>
             </div>
         </div>
         <div className="flex" style={{ width: timelineWidth }}>
@@ -696,7 +696,7 @@ function TrackRow({ track, zoom, timelineWidth, preview, onPreview, onMenu, onPo
                 {track.clips.map(clip => <ClipBar key={clip.client_id} clip={clip} track={track} zoom={zoom} onMenu={onMenu} onPointerDrag={onPointerDrag} multiSelected={selectedClipIds.includes(clip.client_id)} hasMultiSelection={selectedClipIds.length > 0} onClipSelect={onClipSelect} selectionMode={selectionMode} />)}
                 {track.clips.flatMap(clip => clip.props?.repeat?.mode && clip.props.repeat.mode !== 'none' ?
                     repeatOccurrences({ id: clip.client_id, start: clip.start, duration: clip.duration }, clip.props.repeat, repeatTimings, repeatProjectEnd, 300)
-                        .filter(item => Math.abs(item.start - clip.start) > 0.01).map(item => <button key={item.id} type="button" onClick={event => { event.stopPropagation(); useEditor.getState().selectClip(clip.client_id); useEditor.getState().setPlayhead(item.start) }} title={`${clip.name} · repeated at ${formatTime(item.start)}`} aria-label={`Repeated occurrence ${clip.name} at ${formatTime(item.start)}`} className="pointer-events-auto absolute inset-y-2 z-[1] truncate rounded-md border border-dashed border-[#b48aff]/70 bg-[#6e478d]/35 px-2 text-left text-[10px] text-[#dfc4ff] hover:bg-[#6e478d]/65" style={{ left: item.start * zoom, width: Math.max(8, item.duration * zoom) }}><TimelineClipVisual clip={clip} width={Math.max(8, item.duration * zoom)} /><span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-[#59327d]/95 px-1 py-0.5 text-[9px] font-bold text-white">↻</span></button>) : [])}
+                        .filter(item => Math.abs(item.start - clip.start) > 0.01).map(item => <button key={item.id} type="button" onClick={event => { event.stopPropagation(); useEditor.getState().selectClip(clip.client_id); useEditor.getState().setPlayhead(item.start) }} title={`${clip.name} · repeated at ${formatTime(item.start)}`} aria-label={`Repeated occurrence ${clip.name} at ${formatTime(item.start)}`} className="pointer-events-auto absolute inset-y-2 z-[1] truncate rounded-md border border-dashed border-[#b48aff]/70 bg-[#f1edf4] dark:bg-[#6e478d]/35 px-2 text-left text-[10px] text-[#dfc4ff] hover:bg-[#f1edf4] dark:hover:bg-[#6e478d]/65" style={{ left: item.start * zoom, width: Math.max(8, item.duration * zoom) }}><TimelineClipVisual clip={clip} width={Math.max(8, item.duration * zoom)} /><span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-[#eeebf2] dark:bg-[#59327d]/95 px-1 py-0.5 text-[9px] font-bold text-gray-900 dark:text-white">↻</span></button>) : [])}
             </DropLane>
         </div>
     </div>
@@ -869,11 +869,11 @@ function TimelineClipVisual({ clip, width }: { clip: Clip; width: number }) {
         {(clip.type === 'image' || clip.type === 'video') && (!picture || imageFailed) && <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-[#344a6b] to-[#1b3049] text-white/50">
             {clip.type === 'video' ? <Video size={27} /> : <ImageIcon size={27} />}
         </div>}
-        {clip.type === 'audio' && <div className="absolute inset-0 flex items-center justify-around gap-[2px] bg-[#124457]/90 px-3">
+        {clip.type === 'audio' && <div className="absolute inset-0 flex items-center justify-around gap-[2px] bg-[#e7ecee] dark:bg-[#124457]/90 px-3">
             {bars.map((peak, index) => <span key={index} className="w-[3px] min-w-[2px] max-w-[5px] flex-1 rounded-full bg-[#51d4f2]/85" style={{ height: `${peak}%` }} />)}
         </div>}
-        {clip.type === 'text' && shapeName && <div className="absolute inset-0 flex items-center justify-center bg-[#142432]/90">
-            {shapeName.toLowerCase().includes('blur') ? <div className="relative h-4/5 w-4/5 rounded-md border border-white/35 bg-white/10 shadow-[inset_0_0_18px_#c6b4f8] backdrop-blur-lg" />
+        {clip.type === 'text' && shapeName && <div className="absolute inset-0 flex items-center justify-center bg-[#f8fafc]/90 dark:bg-[#142432]/90">
+            {shapeName.toLowerCase().includes('blur') ? <div className="relative h-4/5 w-4/5 rounded-md border border-white dark:border-cl-dark-line/35 bg-white dark:bg-cl-dark-panel/10 shadow-[inset_0_0_18px_#c6b4f8] backdrop-blur-lg" />
                 : <svg viewBox="0 0 100 76" className="h-[92%] max-h-[65px] w-[110px] max-w-[70%] drop-shadow-lg">{timelineShapePreview(shapeName, color)}</svg>}
         </div>}
         {clip.type === 'text' && !shapeName && <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[linear-gradient(110deg,#07566e,#1a7fa0_55%,#0e455a)] px-5 text-center">
@@ -896,7 +896,7 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasM
     const [name, setName] = useState(clip.name)
     const [trimDraft, setTrimDraft] = useState<{ edge: 'left' | 'right'; delta: number } | null>(null)
     const origin = useRef<{ x: number; edge: 'left' | 'right' } | null>(null)
-    const trackColor = clip.type === 'audio' ? 'bg-[#174b5c] border-[#2d92ab]' : clip.type === 'text' ? 'bg-[#207e9c] border-[#39b2d7]' : clip.type === 'image' ? 'bg-[#46577f] border-[#6f89ce]' : 'bg-[#7b2fbe] border-[#b875e9]'
+    const trackColor = clip.type === 'audio' ? 'bg-[#e8edef] dark:bg-[#174b5c] border-[#2d92ab]' : clip.type === 'text' ? 'bg-[#e9f2f5] dark:bg-[#207e9c] border-[#39b2d7]' : clip.type === 'image' ? 'bg-[#edeef2] dark:bg-[#46577f] border-[#6f89ce]' : 'bg-[#f2eaf9] dark:bg-[#7b2fbe] border-[#b875e9]'
     const boundedDelta = () => {
         if (!trimDraft) return 0
         if (trimDraft.edge === 'left') return clamp(trimDraft.delta, clip.type === 'text' || clip.type === 'image' ? -clip.start : Math.max(-clip.start, -clip.source_offset), clip.duration - MIN_CLIP)
@@ -1066,10 +1066,10 @@ function ClipBar({ clip, track, zoom, onMenu, onPointerDrag, multiSelected, hasM
         title={`${clip.name} · ${clip.start.toFixed(2)}s → ${(clip.start + clip.duration).toFixed(2)}s · Ctrl+click to multi-select · drag to move`}
         style={{ left: displayStart * zoom, width: Math.max(visualDuration * zoom, 8) }}
         className={`group absolute inset-y-1 z-[2] flex min-w-0 select-none items-center overflow-hidden rounded-lg border px-2 text-left text-[11px] ${trackColor} ${selected ? 'ring-2 ring-[#b9d7ff] shadow-[0_0_16px_#77a9ef99]' : 'hover:brightness-125'} ${track.hidden ? 'opacity-30' : ''} ${track.locked || clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${trimDraft && !validTrim ? 'ring-2 ring-red-400' : ''}`}>
-        {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white/40" />}
+        {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip start" title="Drag to trim start" onPointerDown={beginTrim('left')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 left-0 z-10 w-[9px] cursor-ew-resize rounded-l-md bg-black/15 hover:bg-white dark:hover:bg-cl-dark-panel/40" />}
         <TimelineClipVisual clip={clip} width={Math.max(8, visualDuration * zoom)} />
-        {editing && <input autoFocus className="relative z-20 ml-2 min-w-0 flex-1 rounded bg-black/75 px-1.5 py-1 text-white outline-none ring-1 ring-white/30" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }} />}
+        {editing && <input autoFocus className="relative z-20 ml-2 min-w-0 flex-1 rounded bg-black/75 px-1.5 py-1 text-white outline-none ring-1 ring-white dark:ring-cl-dark-line/30" value={name} maxLength={160} onChange={e => setName(e.target.value)} onClick={e => e.stopPropagation()} onBlur={commitName} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setName(clip.name); setEditing(false) } }} />}
         {trimDraft && <span className="pointer-events-none z-10 ml-auto whitespace-nowrap rounded bg-black/70 px-1 text-[10px] tabular-nums">{visualDuration.toFixed(2)}s</span>}
-        {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip end" title="Drag to trim end / change duration" onPointerDown={beginTrim('right')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 right-0 z-10 w-[9px] cursor-ew-resize rounded-r-md bg-black/15 hover:bg-white/40" />}
+        {!track.locked && !clip.locked && <span role="separator" aria-label="Trim clip end" title="Drag to trim end / change duration" onPointerDown={beginTrim('right')} onPointerMove={moveTrim} onPointerUp={endTrim} onPointerCancel={() => { origin.current = null; setTrimDraft(null) }} draggable={false} className="absolute inset-y-0 right-0 z-10 w-[9px] cursor-ew-resize rounded-r-md bg-black/15 hover:bg-white dark:hover:bg-cl-dark-panel/40" />}
     </div>
 }

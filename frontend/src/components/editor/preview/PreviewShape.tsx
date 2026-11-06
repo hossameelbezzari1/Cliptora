@@ -115,7 +115,7 @@ function BlurArea({mode,strength}:{mode:'gaussian'|'motion'|'mosaic';strength:nu
     frame = requestAnimationFrame(render)
     return ()=>cancelAnimationFrame(frame)
   },[mode,strength])
-  return <div ref={holder} className="relative h-full w-full overflow-hidden rounded-[10px] border border-white/45" style={{backgroundColor:'rgba(210,220,255,.035)',backdropFilter:`blur(${mode==='gaussian'?strength:3}px)`,WebkitBackdropFilter:`blur(${mode==='gaussian'?strength:3}px)`}}>
+  return <div ref={holder} className="relative h-full w-full overflow-hidden rounded-[10px] border border-white dark:border-cl-dark-line/45" style={{backgroundColor:'rgba(210,220,255,.035)',backdropFilter:`blur(${mode==='gaussian'?strength:3}px)`,WebkitBackdropFilter:`blur(${mode==='gaussian'?strength:3}px)`}}>
     {mode !== 'gaussian' && <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full"/>}
   </div>
 }

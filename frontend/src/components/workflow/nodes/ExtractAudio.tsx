@@ -7,8 +7,8 @@ import type { WorkflowNodeParametersProps, WorkflowNodeUI } from '../nodeTypes'
 import { InspectVideoSourceParameters } from '../InspectVideoPanels'
 import { mediaName } from '../../editor/library/mediaLibraryUtils'
 
-const inputClass = 'min-h-10 w-full rounded-lg border border-[#dedee3] bg-white px-3 py-2.5 text-[13px] text-[#292929] outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100'
-const sub = 'mt-1.5 text-[11px] leading-5 text-[#858585]'
+const inputClass = 'min-h-10 w-full rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2.5 text-[13px] text-[#292929] dark:text-[#f3f4f6] outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 dark:focus:ring-violet-900/70'
+const sub = 'mt-1.5 text-[11px] leading-5 text-[#858585] dark:text-[#b8bec7]'
 
 type Choice = { value: string; label: string }
 
@@ -17,9 +17,9 @@ function Section({ title, icon: Icon, children }: {
   icon: typeof AudioLines
   children: ReactNode
 }) {
-  return <section className="space-y-4 border-b border-[#e8e8e8] pb-5 last:border-b-0" data-extract-section={title}>
-    <h3 className="flex items-center gap-2 border-b border-[#ededed] pb-2 text-[13px] font-semibold text-[#303030]">
-      <Icon size={17} className="text-violet-600" aria-hidden="true" />{title}
+  return <section className="space-y-4 border-b border-[#e8e8e8] dark:border-[#374151] pb-5 last:border-b-0" data-extract-section={title}>
+    <h3 className="flex items-center gap-2 border-b border-[#ededed] dark:border-[#374151] pb-2 text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">
+      <Icon size={17} className="text-violet-600 dark:text-violet-300" aria-hidden="true" />{title}
     </h3>
     {children}
   </section>
@@ -30,7 +30,7 @@ function Select({ label, value, options, onChange, help, disabled }: {
   help?: string; disabled?: boolean
 }) {
   return <label className="block space-y-1.5">
-    <span className="block text-[12px] font-medium text-[#333]">{label}</span>
+    <span className="block text-[12px] font-medium text-[#333] dark:text-[#f3f4f6]">{label}</span>
     <select className={`${inputClass} cursor-pointer disabled:cursor-not-allowed disabled:opacity-50`}
       value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>
       {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -44,7 +44,7 @@ function TextInput({ label, value, onChange, placeholder, help, type = 'text', m
   placeholder?: string; help?: string; type?: 'text' | 'number'; min?: number; max?: number
 }) {
   return <label className="block space-y-1.5">
-    <span className="block text-[12px] font-medium text-[#333]">{label}</span>
+    <span className="block text-[12px] font-medium text-[#333] dark:text-[#f3f4f6]">{label}</span>
     <input className={inputClass} type={type} value={value} placeholder={placeholder}
       min={min} max={max} step={type === 'number' ? 'any' : undefined}
       onChange={event => onChange(event.target.value)} />
@@ -57,8 +57,8 @@ function Toggle({ label, description, checked, onChange, disabled }: {
 }) {
   return <label className={`flex cursor-pointer items-start justify-between gap-3 py-3 ${disabled ? 'opacity-50' : ''}`}>
     <span className="min-w-0 flex-1">
-      <span className="block text-[12px] font-medium text-[#333]">{label}</span>
-      <span className="mt-1 block text-[11px] leading-5 text-[#888]">{description}</span>
+      <span className="block text-[12px] font-medium text-[#333] dark:text-[#f3f4f6]">{label}</span>
+      <span className="mt-1 block text-[11px] leading-5 text-[#888] dark:text-[#b8bec7]">{description}</span>
     </span>
     <input type="checkbox" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}
       className="mt-0.5 size-4 shrink-0 cursor-pointer accent-violet-600 disabled:cursor-not-allowed" />
@@ -92,8 +92,8 @@ function Parameters({ node, onChange, studio }: WorkflowNodeParametersProps) {
         ]}
         onChange={next => set('source_mode', next)} />
 
-      {mode === 'auto' && <p className="flex items-start gap-2 text-[11px] leading-5 text-[#747474]">
-        <Info size={15} className="mt-0.5 shrink-0 text-violet-600" />
+      {mode === 'auto' && <p className="flex items-start gap-2 text-[11px] leading-5 text-[#747474] dark:text-[#b8bec7]">
+        <Info size={15} className="mt-0.5 shrink-0 text-violet-600 dark:text-violet-300" />
         {hasPrevious
           ? `Uses the video selected in this workflow${selectedSource ? `: ${selectedSource.filename}` : ''}. Connected upstream nodes provide their metadata without another upload.`
           : 'No previous node connected. Select a workflow video below, or connect Inspect Video.'}
@@ -109,8 +109,8 @@ function Parameters({ node, onChange, studio }: WorkflowNodeParametersProps) {
         uploadRef={uploadRef}
         working={studio.working}
       />}
-      {mode === 'auto' && hasPrevious && selectedSource && <div className="flex items-center gap-2 text-[12px] text-[#666]">
-        <FolderOpen size={15} className="text-violet-600" />
+      {mode === 'auto' && hasPrevious && selectedSource && <div className="flex items-center gap-2 text-[12px] text-[#666] dark:text-[#b8bec7]">
+        <FolderOpen size={15} className="text-violet-600 dark:text-violet-300" />
         <span className="truncate" title={selectedSource.filename}>{selectedSource.filename}</span>
       </div>}
     </Section>
@@ -154,7 +154,7 @@ function Parameters({ node, onChange, studio }: WorkflowNodeParametersProps) {
             { value: 'stereo', label: 'Stereo' },
           ]} onChange={next => set('channels', next)} />
       </>}
-      {copy && <p className="flex items-start gap-2 text-[11px] leading-5 text-[#777]"><Info size={15}/>
+      {copy && <p className="flex items-start gap-2 text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]"><Info size={15}/>
         Copy preserves the original audio codec in a Matroska audio file (.mka). Sample rate, channels and normalization are unavailable.
       </p>}
     </Section>
@@ -176,7 +176,7 @@ function Parameters({ node, onChange, studio }: WorkflowNodeParametersProps) {
         onChange={next => set('output_filename', next)} help="Use {{video_name}} to insert the source filename. Extension is added automatically." />
     </Section>
 
-    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#888]">
+    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#888] dark:text-[#b8bec7]">
       <Gauge size={14} className="mt-0.5 shrink-0" />
       Extract Audio creates a new file without modifying the source. Outputs are passed to following nodes automatically.
     </p>
@@ -200,32 +200,32 @@ function Output({ value }: { value: unknown }) {
   const raw = Array.isArray(value) ? value[0] : value
   const payload = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {}
   const entries = Array.isArray(payload.audio_files) ? payload.audio_files.filter((item): item is AudioEntry => Boolean(item) && typeof item === 'object') : []
-  if (!entries.length) return <div className="p-4 text-[12px] text-[#777]">No audio output yet. Execute the node to extract audio.</div>
+  if (!entries.length) return <div className="p-4 text-[12px] text-[#777] dark:text-[#b8bec7]">No audio output yet. Execute the node to extract audio.</div>
   return <div className="space-y-4 p-4" data-extract-audio-output>
-    <div className="flex items-center gap-2 border-b border-[#e8e8e8] pb-3">
-      <FileAudio size={18} className="text-violet-600" />
-      <div><p className="text-[13px] font-semibold text-[#333]">Audio extracted</p><p className="text-[11px] text-[#888]">{entries.length} {entries.length === 1 ? 'audio file' : 'audio files'} · Ready for next nodes</p></div>
+    <div className="flex items-center gap-2 border-b border-[#e8e8e8] dark:border-[#374151] pb-3">
+      <FileAudio size={18} className="text-violet-600 dark:text-violet-300" />
+      <div><p className="text-[13px] font-semibold text-[#333] dark:text-[#f3f4f6]">Audio extracted</p><p className="text-[11px] text-[#888] dark:text-[#b8bec7]">{entries.length} {entries.length === 1 ? 'audio file' : 'audio files'} · Ready for next nodes</p></div>
     </div>
-    {entries.map((entry, index) => <section key={`${entry.filename ?? index}-${index}`} className="space-y-3 border-b border-[#ededed] pb-4 last:border-b-0">
-      <div className="flex items-start gap-2"><Volume2 size={17} className="mt-0.5 shrink-0 text-violet-600" />
+    {entries.map((entry, index) => <section key={`${entry.filename ?? index}-${index}`} className="space-y-3 border-b border-[#ededed] dark:border-[#374151] pb-4 last:border-b-0">
+      <div className="flex items-start gap-2"><Volume2 size={17} className="mt-0.5 shrink-0 text-violet-600 dark:text-violet-300" />
         <div className="min-w-0 flex-1">
-          <p className="break-all text-[12px] font-semibold text-[#333]">{entry.filename ?? `Audio track ${index}`}</p>
-          <p className="mt-1 text-[11px] text-[#888]">{String(entry.format ?? 'audio').toUpperCase()} · {entry.codec ?? 'unknown codec'} · Track {entry.track ?? index}</p>
+          <p className="break-all text-[12px] font-semibold text-[#333] dark:text-[#f3f4f6]">{entry.filename ?? `Audio track ${index}`}</p>
+          <p className="mt-1 text-[11px] text-[#888] dark:text-[#b8bec7]">{String(entry.format ?? 'audio').toUpperCase()} · {entry.codec ?? 'unknown codec'} · Track {entry.track ?? index}</p>
         </div>
       </div>
       {entry.url && entry.format !== 'copy' && <audio controls preload="metadata" className="h-10 w-full" src={entry.url} />}
-      <div className="grid grid-cols-2 gap-y-2 text-[11px] text-[#666]">
+      <div className="grid grid-cols-2 gap-y-2 text-[11px] text-[#666] dark:text-[#b8bec7]">
         <span className="flex items-center gap-1"><Clock3 size={13}/> Duration: {entry.duration ?? '—'} s</span>
         <span>Size: {typeof entry.size_bytes === 'number' ? `${(entry.size_bytes / 1048576).toFixed(2)} MB` : '—'}</span>
         <span>Sample rate: {entry.sample_rate ?? '—'} Hz</span>
         <span>Channels: {entry.channels ?? '—'}</span>
       </div>
-      {entry.download_url && <a href={entry.download_url} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-violet-700 hover:underline">
+      {entry.download_url && <a href={entry.download_url} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-violet-700 dark:text-violet-300 hover:underline">
         <Download size={15}/> Download audio
       </a>}
-      {!entry.url && <p className="text-[11px] text-[#999]">Audio file is available to downstream workflow nodes. Preview is available for saved executions.</p>}
+      {!entry.url && <p className="text-[11px] text-[#4b5563] dark:text-[#999]">Audio file is available to downstream workflow nodes. Preview is available for saved executions.</p>}
     </section>)}
-    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#888]"><WandSparkles size={14} className="mt-0.5 shrink-0" />
+    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#888] dark:text-[#b8bec7]"><WandSparkles size={14} className="mt-0.5 shrink-0" />
       Switch to JSON to inspect the output metadata. The legacy audio path remains available for Transcribe Every Word.
     </p>
   </div>

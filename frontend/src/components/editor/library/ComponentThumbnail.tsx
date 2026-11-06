@@ -20,19 +20,19 @@ export function shapeCategory(name: string): 'Text' | 'Blur' | 'Shapes' {
 export function ComponentThumbnail({ name, compact = false }: { name: string; compact?: boolean }) {
   const gradientId = useId().replace(/:/g, '')
   if (name === 'Empty Element') {
-    return <div className="flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-[#7654b5] bg-[radial-gradient(circle_at_center,_#302346_0%,_#171a21_72%)] text-[#c6a4ff]">
+    return <div className="flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-[#e1d9ef] dark:border-[#7654b5] bg-[radial-gradient(circle_at_center,_#302346_0%,_#171a21_72%)] text-[#c6a4ff]">
       <GitBranch size={compact ? 25 : 31}/><span className="text-[9px] font-semibold tracking-wide">WORKFLOW</span>
     </div>
   }
   if (name in blurSource) {
-    return <div className="relative h-full w-full overflow-hidden bg-[#2b2a34]">
+    return <div className="relative h-full w-full overflow-hidden bg-[#f8fafc] dark:bg-[#2b2a34]">
       <img className="h-full w-full object-cover" loading="lazy" src={blurSource[name]} alt={`${name} preview: a person's face partially obscured by this blur`} />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
       <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/65 px-1.5 py-0.5 text-[9px] font-medium text-white/90">{name === 'Blur Box' ? 'Gaussian' : name === 'Mosaic Blur Box' ? 'Mosaic' : 'Motion'}</span>
     </div>
   }
   if (name === 'Text') {
-    return <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-[radial-gradient(ellipse_at_center,_#36284a_0%,_#1b1d26_65%)] text-white">
+    return <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-[radial-gradient(ellipse_at_center,_#36284a_0%,_#1b1d26_65%)] text-gray-900 dark:text-white">
       <span className={`${compact ? 'text-3xl' : 'text-4xl'} font-extrabold tracking-tight drop-shadow-[0_3px_15px_#7b54e8]`}>Aa</span>
       <span className="text-[9px] tracking-widest text-[#c4a4fb]">TEXT</span>
     </div>
@@ -66,7 +66,7 @@ export function SavedComponentThumbnail({ snapshot, kind }: { snapshot?: Record<
   if (kind === 'group') return <div className="flex h-full items-center justify-center gap-1 bg-gradient-to-br from-[#35284e] to-[#171a21] text-[#bc93fc]" aria-label="Saved group preview"><Layers3 size={29}/><Boxes size={22}/></div>
   if (snapshot?.type === 'text') {
     const label = typeof snapshot.text === 'string' ? snapshot.text : 'Aa'
-    return <div className="flex h-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#32214b] to-[#171a23] px-3 text-center text-base font-bold text-[#e5d4ff]" aria-label="Saved text preview">{label.slice(0, 24) || 'Aa'}</div>
+    return <div className="flex h-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#32214b] to-[#171a23] px-3 text-center text-base font-bold text-[#7e758c] dark:text-[#e5d4ff]" aria-label="Saved text preview">{label.slice(0, 24) || 'Aa'}</div>
   }
   const Icon = snapshot?.type === 'video' ? Film : snapshot?.type === 'image' ? ImageIcon : snapshot?.type === 'audio' ? AudioLines : snapshot?.type === 'text' ? Type : FolderOpen
   return <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#253a55] to-[#171a23] text-[#86bfff]" aria-label="Saved component preview"><Icon size={32}/></div>

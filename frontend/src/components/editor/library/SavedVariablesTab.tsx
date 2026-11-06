@@ -64,35 +64,35 @@ export function SavedVariablesTab({ library, search, onTest }: {
     try { await navigator.clipboard.writeText(reference); setCopied(name) } catch { /* clipboard may be disabled */ }
   }
 
-  return <section className="min-w-0 rounded-xl border border-[#2d3b4c] bg-[#141e2b] p-3 cl-vars-card">
+  return <section className="min-w-0 rounded-xl border border-[#d1d4d8] dark:border-[#2d3b4c] bg-[#f8fafc] dark:bg-[#141e2b] p-3 cl-vars-card">
     <div className="mb-2 flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#a05dfc] to-[#6438d6]"><Database size={15}/></span>
-        <h3 className="truncate text-[13px] font-semibold text-white">Saved Variables <span className="ml-1 rounded-full bg-[#302d4f] px-2 py-0.5 text-[10px] text-[#d7c6ff]">{total}</span></h3>
+        <h3 className="truncate text-[13px] font-semibold text-gray-900 dark:text-white">Saved Variables <span className="ml-1 rounded-full bg-[#eaeaed] dark:bg-[#302d4f] px-2 py-0.5 text-[10px] text-[#d7c6ff]">{total}</span></h3>
       </div>
-      <button type="button" onClick={() => { void refresh() }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#354359] bg-[#1b2737] px-2.5 py-1.5 text-[10px] text-[#cbd6e6]"><RefreshCw size={13}/> Refresh</button>
+      <button type="button" onClick={() => { void refresh() }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#d3d6da] dark:border-[#354359] bg-[#f8fafc] dark:bg-[#1b2737] px-2.5 py-1.5 text-[10px] text-[#4b5563] dark:text-[#cbd6e6]"><RefreshCw size={13}/> Refresh</button>
     </div>
     <p className="mb-3 text-[10px] text-[#94a3ba]">Your custom global variables are stored in MySQL.</p>
-    <div className="min-w-0 overflow-x-auto rounded-lg border border-[#2f3d50]">
+    <div className="min-w-0 overflow-x-auto rounded-lg border border-[#d1d4d9] dark:border-[#2f3d50]">
       <table className="w-full min-w-[340px] border-collapse text-left text-[10px]">
-        <thead><tr className="bg-[#1d2b3c] text-[#b6c8e2]"><th className="px-2 py-2 font-medium">Name</th><th className="px-2 py-2 font-medium">Type</th><th className="px-2 py-2 font-medium">Value</th><th className="px-2 py-2 text-right font-medium">Actions</th></tr></thead>
+        <thead><tr className="bg-[#e8eaec] dark:bg-[#1d2b3c] text-[#b6c8e2]"><th className="px-2 py-2 font-medium">Name</th><th className="px-2 py-2 font-medium">Type</th><th className="px-2 py-2 font-medium">Value</th><th className="px-2 py-2 text-right font-medium">Actions</th></tr></thead>
         <tbody>
           {saved.map(item => {
             const type = getString(item.payload.type || 'string')
             const Icon = iconFor(type)
             const displayed = getString(item.payload.value)
-            return <tr key={item.id} className="border-t border-[#2c3949] bg-[#131e2a] text-[#e2ebf7] hover:bg-[#1c293b]">
+            return <tr key={item.id} className="border-t border-[#d1d5db] dark:border-[#2c3949] bg-[#f8fafc] dark:bg-[#131e2a] text-[#4b5563] dark:text-[#e2ebf7] hover:bg-[#e8eaeb] dark:hover:bg-[#1c293b]">
               <td className="max-w-[150px] px-2 py-2"><button type="button" onClick={() => onTest(item.name)} title={`Test {{${item.name}}}`} className="flex min-w-0 items-center gap-2 text-left hover:text-[#cbb0ff]">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#2d2b4d] text-[#d4b8fe]"><Icon size={14}/></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eaeaed] dark:bg-[#2d2b4d] text-[#d4b8fe]"><Icon size={14}/></span>
                 <span className="truncate font-medium">{item.name}</span>
               </button></td>
               <td className="max-w-20 px-2 py-2 capitalize text-[#aabbd1]">{type}</td>
               <td className="max-w-[150px] px-2 py-2"><span className="block truncate" title={displayed}>{type === 'boolean' ? (item.payload.value ? 'true' : 'false') : displayed || '—'}</span></td>
               <td className="px-1.5 py-1.5"><div className="flex justify-end gap-1">
-                <button type="button" onClick={() => editCopy(item)} aria-label={`Edit a copy of ${item.name}`} title="Edit as a new copy" className="rounded-md bg-[#243246] p-1.5 text-[#d5e0f0] hover:bg-[#394965]"><Edit3 size={13}/></button>
-                <button type="button" disabled={busy || duplicating !== null} onClick={() => { void duplicate(item) }} aria-label={`Duplicate ${item.name}`} title="Duplicate variable" className="rounded-md bg-[#243246] p-1.5 text-[#d5e0f0] hover:bg-[#394965] disabled:opacity-40"><Copy size={13}/></button>
-                <button type="button" onClick={() => { void copy(item.name) }} aria-label={`Copy reference for ${item.name}`} title="Copy variable reference" className="rounded-md bg-[#243246] p-1.5 text-[#d5e0f0] hover:bg-[#394965]">{copied === item.name ? <Check size={13}/> : <Braces size={13}/>}</button>
-                <button type="button" disabled={busy} onClick={() => { void remove(item) }} aria-label={`Delete ${item.name}`} title="Delete variable" className="rounded-md bg-[#30232e] p-1.5 text-rose-400 hover:bg-[#4a2c3c] disabled:opacity-40"><Trash2 size={13}/></button>
+                <button type="button" onClick={() => editCopy(item)} aria-label={`Edit a copy of ${item.name}`} title="Edit as a new copy" className="rounded-md bg-[#e9ebed] dark:bg-[#243246] p-1.5 text-[#4b5563] dark:text-[#d5e0f0] hover:bg-[#ebedf0] dark:hover:bg-[#394965]"><Edit3 size={13}/></button>
+                <button type="button" disabled={busy || duplicating !== null} onClick={() => { void duplicate(item) }} aria-label={`Duplicate ${item.name}`} title="Duplicate variable" className="rounded-md bg-[#e9ebed] dark:bg-[#243246] p-1.5 text-[#4b5563] dark:text-[#d5e0f0] hover:bg-[#ebedf0] dark:hover:bg-[#394965] disabled:opacity-40"><Copy size={13}/></button>
+                <button type="button" onClick={() => { void copy(item.name) }} aria-label={`Copy reference for ${item.name}`} title="Copy variable reference" className="rounded-md bg-[#e9ebed] dark:bg-[#243246] p-1.5 text-[#4b5563] dark:text-[#d5e0f0] hover:bg-[#ebedf0] dark:hover:bg-[#394965]">{copied === item.name ? <Check size={13}/> : <Braces size={13}/>}</button>
+                <button type="button" disabled={busy} onClick={() => { void remove(item) }} aria-label={`Delete ${item.name}`} title="Delete variable" className="rounded-md bg-[#f8fafc] dark:bg-[#30232e] p-1.5 text-rose-700 dark:text-rose-400 hover:bg-[#f8fafc] dark:hover:bg-[#4a2c3c] disabled:opacity-40"><Trash2 size={13}/></button>
               </div></td>
             </tr>
           })}

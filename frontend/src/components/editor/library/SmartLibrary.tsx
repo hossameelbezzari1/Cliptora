@@ -15,12 +15,12 @@ export function SmartLibrary({ active }: { active: Tab }) {
     : active === 'animations' ? 'Animations'
     : active === 'transitions' ? 'Transitions' : 'Library'
 
-  return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 text-xs text-white">
+  return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 text-xs text-gray-900 dark:text-white">
     {active !== 'effects' && active !== 'animations' && active !== 'transitions' && active !== 'variables' && <header className="mb-3 flex shrink-0 items-center justify-between gap-2">
       <strong className="text-sm">{title}</strong>
       <button type="button" className={buttonClass} onClick={() => void library.refresh()}>Refresh</button>
     </header>}
-    {library.error && <p role="alert" className="mb-3 rounded bg-red-900/30 p-2 text-red-300">{library.error}</p>}
+    {library.error && <p role="alert" className="mb-3 rounded bg-red-50/30 dark:bg-red-900/30 p-2 text-red-700 dark:text-red-300">{library.error}</p>}
     {active === 'components' && <ComponentsTab library={library}/>}
     {active === 'variables' && <VariablesTab library={library}/>}
     {active === 'effects' && <EffectsTab library={library}/>}

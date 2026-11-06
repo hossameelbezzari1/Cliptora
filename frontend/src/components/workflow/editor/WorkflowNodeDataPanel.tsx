@@ -16,10 +16,10 @@ function BrandIcon({ text, type, size = 23 }: { text: string; type: string; size
 
 function EmptyData({ title, message, action, icon }: { title: string; message: string; action?: ReactNode; icon?: ReactNode }) {
   return <div className="flex h-full min-h-[250px] flex-col items-center justify-center px-5 text-center">
-    <div className="mb-3 flex size-9 items-center justify-center text-[#454545]">{icon ?? <ArrowRight size={30} strokeWidth={1.7}/>}</div>
-    <p className="text-[15px] font-medium text-[#424242]">{title}</p>
+    <div className="mb-3 flex size-9 items-center justify-center text-[#454545] dark:text-[#b8bec7]">{icon ?? <ArrowRight size={30} strokeWidth={1.7}/>}</div>
+    <p className="text-[15px] font-medium text-[#424242] dark:text-[#f3f4f6]">{title}</p>
     {action && <div className="mt-4">{action}</div>}
-    <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-[#646464]">{message}</p>
+    <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-[#646464] dark:text-[#b8bec7]">{message}</p>
   </div>
 }
 
@@ -50,11 +50,11 @@ function itemCountLabel(value: unknown) {
 function JsonSyntax({ value }: { value: unknown }) {
   const source = formatJSON(value)
   const tokens = source.split(/("(?:\\.|[^"\\])*"\s*:|"(?:\\.|[^"\\])*"|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g)
-  return <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.8] text-[#454545]">{tokens.map((token, index) => {
+  return <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.8] text-[#454545] dark:text-[#b8bec7]">{tokens.map((token, index) => {
     const trimmed = token.trim()
-    const color = trimmed.startsWith('"') && trimmed.endsWith(':') ? 'text-[#586575]'
-      : trimmed.startsWith('"') ? 'text-[#8a36e7]'
-        : /^(?:true|false|null)$/.test(trimmed) ? 'text-[#c55c1c]'
+    const color = trimmed.startsWith('"') && trimmed.endsWith(':') ? 'text-[#586575] dark:text-[#b8bec7]'
+      : trimmed.startsWith('"') ? 'text-[#8a36e7] dark:text-[#ceabf5]'
+        : /^(?:true|false|null)$/.test(trimmed) ? 'text-[#c55c1c] dark:text-[#e7bba0]'
           : /^-?\d/.test(trimmed) ? 'text-[#14965e]' : ''
     return <span key={index} className={color}>{token}</span>
   })}</pre>
@@ -67,20 +67,20 @@ function SchemaBranch({ name, value, level = 0 }: { name: string; value: unknown
   const kind = isArray ? '[]' : nested ? '{}' : typeof value === 'number' ? '#' : typeof value === 'string' ? 'Aa' : '•'
   return <div className="min-w-0" style={{ paddingLeft: level ? 13 : 0 }}>
     {nested ? <details open={level < 2} className="group/branch">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-[12px] hover:bg-[#ededed] [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={14} className="shrink-0 text-[#777] transition-transform group-open/branch:rotate-90" />
-        <span className="rounded border border-[#e7e7e7] bg-white px-1.5 py-0.5 font-mono text-[11px] text-[#777]">{kind}</span>
-        <span className="truncate font-medium text-[#333]">{name}</span>
-        <span className="text-[11px] text-[#999]">{isArray ? `${value.length} items` : `${entries.length} fields`}</span>
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-[12px] hover:bg-[#ededed] dark:hover:bg-[#1f2937] [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={14} className="shrink-0 text-[#777] dark:text-[#b8bec7] transition-transform group-open/branch:rotate-90" />
+        <span className="rounded border border-[#e7e7e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-1.5 py-0.5 font-mono text-[11px] text-[#777] dark:text-[#b8bec7]">{kind}</span>
+        <span className="truncate font-medium text-[#333] dark:text-[#f3f4f6]">{name}</span>
+        <span className="text-[11px] text-[#4b5563] dark:text-[#999]">{isArray ? `${value.length} items` : `${entries.length} fields`}</span>
       </summary>
-      <div className="ml-[7px] border-l border-dashed border-[#d3d8e0] pl-2">
+      <div className="ml-[7px] border-l border-dashed border-[#d3d8e0] dark:border-[#374151] pl-2">
         {entries.map(([key, item]) => <SchemaBranch key={key} name={isArray ? `item ${Number(key) + 1} (example)` : key} value={item} level={level + 1} />)}
       </div>
-    </details> : <div className="flex min-w-0 items-center gap-2 rounded-md py-[5px] text-[12px] hover:bg-[#ededed]">
+    </details> : <div className="flex min-w-0 items-center gap-2 rounded-md py-[5px] text-[12px] hover:bg-[#ededed] dark:hover:bg-[#1f2937]">
       <span className="w-[14px] shrink-0" />
-      <span className="rounded border border-[#e7e7e7] bg-white px-1.5 py-0.5 font-mono text-[11px] text-[#777]">{kind}</span>
-      <span className="shrink-0 font-medium text-[#333]">{name}</span>
-      <span className="min-w-0 truncate text-[#555]" title={displayValue(value)}>{displayValue(value)}</span>
+      <span className="rounded border border-[#e7e7e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-1.5 py-0.5 font-mono text-[11px] text-[#777] dark:text-[#b8bec7]">{kind}</span>
+      <span className="shrink-0 font-medium text-[#333] dark:text-[#f3f4f6]">{name}</span>
+      <span className="min-w-0 truncate text-[#555] dark:text-[#b8bec7]" title={displayValue(value)}>{displayValue(value)}</span>
     </div>}
   </div>
 }
@@ -91,25 +91,25 @@ function DataInspector({ value, view, label, query, onCopy }: { value: unknown; 
   const q = query.toLowerCase().trim()
   const matchingRows = q ? rows.filter(row => JSON.stringify(row).toLowerCase().includes(q)) : rows
   if (view === 'json') return <div className="relative min-h-0 p-4">
-    <button type="button" onClick={onCopy} title="Copy JSON" aria-label={`Copy ${label} JSON`} className="absolute right-5 top-5 grid size-8 place-items-center rounded-full border border-[#e3e3e3] bg-white text-[#555] shadow-sm hover:bg-[#efefef]"><Copy size={15} /></button>
+    <button type="button" onClick={onCopy} title="Copy JSON" aria-label={`Copy ${label} JSON`} className="absolute right-5 top-5 grid size-8 place-items-center rounded-full border border-[#e3e3e3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#555] dark:text-[#b8bec7] shadow-sm hover:bg-[#efefef] dark:hover:bg-[#1f2937]"><Copy size={15} /></button>
     <div className="overflow-auto pr-10"><JsonSyntax value={q ? matchingRows : value}/></div>
   </div>
   if (view === 'table') {
     const visibleRows = matchingRows.slice(0, 500)
     const columns = [...new Set(visibleRows.flatMap(row => Object.keys(row)))].slice(0, 50)
-    if (!columns.length) return <p className="p-4 text-[12px] text-[#888]">No matching data.</p>
+    if (!columns.length) return <p className="p-4 text-[12px] text-[#888] dark:text-[#b8bec7]">No matching data.</p>
     return <div className="min-h-0 overflow-auto p-3"><table className="w-full min-w-[300px] border-collapse text-left text-[12px]">
-      <thead><tr>{columns.map(column => <th key={column} className="sticky top-0 whitespace-nowrap border border-[#d9d9de] bg-[#f2f2f2] p-2 font-semibold text-[#333]">{column}</th>)}</tr></thead>
-      <tbody>{visibleRows.map((row, index) => <tr key={index} className="hover:bg-white">{columns.map(column => <td key={column} className="max-w-[260px] truncate border border-[#dedee3] px-2 py-2 text-[#454545]" title={displayValue(row[column])}>{displayValue(row[column])}</td>)}</tr>)}</tbody>
-    </table>{matchingRows.length > 500 && <p className="p-2 text-xs text-[#888]">Showing the first 500 of {matchingRows.length} items.</p>}</div>
+      <thead><tr>{columns.map(column => <th key={column} className="sticky top-0 whitespace-nowrap border border-[#d9d9de] dark:border-[#374151] bg-[#f2f2f2] dark:bg-[#1f2937] p-2 font-semibold text-[#333] dark:text-[#f3f4f6]">{column}</th>)}</tr></thead>
+      <tbody>{visibleRows.map((row, index) => <tr key={index} className="hover:bg-white dark:hover:bg-cl-dark-panel">{columns.map(column => <td key={column} className="max-w-[260px] truncate border border-[#dedee3] dark:border-[#374151] px-2 py-2 text-[#454545] dark:text-[#b8bec7]" title={displayValue(row[column])}>{displayValue(row[column])}</td>)}</tr>)}</tbody>
+    </table>{matchingRows.length > 500 && <p className="p-2 text-xs text-[#888] dark:text-[#b8bec7]">Showing the first 500 of {matchingRows.length} items.</p>}</div>
   }
-  if (!matchingRows.length) return <p className="p-4 text-[12px] text-[#888]">No matching data.</p>
+  if (!matchingRows.length) return <p className="p-4 text-[12px] text-[#888] dark:text-[#b8bec7]">No matching data.</p>
   return <div className="min-h-0 space-y-2 overflow-auto p-3">
     {matchingRows.slice(0, 50).map((record, index) => <details key={index} open={index === 0} className="rounded-md">
-      <summary className="cursor-pointer rounded-md px-2 py-2 text-[12px] font-medium text-[#444] hover:bg-[#ededed]">{matchingRows.length > 1 ? `Item ${index + 1}` : 'Fields'}</summary>
+      <summary className="cursor-pointer rounded-md px-2 py-2 text-[12px] font-medium text-[#444] dark:text-[#b8bec7] hover:bg-[#ededed] dark:hover:bg-[#1f2937]">{matchingRows.length > 1 ? `Item ${index + 1}` : 'Fields'}</summary>
       <div className="pl-1">{Object.entries(record).map(([key, item]) => <SchemaBranch key={key} name={key} value={item} />)}</div>
     </details>)}
-    {matchingRows.length > 50 && <p className="p-2 text-xs text-[#888]">Showing 50 of {matchingRows.length} items.</p>}
+    {matchingRows.length > 50 && <p className="p-2 text-xs text-[#888] dark:text-[#b8bec7]">Showing 50 of {matchingRows.length} items.</p>}
   </div>
 }
 
@@ -121,9 +121,9 @@ export function WorkflowNodePanelDivider({ side, onPointerDown, onKeyDown }: {
   return <div role="separator" aria-label={`Resize ${side} and parameters panels`} aria-orientation="vertical"
     aria-valuemin={15} aria-valuemax={85} tabIndex={0}
     onPointerDown={event => onPointerDown(event, side)} onKeyDown={event => onKeyDown(event, side)}
-    className="group relative z-20 hidden w-[9px] cursor-col-resize touch-none items-stretch justify-center bg-white outline-none hover:bg-[#ede5ff] focus-visible:bg-[#ede5ff] lg:flex">
-    <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#dddde2] group-hover:bg-[#8659e8]" />
-    <span className="pointer-events-none absolute top-[0px] left-1/2 z-30 grid h-6 w-[36px] -translate-x-1/2 place-items-center rounded-b-lg border border-t-0 border-[#dddde2] bg-white text-[#909090] shadow-sm group-hover:text-[#8450e6]"><GripVertical size={17} className="rotate-90" /></span>
+    className="group relative z-20 hidden w-[9px] cursor-col-resize touch-none items-stretch justify-center bg-white dark:bg-cl-dark-panel outline-none hover:bg-[#ede5ff] dark:hover:bg-[#1f2937] focus-visible:bg-[#ede5ff] dark:focus-visible:bg-[#1f2937] lg:flex">
+    <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#dddde2] dark:bg-[#1f2937] group-hover:bg-[#8659e8]" />
+    <span className="pointer-events-none absolute top-[0px] left-1/2 z-30 grid h-6 w-[36px] -translate-x-1/2 place-items-center rounded-b-lg border border-t-0 border-[#dddde2] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#909090] dark:text-[#b8bec7] shadow-sm group-hover:text-[#8450e6] dark:group-hover:text-[#cbb6f5]"><GripVertical size={17} className="rotate-90" /></span>
   </div>
 }
 
@@ -197,29 +197,29 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
     catch { onCopyStatus('Clipboard permission required') }
   }
 
-  const infoTabs = () => <div role="tablist" aria-label={`${side} data view`} className="flex shrink-0 items-center rounded-lg bg-[#e9e9eb] p-[3px]">
+  const infoTabs = () => <div role="tablist" aria-label={`${side} data view`} className="flex shrink-0 items-center rounded-lg bg-[#e9e9eb] dark:bg-[#1f2937] p-[3px]">
     {(['schema','table','json'] as const).map(mode => <button
       key={mode} role="tab" aria-selected={view === mode} aria-controls={`cliptora-node-${side}-viewer`}
       type="button" onClick={() => setView(mode)}
-      className={`cursor-pointer rounded-md px-2.5 py-1.5 text-[12px] capitalize transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 ${view === mode ? 'bg-white font-medium text-[#222] shadow-sm' : 'text-[#5b5b5f] hover:text-[#222]'}`}
+      className={`cursor-pointer rounded-md px-2.5 py-1.5 text-[12px] capitalize transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 ${view === mode ? 'bg-white dark:bg-cl-dark-panel font-medium text-[#222] dark:text-[#f3f4f6] shadow-sm' : 'text-[#5b5b5f] dark:text-[#b8bec7] hover:text-[#222] dark:hover:text-[#f3f4f6]'}`}
     >{mode === 'json' ? 'JSON' : titleize(mode)}</button>)}
   </div>
 
-  return <section className={`min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[#f7f7f7] ${mobilePanel === side ? 'flex' : 'hidden'} lg:flex`} aria-label={`${side.toUpperCase()} data`}>
-    <div className="flex min-h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] px-3">
-      <span className="text-[12px] font-medium tracking-[0.13em] text-[#777]">{side.toUpperCase()}</span>
+  return <section className={`min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[#f7f7f7] dark:bg-[#1f2937] ${mobilePanel === side ? 'flex' : 'hidden'} lg:flex`} aria-label={`${side.toUpperCase()} data`}>
+    <div className="flex min-h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e3e3e3] dark:border-[#374151] px-3">
+      <span className="text-[12px] font-medium tracking-[0.13em] text-[#777] dark:text-[#b8bec7]">{side.toUpperCase()}</span>
       <div className="flex min-w-0 items-center gap-2">
         <button type="button" aria-label={`Search ${side} data`} title="Search data" onClick={() => setDataSearchOpen(open => !open)}
-          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#aaa] hover:bg-[#e9e9e9] hover:text-[#444]"><Search size={17} /></button>
+          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#4b5563] dark:text-[#aaa] hover:bg-[#e9e9e9] dark:hover:bg-[#1f2937] hover:text-[#444] dark:hover:text-[#f3f4f6]"><Search size={17} /></button>
         {infoTabs()}
       </div>
     </div>
 
-    {dataSearchOpen && <div className="flex h-[44px] shrink-0 gap-2 border-b border-[#e7e7e7] p-1.5">
+    {dataSearchOpen && <div className="flex h-[44px] shrink-0 gap-2 border-b border-[#e7e7e7] dark:border-[#374151] p-1.5">
       <input autoFocus type="search" aria-label={`Filter ${side} data`} value={query} onChange={event => setQuery(event.target.value)}
-        placeholder="Search node names, fields or values..." className="min-w-0 flex-1 rounded-md border border-[#d4d4d4] bg-white px-2.5 text-[12px] outline-none focus:border-[#9461fc]" />
+        placeholder="Search node names, fields or values..." className="min-w-0 flex-1 rounded-md border border-[#d4d4d4] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2.5 text-[12px] outline-none focus:border-[#9461fc]" />
       <button type="button" title="Close search" onClick={() => { setDataSearchOpen(false); setQuery('') }}
-        className="cursor-pointer rounded-md px-2 text-[#777] hover:bg-[#e9e9e9]"><X size={15} /></button>
+        className="cursor-pointer rounded-md px-2 text-[#777] dark:text-[#b8bec7] hover:bg-[#e9e9e9] dark:hover:bg-[#1f2937]"><X size={15} /></button>
     </div>}
 
     {!left && selected && <NodeProgress
@@ -229,17 +229,17 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
       className="mx-3 mt-3"
     />}
 
-    {left && inputSources.length > 1 && view !== 'schema' && <div className="flex shrink-0 items-center gap-2 border-b border-[#e8e8e8] px-3 py-2">
-      <span className="text-[11px] text-[#777]">Data from</span>
+    {left && inputSources.length > 1 && view !== 'schema' && <div className="flex shrink-0 items-center gap-2 border-b border-[#e8e8e8] dark:border-[#374151] px-3 py-2">
+      <span className="text-[11px] text-[#777] dark:text-[#b8bec7]">Data from</span>
       <select aria-label="Select previous node data" value={activeInput?.id ?? ''} onChange={event => setSelectedInputId(event.target.value)}
-        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[#dedede] bg-white px-2 py-1.5 text-[12px] text-[#333] outline-none focus:border-[#9461fc]">
+        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[#dedede] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2 py-1.5 text-[12px] text-[#333] dark:text-[#f3f4f6] outline-none focus:border-[#9461fc]">
         {inputSources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}
       </select>
     </div>}
 
-    {!left && known && <div className="flex h-[34px] shrink-0 items-center justify-between border-b border-[#ededed] px-3 text-[11px] text-[#999]">
+    {!left && known && <div className="flex h-[34px] shrink-0 items-center justify-between border-b border-[#ededed] dark:border-[#374151] px-3 text-[11px] text-[#4b5563] dark:text-[#999]">
       <span>{itemCountLabel(value)}</span>
-      <button type="button" onClick={() => void loadData()} aria-label="Refresh output data" title="Refresh" className="cursor-pointer hover:text-[#555]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''} /></button>
+      <button type="button" onClick={() => void loadData()} aria-label="Refresh output data" title="Refresh" className="cursor-pointer hover:text-[#555] dark:hover:text-[#f3f4f6]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''} /></button>
     </div>}
 
     <div id={`cliptora-node-${side}-viewer`} role="tabpanel" aria-label={`${side.toUpperCase()} ${titleize(view)} view`}
@@ -250,24 +250,24 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
 
       {left && view === 'schema' && inputSources.length === 0 && <>
         {CustomInput && !query.trim() && <CustomInput source={activeVideoSource} hasUpstream={false} />}
-        {!CustomInput && <div className="px-4 py-4 text-[12px] text-[#777]">No previous nodes connected.</div>}
+        {!CustomInput && <div className="px-4 py-4 text-[12px] text-[#777] dark:text-[#b8bec7]">No previous nodes connected.</div>}
         <div className="px-3"><WorkflowVariablesContext studio={studio} /></div>
       </>}
 
       {left && view !== 'schema' && <>
-        {isSourcePreview && <p className="border-b border-[#e9e9e9] px-4 py-2 text-[11px] leading-5 text-[#777]">Selected video source · preview metadata, not execution output</p>}
-        {loadingData && !known ? <div className="flex min-h-[250px] items-center justify-center gap-2 text-xs text-[#888]"><LoaderCircle size={16} className="animate-spin" /> Loading data…</div>
+        {isSourcePreview && <p className="border-b border-[#e9e9e9] dark:border-[#374151] px-4 py-2 text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">Selected video source · preview metadata, not execution output</p>}
+        {loadingData && !known ? <div className="flex min-h-[250px] items-center justify-center gap-2 text-xs text-[#888] dark:text-[#b8bec7]"><LoaderCircle size={16} className="animate-spin" /> Loading data…</div>
           : known ? <DataInspector value={value} view={view} label={side} query={query} onCopy={() => void copyData(side, value)} />
             : <EmptyData title={`No input ${view === 'json' ? 'JSON' : 'table'} data`} message="Execute previous nodes to load real input data." />}
       </>}
 
       {!left && <>
-        {view === 'schema' && downstream.length > 0 && <div className="border-b border-[#e4e4e6] px-3 py-3">
+        {view === 'schema' && downstream.length > 0 && <div className="border-b border-[#e4e4e6] dark:border-[#374151] px-3 py-3">
           <button type="button" onClick={() => setShowNextNodes(open => !open)} aria-expanded={showNextNodes}
-            className="flex cursor-pointer items-center gap-2 py-1 text-[13px] font-medium text-[#333] hover:text-[#111]">
+            className="flex cursor-pointer items-center gap-2 py-1 text-[13px] font-medium text-[#333] dark:text-[#f3f4f6] hover:text-[#111] dark:hover:text-[#f3f4f6]">
             {showNextNodes ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
             <span>Next nodes</span>
-            <span className="rounded-md bg-[#eaeaec] px-1.5 py-0.5 text-[10px] text-[#777]">{downstream.length}</span>
+            <span className="rounded-md bg-[#eaeaec] dark:bg-[#1f2937] px-1.5 py-0.5 text-[10px] text-[#777] dark:text-[#b8bec7]">{downstream.length}</span>
           </button>
           {showNextNodes && <div className="space-y-0.5 pt-1 pl-6">
             {downstream.map(node => {
@@ -275,19 +275,19 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
               const label = typeof custom === 'string' && custom.trim() ? custom.trim()
                 : catalog.find(item => item.type === node.type)?.label ?? 'Workflow node'
               return <button key={node.id} type="button" onClick={() => studio.setSelectedId(node.id)} title={`Open ${label}`}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-[#ededed]">
-                <span className="grid size-8 shrink-0 place-items-center rounded-xl border border-[#e8e8e8] bg-white"><BrandIcon text={label} type={node.type} size={19} /></span>
-                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#383838]">{label}</span>
-                <span className="shrink-0 text-[10px] text-[#888]">{studio.run?.results?.[node.id]?.state ?? 'Not executed'}</span>
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-[#ededed] dark:hover:bg-[#1f2937]">
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl border border-[#e8e8e8] dark:border-[#374151] bg-white dark:bg-cl-dark-panel"><BrandIcon text={label} type={node.type} size={19} /></span>
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#383838] dark:text-[#f3f4f6]">{label}</span>
+                <span className="shrink-0 text-[10px] text-[#888] dark:text-[#b8bec7]">{studio.run?.results?.[node.id]?.state ?? 'Not executed'}</span>
               </button>
             })}
           </div>}
         </div>}
-        {loadingData && !known ? <div className="flex min-h-[180px] items-center justify-center gap-2 text-xs text-[#888]"><LoaderCircle size={16} className="animate-spin" /> Loading data…</div>
+        {loadingData && !known ? <div className="flex min-h-[180px] items-center justify-center gap-2 text-xs text-[#888] dark:text-[#b8bec7]"><LoaderCircle size={16} className="animate-spin" /> Loading data…</div>
           : known ? (CustomOutput && view === 'schema' && !query.trim()
             ? <CustomOutput value={value} />
             : <DataInspector value={value} view={view} label={side} query={query} onCopy={() => void copyData(side, value)} />)
-            : waitingForOutput ? <div className="px-5 py-8 text-center text-[12px] leading-6 text-[#777]">The output JSON will appear automatically when this node finishes.</div>
+            : waitingForOutput ? <div className="px-5 py-8 text-center text-[12px] leading-6 text-[#777] dark:text-[#b8bec7]">The output JSON will appear automatically when this node finishes.</div>
             : <EmptyData
                 title={isEntryTrigger ? 'No trigger output' : 'No output data'}
                 icon={isEntryTrigger ? <Zap size={23} fill="currentColor" strokeWidth={1.3} /> : undefined}

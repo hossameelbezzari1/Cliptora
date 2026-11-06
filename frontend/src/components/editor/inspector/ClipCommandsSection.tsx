@@ -12,8 +12,8 @@ type Binding = {
 }
 type Run = { id: number; binding_id: number; state: 'queued'|'running'|'completed'|'failed'; output: unknown; error: string | null }
 
-const inputClass = 'w-full min-w-0 rounded-lg border border-white/10 bg-[#25272f] px-2.5 py-2 text-xs text-white outline-none focus:border-[#aa82ef]'
-const btn = 'rounded-lg border border-[#474154] bg-[#24232d] px-2.5 py-2 text-[11px] text-[#e7def6] hover:border-[#926ce4] disabled:opacity-40'
+const inputClass = 'w-full min-w-0 rounded-lg border border-white dark:border-cl-dark-line/10 bg-[#f8fafc] dark:bg-[#25272f] px-2.5 py-2 text-xs text-gray-900 dark:text-white outline-none focus:border-[#aa82ef]'
+const btn = 'rounded-lg border border-[#d1d5db] dark:border-[#474154] bg-[#f8fafc] dark:bg-[#24232d] px-2.5 py-2 text-[11px] text-[#4b5563] dark:text-[#e7def6] hover:border-[#926ce4] disabled:opacity-40'
 const example: Record<CommandKind, { config: Record<string, unknown>; inputs: Record<string, unknown>; description: string }> = {
   json_extract: {
     config: { path: 'comments.0.text' },
@@ -121,45 +121,45 @@ export function ClipCommandsSection({clipId}: {clipId: string}) {
     if (selectedCommandId === commandId) setSelectedCommandId('')
   })
 
-  return <section className="grid gap-3 border-t border-white/10 pt-3" data-clip-commands>
-    <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} className="flex items-center justify-between gap-2 text-left text-xs font-semibold text-white">
+  return <section className="grid gap-3 border-t border-white dark:border-cl-dark-line/10 pt-3" data-clip-commands>
+    <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} className="flex items-center justify-between gap-2 text-left text-xs font-semibold text-gray-900 dark:text-white">
       <span className="flex items-center gap-2"><TerminalSquare size={15} className="text-[#bc8aff]"/> Commands / Automation</span>
       <ChevronDown size={15} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>
     {open && <>
-      <p className="text-[11px] leading-5 text-[#999fad]">Attach reusable Python/Selenium/API workflows to this clip. Commands are saved in MySQL and can be attached to other clips or projects.</p>
+      <p className="text-[11px] leading-5 text-[#4b5563] dark:text-[#999fad]">Attach reusable Python/Selenium/API workflows to this clip. Commands are saved in MySQL and can be attached to other clips or projects.</p>
       <div className="flex items-center justify-between gap-2"><h4 className="text-[11px] font-semibold text-[#d7c5fa]">Attached commands ({bindings.length})</h4><button className={btn} title="Reload command history" type="button" onClick={() => { void refresh(true) }}><RefreshCw size={13}/></button></div>
-      {bindings.length === 0 && <p className="rounded-md border border-dashed border-[#3c354b] p-3 text-[11px] text-[#929aaa]">No command attached yet.</p>}
+      {bindings.length === 0 && <p className="rounded-md border border-dashed border-[#d1d5db] dark:border-[#3c354b] p-3 text-[11px] text-[#4b5563] dark:text-[#929aaa]">No command attached yet.</p>}
       {bindings.map(binding => {
         const definition = commands.find(c => c.id === binding.command_id)
         const latest = runs.find(r => r.binding_id === binding.id)
-        return <div className="grid gap-2 rounded-lg border border-[#494154] bg-[#23222b] p-2.5" key={binding.id}>
-          <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{definition?.name ?? 'Missing saved command'}</p><p className="text-[10px] text-[#a1a4af]">{definition?.kind ?? 'unknown'} · {binding.trigger}</p></div><label className="flex items-center gap-1 text-[10px] text-[#babfc9]"><input type="checkbox" checked={binding.enabled} disabled={busy} onChange={e => { void action(async () => { await api(`/commands/bindings/${binding.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: e.target.checked }) }) }) }}/>Enabled</label></div>
+        return <div className="grid gap-2 rounded-lg border border-[#d1d5db] dark:border-[#494154] bg-[#f8fafc] dark:bg-[#23222b] p-2.5" key={binding.id}>
+          <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{definition?.name ?? 'Missing saved command'}</p><p className="text-[10px] text-[#4b5563] dark:text-[#a1a4af]">{definition?.kind ?? 'unknown'} · {binding.trigger}</p></div><label className="flex items-center gap-1 text-[10px] text-[#4b5563] dark:text-[#babfc9]"><input type="checkbox" checked={binding.enabled} disabled={busy} onChange={e => { void action(async () => { await api(`/commands/bindings/${binding.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: e.target.checked }) }) }) }}/>Enabled</label></div>
           <div className="flex items-center gap-1.5"><button className={`${btn} flex items-center gap-1`} disabled={busy || !binding.enabled || isRunning} onClick={() => { void runBinding(binding) }}><Play size={13}/> Run</button><button className={`${btn} ml-auto`} title="Detach from element" disabled={busy} onClick={() => { void removeBinding(binding.id) }}><Trash2 size={13}/></button></div>
-          {latest && <div className="text-[10px] text-[#c9c1d9]">{latest.state === 'completed' ? <CheckCircle2 size={12} className="mr-1 inline text-green-400"/> : <Clock3 size={12} className="mr-1 inline text-[#bd9cea]"/>}#{latest.id} · {latest.state}{latest.error && <p className="mt-1 break-words text-red-300">{latest.error}</p>}{latest.state === 'completed' && <details className="mt-1"><summary className="cursor-pointer">View JSON output</summary><pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-[#18191f] p-2">{showJson(latest.output)}</pre></details>}</div>}
+          {latest && <div className="text-[10px] text-[#4b5563] dark:text-[#c9c1d9]">{latest.state === 'completed' ? <CheckCircle2 size={12} className="mr-1 inline text-green-700 dark:text-green-400"/> : <Clock3 size={12} className="mr-1 inline text-[#bd9cea]"/>}#{latest.id} · {latest.state}{latest.error && <p className="mt-1 break-words text-red-700 dark:text-red-300">{latest.error}</p>}{latest.state === 'completed' && <details className="mt-1"><summary className="cursor-pointer">View JSON output</summary><pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-[#f8fafc] dark:bg-[#18191f] p-2">{showJson(latest.output)}</pre></details>}</div>}
         </div>
       })}
       <h4 className="pt-1 text-[11px] font-semibold text-[#d7c5fa]">Attach a saved command</h4>
       <select aria-label="Saved commands" className={inputClass} value={selectedCommandId} onChange={e => setSelectedCommandId(e.target.value ? Number(e.target.value) : '')}>
         <option value="">Choose command…</option>{commands.map(c => <option key={c.id} value={c.id}>{c.name} ({c.kind})</option>)}
       </select>
-      <label className="grid gap-1 text-[11px] text-[#9ba1ab]">Trigger
+      <label className="grid gap-1 text-[11px] text-[#4b5563] dark:text-[#9ba1ab]">Trigger
         <select className={inputClass} value={trigger} onChange={e => setTrigger(e.target.value as Trigger)}><option value="manual">Manual</option><option value="on_start">On clip start (external event)</option><option value="on_end">On clip end (external event)</option><option value="on_repeat">On repeat (external event)</option></select>
       </label>
-      <label className="grid gap-1 text-[11px] text-[#9ba1ab]">Input JSON<textarea className={`${inputClass} resize-y font-mono`} rows={3} value={inputs} onChange={e => setInputs(e.target.value)}/></label>
-      <label className="grid gap-1 text-[11px] text-[#9ba1ab]">Result path → Global Variable name (JSON)<textarea className={`${inputClass} resize-y font-mono`} rows={2} value={mapping} onChange={e => setMapping(e.target.value)}/></label>
+      <label className="grid gap-1 text-[11px] text-[#4b5563] dark:text-[#9ba1ab]">Input JSON<textarea className={`${inputClass} resize-y font-mono`} rows={3} value={inputs} onChange={e => setInputs(e.target.value)}/></label>
+      <label className="grid gap-1 text-[11px] text-[#4b5563] dark:text-[#9ba1ab]">Result path → Global Variable name (JSON)<textarea className={`${inputClass} resize-y font-mono`} rows={2} value={mapping} onChange={e => setMapping(e.target.value)}/></label>
       <button className={`${btn} flex items-center justify-center gap-1`} disabled={busy || selectedCommandId === ''} onClick={() => { void addBinding() }}><Link2 size={14}/> Link command to this clip</button>
       <button className="mt-1 flex items-center gap-1 text-[11px] text-[#c9b2f0]" onClick={() => setShowAdvanced(v => !v)}><Plus size={14}/>{showAdvanced ? 'Close builder' : 'Create reusable command'}</button>
-      {showAdvanced && <div className="grid gap-2 rounded-xl border border-[#40394d] bg-[#1d1e24] p-3">
+      {showAdvanced && <div className="grid gap-2 rounded-xl border border-[#d1d5db] dark:border-[#40394d] bg-[#f8fafc] dark:bg-[#1d1e24] p-3">
         <input aria-label="Command name" className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="Command name"/>
         <select aria-label="Command type" className={inputClass} value={kind} onChange={e => selectKind(e.target.value as CommandKind)}><option value="selenium_youtube_comments">Selenium — YouTube comments</option><option value="http_json">HTTPS JSON API</option><option value="json_extract">JSON Extract / Transform</option></select>
-        <p className="text-[10px] leading-4 text-[#9299a6]">{example[kind].description}</p>
-        <label className="grid gap-1 text-[11px] text-[#a8a0b4]">Configuration JSON<textarea className={`${inputClass} resize-y font-mono`} rows={4} value={configuration} onChange={e => setConfiguration(e.target.value)} /></label>
+        <p className="text-[10px] leading-4 text-[#4b5563] dark:text-[#9299a6]">{example[kind].description}</p>
+        <label className="grid gap-1 text-[11px] text-[#4b5563] dark:text-[#a8a0b4]">Configuration JSON<textarea className={`${inputClass} resize-y font-mono`} rows={4} value={configuration} onChange={e => setConfiguration(e.target.value)} /></label>
         <button className={btn} disabled={busy || !name.trim()} onClick={() => { void saveCommand() }}>Save command to MySQL</button>
-        {selectedCommandId !== '' && <button className={`${btn} flex items-center justify-center gap-1 text-red-300`} disabled={busy} onClick={() => { void removeCommand(Number(selectedCommandId)) }}><Trash2 size={13}/> Delete selected saved command</button>}
+        {selectedCommandId !== '' && <button className={`${btn} flex items-center justify-center gap-1 text-red-700 dark:text-red-300`} disabled={busy} onClick={() => { void removeCommand(Number(selectedCommandId)) }}><Trash2 size={13}/> Delete selected saved command</button>}
       </div>}
-      {(error || message) && <p role={error ? 'alert' : 'status'} className={`flex gap-1.5 rounded-lg p-2 text-[11px] ${error ? 'bg-red-900/25 text-red-300' : 'bg-[#313044] text-[#d6c7ef]'}`}>{error && <AlertCircle size={14} className="shrink-0"/>}{error || message}</p>}
-      <p className="text-[10px] leading-4 text-[#838997]">For security, automatic triggers run only when an authorized caller dispatches an event. Simply scrubbing Preview will not launch Selenium. Credentials remain server-side.</p>
+      {(error || message) && <p role={error ? 'alert' : 'status'} className={`flex gap-1.5 rounded-lg p-2 text-[11px] ${error ? 'bg-red-50/25 dark:bg-red-900/25 text-red-700 dark:text-red-300' : 'bg-[#f8fafc] dark:bg-[#313044] text-[#d6c7ef]'}`}>{error && <AlertCircle size={14} className="shrink-0"/>}{error || message}</p>}
+      <p className="text-[10px] leading-4 text-[#838997] dark:text-[#b8bec7]">For security, automatic triggers run only when an authorized caller dispatches an event. Simply scrubbing Preview will not launch Selenium. Credentials remain server-side.</p>
     </>}
   </section>
 }

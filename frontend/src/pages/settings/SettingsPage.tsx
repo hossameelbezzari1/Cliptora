@@ -53,13 +53,13 @@ const providers = [
 ]
 
 const panel =
-  'rounded-2xl border border-[#e7e7eb] bg-white p-5 shadow-sm'
+  'rounded-2xl border border-[#e7e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-5 shadow-sm'
 
 const button =
-  'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#dedee3] bg-white px-3 py-2 text-xs font-semibold text-[#34343a] hover:bg-[#f7f7fa] disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2 text-xs font-semibold text-[#34343a] dark:text-[#f3f4f6] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-50'
 
 const darkButton =
-  `${button} border-[#232329] bg-[#232329] text-white hover:bg-[#3b3b42]`
+  `${button} border-[#d1d5db] dark:border-[#232329] bg-[#f8fafc] dark:bg-[#232329] text-gray-900 dark:text-white hover:bg-[#f8fafc] dark:hover:bg-[#3b3b42]`
 
 export function SettingsPage() {
   const [healthy, setHealthy] =
@@ -246,20 +246,20 @@ export function SettingsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-[#202024]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#1f2937] text-[#202024] dark:text-[#f3f4f6]">
       <Header />
 
       <main className="mx-auto max-w-4xl px-5 py-10">
         <Link
           to="/dashboard"
-          className="inline-flex items-center gap-2 text-xs text-[#777] hover:text-[#333]"
+          className="inline-flex items-center gap-2 text-xs text-[#777] dark:text-[#b8bec7] hover:text-[#333] dark:hover:text-[#f3f4f6]"
         >
           <ArrowLeft size={15} />
           Back to projects
         </Link>
 
         <div className="mt-7">
-          <p className="text-xs font-bold uppercase tracking-[.16em] text-violet-600">
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-violet-600 dark:text-violet-300">
             Workspace
           </p>
 
@@ -267,7 +267,7 @@ export function SettingsPage() {
             Settings & Connections
           </h1>
 
-          <p className="mt-2 text-sm text-[#777]">
+          <p className="mt-2 text-sm text-[#777] dark:text-[#b8bec7]">
             Manage your encrypted API credentials
             and browser session snapshots.
           </p>
@@ -276,7 +276,7 @@ export function SettingsPage() {
         {error && (
           <div
             role="alert"
-            className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="mt-5 rounded-lg border border-red-200 dark:border-red-900/70 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300"
           >
             {error}
           </div>
@@ -285,7 +285,7 @@ export function SettingsPage() {
         {message && (
           <div
             role="status"
-            className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+            className="mt-5 rounded-lg border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50 dark:bg-emerald-950/35 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300"
           >
             {message}
           </div>
@@ -294,7 +294,7 @@ export function SettingsPage() {
         {!!warnings.length && (
           <div
             role="status"
-            className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900"
+            className="mt-5 rounded-lg border border-amber-200 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 px-4 py-3 text-xs text-amber-900 dark:text-amber-300"
           >
             Some IndexedDB records could not be captured:
             {' '}
@@ -306,7 +306,7 @@ export function SettingsPage() {
           <div className="mb-4 flex items-center gap-2">
             <Monitor
               size={20}
-              className="text-violet-600"
+              className="text-violet-600 dark:text-violet-300"
             />
 
             <h2 className="font-semibold">
@@ -314,7 +314,7 @@ export function SettingsPage() {
             </h2>
           </div>
 
-          <p className="mb-4 text-xs leading-5 text-[#777]">
+          <p className="mb-4 text-xs leading-5 text-[#777] dark:text-[#b8bec7]">
             Chrome opens on the same Windows desktop
             that runs FastAPI. Complete login manually,
             including 2FA. The session snapshot is
@@ -323,7 +323,7 @@ export function SettingsPage() {
           </p>
 
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="grid gap-1 text-xs font-semibold text-[#555]">
+            <label className="grid gap-1 text-xs font-semibold text-[#555] dark:text-[#b8bec7]">
               Website
 
               <select
@@ -341,7 +341,7 @@ export function SettingsPage() {
                     } Personal`,
                   )
                 }}
-                className="h-10 rounded-lg border border-[#dedee3] bg-white px-3 text-sm outline-none focus:border-violet-400"
+                className="h-10 rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 text-sm outline-none focus:border-violet-400"
               >
                 {providers.map(p => (
                   <option
@@ -354,7 +354,7 @@ export function SettingsPage() {
               </select>
             </label>
 
-            <label className="grid gap-1 text-xs font-semibold text-[#555]">
+            <label className="grid gap-1 text-xs font-semibold text-[#555] dark:text-[#b8bec7]">
               Connection name
 
               <input
@@ -364,7 +364,7 @@ export function SettingsPage() {
                 onChange={event =>
                   setName(event.target.value)
                 }
-                className="h-10 rounded-lg border border-[#dedee3] px-3 text-sm outline-none focus:border-violet-400"
+                className="h-10 rounded-lg border border-[#dedee3] dark:border-[#374151] px-3 text-sm outline-none focus:border-violet-400"
               />
             </label>
 
@@ -384,13 +384,13 @@ export function SettingsPage() {
           </div>
 
           {capture && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200 dark:border-violet-900/70 bg-violet-50/40 dark:bg-violet-950/40 p-4">
               <div>
                 <strong className="text-sm">
                   Browser open — {capture.name}
                 </strong>
 
-                <p className="mt-1 text-xs text-[#777]">
+                <p className="mt-1 text-xs text-[#777] dark:text-[#b8bec7]">
                   Log in or inspect the website in Chrome
                   before saving.
                 </p>
@@ -431,7 +431,7 @@ export function SettingsPage() {
 
           <div className="mt-5 divide-y divide-[#eee]">
             {browserCredentials.length === 0 && (
-              <p className="py-5 text-center text-xs text-[#999]">
+              <p className="py-5 text-center text-xs text-[#4b5563] dark:text-[#999]">
                 No browser accounts saved.
               </p>
             )}
@@ -442,10 +442,10 @@ export function SettingsPage() {
                 className="flex flex-wrap items-center justify-between gap-3 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="grid size-10 place-items-center rounded-xl bg-[#f4f2fa]">
+                  <span className="grid size-10 place-items-center rounded-xl bg-[#f4f2fa] dark:bg-[#1f2937]">
                     <Globe2
                       size={18}
-                      className="text-violet-600"
+                      className="text-violet-600 dark:text-violet-300"
                     />
                   </span>
 
@@ -454,7 +454,7 @@ export function SettingsPage() {
                       {credential.name}
                     </strong>
 
-                    <p className="mt-1 text-[11px] capitalize text-[#888]">
+                    <p className="mt-1 text-[11px] capitalize text-[#888] dark:text-[#b8bec7]">
                       {credential.provider}
                       {' · '}
                       Encrypted snapshot saved
@@ -494,7 +494,7 @@ export function SettingsPage() {
           <div className="mb-3 flex items-center gap-2">
             <KeyRound
               size={20}
-              className="text-violet-600"
+              className="text-violet-600 dark:text-violet-300"
             />
 
             <h2 className="font-semibold">
@@ -502,7 +502,7 @@ export function SettingsPage() {
             </h2>
           </div>
 
-          <p className="text-xs leading-5 text-[#777]">
+          <p className="text-xs leading-5 text-[#777] dark:text-[#b8bec7]">
             Existing Gemini, OpenAI and Ollama
             credentials remain available through the
             same backend. Secrets are never displayed here.
@@ -516,14 +516,14 @@ export function SettingsPage() {
               >
                 <strong>{item.name}</strong>
 
-                <span className="ml-2 text-[#999]">
+                <span className="ml-2 text-[#4b5563] dark:text-[#999]">
                   {item.provider}
                 </span>
               </p>
             ))}
 
             {!apiCredentials.length && (
-              <p className="py-3 text-xs text-[#999]">
+              <p className="py-3 text-xs text-[#4b5563] dark:text-[#999]">
                 No API credentials saved yet.
               </p>
             )}
@@ -534,7 +534,7 @@ export function SettingsPage() {
           <div className="flex items-center gap-2">
             <Server
               size={19}
-              className="text-[#666]"
+              className="text-[#666] dark:text-[#b8bec7]"
             />
 
             <h2 className="font-semibold">
@@ -548,8 +548,8 @@ export function SettingsPage() {
             <span
               className={
                 healthy
-                  ? 'text-emerald-600'
-                  : 'text-[#888]'
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : 'text-[#888] dark:text-[#b8bec7]'
               }
             >
               {healthy === null
@@ -564,7 +564,7 @@ export function SettingsPage() {
             href="/api/v1/health"
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-2 text-xs text-violet-700"
+            className="mt-2 inline-flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300"
           >
             <ExternalLink size={14} />
             Open health endpoint

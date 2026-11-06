@@ -22,7 +22,7 @@ export function WorkflowLayout({
   if (!studio) {
     return (
       <main
-        className="h-dvh min-h-0 min-w-0 overflow-hidden bg-[#fafafa] text-[#171717]"
+        className="h-dvh min-h-0 min-w-0 overflow-hidden bg-[#fafafa] dark:bg-[#1f2937] text-[#171717] dark:text-[#f3f4f6]"
         aria-label="Workflow workspace"
       >
         {children}
@@ -48,7 +48,7 @@ export function WorkflowLayout({
 
   return (
     <main
-      className="fixed inset-0 z-[100] flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fafafa] text-[#171717]"
+      className="fixed inset-0 z-[100] flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#fafafa] dark:bg-[#1f2937] text-[#171717] dark:text-[#f3f4f6]"
       aria-label="CLIPTORA Workflow Studio"
     >
       <WorkflowTopbar studio={studio} />

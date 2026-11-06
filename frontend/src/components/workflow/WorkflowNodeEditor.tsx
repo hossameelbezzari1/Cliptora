@@ -300,28 +300,28 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   if (!selected) return null
   const view = <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-1 sm:p-5" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
     <div className="relative h-[min(92dvh,960px)] w-full max-w-[1780px] lg:w-[calc(100%-104px)]">
-    <div role="dialog" aria-modal="true" aria-label={`${title} node configuration`} className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#d5d5d5] bg-white text-[#292929] shadow-[0_35px_110px_#0005]">
-      <header className="relative flex min-h-[48px] shrink-0 items-center justify-between gap-3 border-b border-[#e6e6e6] bg-white px-4 py-0.5">
+    <div role="dialog" aria-modal="true" aria-label={`${title} node configuration`} className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#d5d5d5] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#292929] dark:text-[#f3f4f6] shadow-[0_35px_110px_#0005]">
+      <header className="relative flex min-h-[48px] shrink-0 items-center justify-between gap-3 border-b border-[#e6e6e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-4 py-0.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="shrink-0"><WorkflowToolIcon label={title} type={selected.type} size={23} /></span>
-          <span className="min-w-0 truncate text-[14px] font-medium text-[#212121]">{title}</span>
-          <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-[#e5e5e5] md:block" />
-          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[#888] md:inline-flex">
+          <span className="min-w-0 truncate text-[14px] font-medium text-[#212121] dark:text-[#f3f4f6]">{title}</span>
+          <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-[#e5e5e5] dark:bg-[#1f2937] md:block" />
+          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-[#888] dark:text-[#b8bec7] md:inline-flex">
             <Settings2 size={13} />
             {selectedCatalog?.group ?? 'Workflow node'}
           </span>
-          <span aria-hidden="true" className="hidden h-3 w-px shrink-0 bg-[#e5e5e5] md:block" />
-          <span className="hidden shrink-0 text-[11px] text-[#888] md:inline" title={result?.state ?? (inspectedRun?.state === 'running' || inspectedRun?.state === 'queued' ? inspectedRun.state : 'Not executed')}>
+          <span aria-hidden="true" className="hidden h-3 w-px shrink-0 bg-[#e5e5e5] dark:bg-[#1f2937] md:block" />
+          <span className="hidden shrink-0 text-[11px] text-[#888] dark:text-[#b8bec7] md:inline" title={result?.state ?? (inspectedRun?.state === 'running' || inspectedRun?.state === 'queued' ? inspectedRun.state : 'Not executed')}>
             {result?.state ?? (inspectedRun?.state === 'running' || inspectedRun?.state === 'queued' ? inspectedRun.state : 'Not executed')}
           </span>
-          <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-[#e5e5e5] xl:block" />
+          <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-[#e5e5e5] dark:bg-[#1f2937] xl:block" />
           
-          <span className="hidden min-w-0 truncate text-[11px] text-[#888] lg:inline" title={copyStatus || (inspectedRun ? `Execution #${inspectedRun.id} · ${inspectedRun.state}` : 'No execution selected')}>
+          <span className="hidden min-w-0 truncate text-[11px] text-[#888] dark:text-[#b8bec7] lg:inline" title={copyStatus || (inspectedRun ? `Execution #${inspectedRun.id} · ${inspectedRun.state}` : 'No execution selected')}>
             {copyStatus || (inspectedRun ? `Execution #${inspectedRun.id} · ${inspectedRun.state}` : 'No execution selected')}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {providerNode && <a href={geminiNode ? 'https://ai.google.dev/gemini-api/docs' : 'https://platform.openai.com/docs'} target="_blank" rel="noreferrer" className="mr-1 hidden text-[12px] font-medium text-[#555] underline underline-offset-2 hover:text-[#111] xl:block">Docs ↗</a>}
+          {providerNode && <a href={geminiNode ? 'https://ai.google.dev/gemini-api/docs' : 'https://platform.openai.com/docs'} target="_blank" rel="noreferrer" className="mr-1 hidden text-[12px] font-medium text-[#555] dark:text-[#b8bec7] underline underline-offset-2 hover:text-[#111] dark:hover:text-[#f3f4f6] xl:block">Docs ↗</a>}
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -329,7 +329,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
               disabled={working || testing}
               title="Save workflow"
               aria-label="Save workflow"
-              className="inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 text-[12px] font-medium text-[#555] transition-colors hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-40">
+              className="inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 text-[12px] font-medium text-[#555] dark:text-[#b8bec7] transition-colors hover:text-violet-600 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40">
               <Save size={17} strokeWidth={1.8} />
               <span>Save workflow</span>
             </button>
@@ -339,16 +339,16 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
               disabled={working || testing}
               title="Run workflow"
               aria-label="Run workflow"
-              className="inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 text-[12px] font-medium text-[#555] transition-colors hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-40">
+              className="inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 text-[12px] font-medium text-[#555] dark:text-[#b8bec7] transition-colors hover:text-violet-600 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40">
               <Play size={17} strokeWidth={1.8} />
               <span>Run workflow</span>
             </button>
           </div>
-          <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-[#e5e5e5]" />
-          <button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="grid size-8 shrink-0 place-items-center rounded-md text-[#444] hover:bg-[#f4f4f4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"><X size={20} /></button>
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-[#e5e5e5] dark:bg-[#1f2937]" />
+          <button type="button" onClick={onClose} aria-label="Close node editor" title="Close" className="grid size-8 shrink-0 place-items-center rounded-md text-[#444] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"><X size={20} /></button>
         </div>
       </header>
-      <nav aria-label="Node editor sections" className="flex shrink-0 items-center justify-around border-b border-[#e5e5e5] bg-white px-1 py-1 lg:hidden">{(isEntryTrigger ? ['parameters', 'output'] as const : ['input', 'parameters', 'output'] as const).map(panel => <button key={panel} type="button" onClick={() => setMobilePanel(panel)} className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize ${mobilePanel === panel ? 'bg-violet-100 text-violet-800' : 'text-[#888]'}`}>{panel}</button>)}</nav>
+      <nav aria-label="Node editor sections" className="flex shrink-0 items-center justify-around border-b border-[#e5e5e5] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-1 py-1 lg:hidden">{(isEntryTrigger ? ['parameters', 'output'] as const : ['input', 'parameters', 'output'] as const).map(panel => <button key={panel} type="button" onClick={() => setMobilePanel(panel)} className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize ${mobilePanel === panel ? 'bg-violet-100 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300' : 'text-[#888] dark:text-[#b8bec7]'}`}>{panel}</button>)}</nav>
       <div ref={layoutRef} className="flex min-h-0 flex-1 overflow-hidden lg:grid" style={{
         gridTemplateColumns: isEntryTrigger
           ? `${triggerParametersWidth}fr 9px ${100 - triggerParametersWidth}fr`
@@ -358,22 +358,22 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
           inputValue={inputValue} outputValue={outputValue} loadingData={loadingData} isEntryTrigger={isEntryTrigger}
           disableExecute={executeDisabled} hasExecuteStep={Boolean(onExecuteStep)} onRun={start} onExecute={execute} onRefresh={loadData} onCopyStatus={setCopyStatus} />}
         {!isEntryTrigger && <WorkflowNodePanelDivider side="input" onPointerDown={onResizePointerDown} onKeyDown={onResizeKeyDown} />}
-        <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 min-w-0 w-full flex-col bg-white lg:flex`}>
-          <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] px-4">
-            <div className="flex h-full gap-5">{(['parameters', 'settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#202020]' : 'text-[#666]'}`}>{t}</button>)}</div>
-            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure OPENAI_API_KEY in the backend environment first.' : requiresGemini && geminiConfigured === false ? 'Configure GEMINI_API_KEY in the backend environment first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
+        <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 min-w-0 w-full flex-col bg-white dark:bg-cl-dark-panel lg:flex`}>
+          <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] dark:border-[#374151] px-4">
+            <div className="flex h-full gap-5">{(['parameters', 'settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] dark:text-[#f3f4f6] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#f8fafc] dark:after:bg-[#202020]' : 'text-[#666] dark:text-[#b8bec7]'}`}>{t}</button>)}</div>
+            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure OPENAI_API_KEY in the backend environment first.' : requiresGemini && geminiConfigured === false ? 'Configure GEMINI_API_KEY in the backend environment first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#f8fafc] dark:bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-gray-900 dark:text-white hover:bg-[#f8fafc] dark:hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
-            {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700"><CircleAlert size={16} className="shrink-0" />{localError}</div>}
+            {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 dark:border-red-900/70 bg-red-50 dark:bg-red-950/40 p-3 text-[12px] text-red-700 dark:text-red-300"><CircleAlert size={16} className="shrink-0" />{localError}</div>}
             <NodeProgress run={inspectedRun} nodeId={selected.id} label={title} />
-            {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
-            {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-[12px] leading-5 text-amber-900"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Gemini API key is not configured</strong>Add <code>GEMINI_API_KEY</code> to the backend environment, then recreate the backend container. Gemini execution stays disabled until the secret is available.</span></div>}
+            {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
+            {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Gemini API key is not configured</strong>Add <code>GEMINI_API_KEY</code> to the backend environment, then recreate the backend container. Gemini execution stays disabled until the secret is available.</span></div>}
             {tab === 'parameters'
               ? <WorkflowNodeParameters key={selected.id} studio={studio} onManageCredentials={onManageCredentials}
                 isManualTrigger={isManualTrigger} hasAgentModel={hasAgentModel} />
               : <WorkflowNodeSettings key={selected.id} studio={studio} />}
           </div>
-          {agentNode && <footer className="grid h-[66px] shrink-0 grid-cols-3 border-t border-[#e7e7e7] px-3 text-center text-[11px] text-[#555]">{[['chat_model', 'Chat Model *'], ['memory', 'Memory'], ['tool', 'Tool']].map(([handle, label]) => <div key={handle} className="flex flex-col items-center justify-center gap-1"><span className={`size-3 rotate-45 rounded-[2px] border ${agentInputs.includes(handle) ? 'border-violet-600 bg-violet-100' : 'border-[#aaa] bg-white'}`} /><span>{label}</span></div>)}</footer>}
+          {agentNode && <footer className="grid h-[66px] shrink-0 grid-cols-3 border-t border-[#e7e7e7] dark:border-[#374151] px-3 text-center text-[11px] text-[#555] dark:text-[#b8bec7]">{[['chat_model', 'Chat Model *'], ['memory', 'Memory'], ['tool', 'Tool']].map(([handle, label]) => <div key={handle} className="flex flex-col items-center justify-center gap-1"><span className={`size-3 rotate-45 rounded-[2px] border ${agentInputs.includes(handle) ? 'border-violet-200 dark:border-violet-600 bg-violet-100 dark:bg-violet-950/40' : 'border-[#d1d5db] dark:border-[#aaa] bg-white dark:bg-cl-dark-panel'}`} /><span>{label}</span></div>)}</footer>}
         </section>
         <WorkflowNodePanelDivider side="output"
           onPointerDown={isEntryTrigger ? event => onTriggerResizePointerDown(event) : onResizePointerDown}

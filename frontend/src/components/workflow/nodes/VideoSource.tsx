@@ -6,7 +6,7 @@ import { mediaName } from '../../editor/library/mediaLibraryUtils'
 
 function Parameters({ studio }: WorkflowNodeParametersProps) {
   const uploadRef = useRef<HTMLInputElement>(null)
-  if (!studio) return <p className="text-xs text-[#888]">Video source controls are unavailable without an active workflow.</p>
+  if (!studio) return <p className="text-xs text-[#888] dark:text-[#b8bec7]">Video source controls are unavailable without an active workflow.</p>
   return <div data-video-source-node>
     <InspectVideoSourceParameters
       sourceId={studio.sourceId}

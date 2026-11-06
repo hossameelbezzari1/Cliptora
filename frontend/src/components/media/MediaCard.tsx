@@ -23,7 +23,7 @@ export function MediaCard({ media, onAdd }: { media: MediaAsset; onAdd: (media: 
   }
   return <div className="group min-w-0">
     <button draggable onDragStart={drag} onDragEnd={() => startDrag(null)} onClick={() => onAdd(media)}
-      className="relative aspect-[1.3] w-full cursor-grab overflow-hidden rounded-lg bg-[#101214] hover:ring-1 hover:ring-cl-cyan active:cursor-grabbing"
+      className="relative aspect-[1.3] w-full cursor-grab overflow-hidden rounded-lg bg-[#f8fafc] dark:bg-[#101214] hover:ring-1 hover:ring-cl-cyan active:cursor-grabbing"
       title={`Drag ${media.name} to a timeline layer, or click to add it`}>
       {media.kind === 'image' ? <img src={fileUrl(media.id)} className="h-full w-full object-cover" alt={media.name} draggable={false}/>
         : media.kind === 'video' ? <video src={fileUrl(media.id)} preload="metadata" muted className="h-full w-full object-cover" draggable={false}/>
@@ -32,6 +32,6 @@ export function MediaCard({ media, onAdd }: { media: MediaAsset; onAdd: (media: 
       <span className="absolute top-1 right-1 rounded bg-black/65 p-1 text-white/80"><GripVertical size={13}/></span>
       <span className="absolute bottom-1 left-1 rounded bg-black/65 px-1.5 py-0.5 text-[9px] uppercase">{media.kind === 'video' ? <FileVideo size={11}/> : media.kind === 'image' ? <FileImage size={11}/> : <FileAudio2 size={11}/>}</span>
     </button>
-    <p className="mt-1 truncate text-center text-[11px] text-[#b5b9bd]" title={media.name}>{media.name}</p>
+    <p className="mt-1 truncate text-center text-[11px] text-[#4b5563] dark:text-[#b5b9bd]" title={media.name}>{media.name}</p>
   </div>
 }

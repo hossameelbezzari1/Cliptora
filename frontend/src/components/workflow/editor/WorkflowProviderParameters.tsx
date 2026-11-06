@@ -47,11 +47,11 @@ export function WorkflowProviderParameters({ provider, node, catalog, onChange, 
     Object.keys(fields).filter(key => !['action', 'model', 'resource', 'credential_id'].includes(key))
 
   return <div className="space-y-5" data-provider-node-parameters>
-    <section className="space-y-2 border-b border-[#ededed] pb-4">
-      <div className="flex items-center gap-2"><KeyRound size={16} className="text-violet-600"/><SectionLabel>Credential</SectionLabel></div>
+    <section className="space-y-2 border-b border-[#ededed] dark:border-[#374151] pb-4">
+      <div className="flex items-center gap-2"><KeyRound size={16} className="text-violet-600 dark:text-violet-300"/><SectionLabel>Credential</SectionLabel></div>
       {onManageCredentials
-        ? <button type="button" onClick={onManageCredentials} className="min-h-9 rounded-lg border border-[#dedede] bg-white px-3 text-[12px] hover:bg-[#f7f7f7]">Manage {provider} credentials</button>
-        : <p className="text-[12px] leading-5 text-[#777]">Uses {isGemini ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY'} configured securely in the backend environment.</p>}
+        ? <button type="button" onClick={onManageCredentials} className="min-h-9 rounded-lg border border-[#dedede] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 text-[12px] hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]">Manage {provider} credentials</button>
+        : <p className="text-[12px] leading-5 text-[#777] dark:text-[#b8bec7]">Uses {isGemini ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY'} configured securely in the backend environment.</p>}
     </section>
     {actions.length > 1 && <label className="block"><SectionLabel>Operation</SectionLabel>
       <select className={inputClass} value={action} onChange={event => changeAction(event.target.value)}>
@@ -61,9 +61,9 @@ export function WorkflowProviderParameters({ provider, node, catalog, onChange, 
         </option>)}
       </select>
     </label>}
-    {selected?.status === 'unavailable' && <p className="border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">{selected.reason ?? 'This operation is currently unavailable.'}</p>}
-    <div className="space-y-2"><div className="flex items-center gap-2"><Sparkles size={16} className="text-violet-600"/><SectionLabel>Resource</SectionLabel></div>
-      <input className={`${inputClass} bg-[#fafafa]`} value={resource} readOnly aria-label="Resource" />
+    {selected?.status === 'unavailable' && <p className="border-l-2 border-amber-400 bg-amber-50 dark:bg-amber-950/35 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-300">{selected.reason ?? 'This operation is currently unavailable.'}</p>}
+    <div className="space-y-2"><div className="flex items-center gap-2"><Sparkles size={16} className="text-violet-600 dark:text-violet-300"/><SectionLabel>Resource</SectionLabel></div>
+      <input className={`${inputClass} bg-[#fafafa] dark:bg-[#1f2937]`} value={resource} readOnly aria-label="Resource" />
     </div>
     {(!isGemini || ['message_model', 'generate_image'].includes(action)) && <ProviderModelField
       provider={provider} action={action} value={String(settings.model ?? defaultModel(action))}

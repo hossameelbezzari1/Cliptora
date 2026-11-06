@@ -13,19 +13,19 @@ export function MyComponentsTab({ library }: { library: SmartLibraryModel }) {
     <div className="mb-2 mt-1 flex items-center gap-2">
       <Boxes size={15} className="text-[#b78afc]"/>
       <h3 className="text-xs font-semibold">My Components</h3>
-      <span className="rounded bg-[#252830] px-1.5 text-[10px] text-[#a1a5ae]">{saved.length}</span>
+      <span className="rounded bg-[#f8fafc] dark:bg-[#252830] px-1.5 text-[10px] text-[#4b5563] dark:text-[#a1a5ae]">{saved.length}</span>
     </div>
     <div className="mb-2 flex items-center gap-2">
       {folder !== null && <button type="button" className={buttonClass}
         onClick={() => setFolder(currentFolder?.parent_id ?? null)} title="Back to parent folder">
         <ArrowLeft size={13}/>
       </button>}
-      <span className="min-w-0 flex-1 truncate text-[11px] text-[#a8adba]">{currentFolder?.name ?? 'My Components /'}</span>
+      <span className="min-w-0 flex-1 truncate text-[11px] text-[#4b5563] dark:text-[#a8adba]">{currentFolder?.name ?? 'My Components /'}</span>
     </div>
     <div className="mb-2 grid grid-cols-2 gap-1.5">
       {folders.filter(item => item.parent_id === folder && item.name.toLowerCase().includes(search.toLowerCase()))
         .map(item => <button type="button" key={item.id}
-          className="flex items-center gap-1.5 rounded-lg border border-[#353a45] bg-[#21242b] px-2 py-2 text-left text-[11px] hover:border-[#9360d8]"
+          className="flex items-center gap-1.5 rounded-lg border border-[#d1d5db] dark:border-[#353a45] bg-[#f8fafc] dark:bg-[#21242b] px-2 py-2 text-left text-[11px] hover:border-[#e7dcf6] dark:hover:border-[#9360d8]"
           onClick={() => setFolder(item.id)}>
           <Folder size={14} className="shrink-0 text-[#b998fa]"/>
           <span className="min-w-0 truncate">{item.name}</span>
@@ -35,21 +35,21 @@ export function MyComponentsTab({ library }: { library: SmartLibraryModel }) {
       style={componentView === 'grid' ? { gridTemplateColumns: `repeat(auto-fill,minmax(${cardSize === 'compact' ? 100 : 142}px,1fr))` } : undefined}>
       {saved.map(item => {
         const snapshot = item.payload.snapshot as Record<string, unknown> | undefined
-        return <div key={item.id} className={`group min-w-0 overflow-hidden rounded-lg border border-[#363945] bg-[#21242b] ${componentView === 'list' ? 'flex items-center gap-1.5 p-1.5' : 'flex flex-col'}`}>
+        return <div key={item.id} className={`group min-w-0 overflow-hidden rounded-lg border border-[#d1d5db] dark:border-[#363945] bg-[#f8fafc] dark:bg-[#21242b] ${componentView === 'list' ? 'flex items-center gap-1.5 p-1.5' : 'flex flex-col'}`}>
           <div className={`shrink-0 overflow-hidden rounded-md ${componentView === 'list' ? 'h-11 w-16' : cardSize === 'compact' ? 'h-[70px] w-full' : 'h-[96px] w-full'}`}>
             <SavedComponentThumbnail snapshot={snapshot} kind={item.kind as 'component' | 'group'}/>
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-1 px-1.5 py-2">
-            <span className="min-w-0 flex-1 truncate text-[11px] text-[#e0e1e8]" title={item.name}>{item.name}</span>
+            <span className="min-w-0 flex-1 truncate text-[11px] text-[#4b5563] dark:text-[#e0e1e8]" title={item.name}>{item.name}</span>
             <button type="button" onClick={() => apply(item)} disabled={!selected}
               title="Apply to selected clip" aria-label={`Apply ${item.name}`}
-              className="rounded bg-[#6941b6] p-1 text-white hover:bg-[#8859ed] disabled:cursor-not-allowed disabled:opacity-40"><Plus size={12}/></button>
+              className="rounded bg-[#f0ecf8] dark:bg-[#6941b6] p-1 text-gray-900 dark:text-white hover:bg-[#8859ed] disabled:cursor-not-allowed disabled:opacity-40"><Plus size={12}/></button>
             <button type="button" onClick={() => void remove(item)} aria-label={`Delete ${item.name}`}
-              title="Delete saved component" className="rounded px-1 text-[#9299a5] hover:text-red-400">×</button>
+              title="Delete saved component" className="rounded px-1 text-[#4b5563] dark:text-[#9299a5] hover:text-red-700 dark:hover:text-red-400">×</button>
           </div>
         </div>
       })}
-    </div> : <p className="rounded-lg border border-dashed border-[#343946] px-3 py-4 text-center text-[11px] leading-5 text-[#9299a5]">
+    </div> : <p className="rounded-lg border border-dashed border-[#d1d5db] dark:border-[#343946] px-3 py-4 text-center text-[11px] leading-5 text-[#4b5563] dark:text-[#9299a5]">
       No saved components here. Select an object in Timeline and save it below.
     </p>}
     <div className="mt-3 flex gap-1.5">

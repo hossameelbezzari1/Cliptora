@@ -60,11 +60,11 @@ export function LibraryPanel({ active }: { active: Tab }) {
   }
 
   if (active !== 'media') {
-    return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 text-white">
+    return <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 text-gray-900 dark:text-white">
       <h2 className="text-sm font-bold">{items.find(item => item.id === active)?.label}</h2>
       <div className="mt-12 grid justify-items-center gap-3 text-center">
-        <WandSparkles size={27} className="text-cl-muted"/>
-        <p className="text-xs text-cl-muted">This tool is planned. It is not implemented in this foundation release.</p>
+        <WandSparkles size={27} className="text-cl-muted dark:text-cl-dark-muted"/>
+        <p className="text-xs text-cl-muted dark:text-cl-dark-muted">This tool is planned. It is not implemented in this foundation release.</p>
       </div>
     </section>
   }

@@ -25,7 +25,7 @@ type Props = {
 
 export function EditorLayout({ project, saveStatus, editorTools, children, panels }: Props) {
   return (
-    <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden bg-cl-bg">
+    <div className="flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden bg-cl-bg dark:bg-cl-dark-bg">
       <Header project={project} saveStatus={saveStatus} editorTools={editorTools} />
       {panels ? (
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden" aria-label="Resizable editor workspace">

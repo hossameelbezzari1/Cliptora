@@ -55,13 +55,13 @@ function initialRules(settings: Record<string, unknown>): Rule[] {
 function OperandInput({ label, operand, onChange, type }: { label: string; operand: Operand; onChange: (value: Operand) => void; type: Category }) {
   return <div className="min-w-0 space-y-1.5">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-[11px] font-medium text-[#777]">{label}</span>
-      <div className="inline-flex rounded-md bg-[#f1f1f1] p-[2px]" aria-label={`${label} mode`}>
-        {(['fixed', 'expression'] as const).map(mode => <button key={mode} type="button" aria-pressed={operand.mode === mode} onClick={() => onChange({ ...operand, mode })} className={`rounded px-2 py-1 text-[10px] font-medium ${operand.mode === mode ? 'bg-white text-[#222] shadow-sm' : 'text-[#777] hover:text-[#333]'}`}>{mode === 'fixed' ? 'Fixed' : 'Expression'}</button>)}
+      <span className="text-[11px] font-medium text-[#777] dark:text-[#b8bec7]">{label}</span>
+      <div className="inline-flex rounded-md bg-[#f1f1f1] dark:bg-[#1f2937] p-[2px]" aria-label={`${label} mode`}>
+        {(['fixed', 'expression'] as const).map(mode => <button key={mode} type="button" aria-pressed={operand.mode === mode} onClick={() => onChange({ ...operand, mode })} className={`rounded px-2 py-1 text-[10px] font-medium ${operand.mode === mode ? 'bg-white dark:bg-cl-dark-panel text-[#222] dark:text-[#f3f4f6] shadow-sm' : 'text-[#777] dark:text-[#b8bec7] hover:text-[#333] dark:hover:text-[#f3f4f6]'}`}>{mode === 'fixed' ? 'Fixed' : 'Expression'}</button>)}
       </div>
     </div>
     <div className="relative">
-      {operand.mode === 'expression' && <Braces size={16} className="pointer-events-none absolute left-3 top-3.5 text-violet-600" />}
+      {operand.mode === 'expression' && <Braces size={16} className="pointer-events-none absolute left-3 top-3.5 text-violet-600 dark:text-violet-300" />}
       <Field appearance="light" label={label} hideLabel aria-label={label} value={operand.value} onChange={event => onChange({ ...operand, value: event.target.value })}
         placeholder={operand.mode === 'expression' ? '{{ $json.probe.duration }}' : label === 'value1' ? 'value1' : type === 'boolean' ? 'true / false' : type === 'array' ? '["item"]' : type === 'object' ? '{"key":"value"}' : 'value2'}
         className={operand.mode === 'expression' ? 'pl-9 font-mono text-[12px]' : ''} />
@@ -73,13 +73,13 @@ function CategoryOperatorMenu({ menu, onClose, category, onCategory, onSelect, s
   menu: MenuState; onClose: () => void; category: Category; onCategory: (category: Category) => void; onSelect: (category: Category, operator: string) => void; selected: string
 }) {
   const content = <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-1 text-[12px]">
-    <div className="min-w-0 border-r border-[#eeeeee] pr-1">
-      {categories.map(item => <button type="button" role="menuitem" key={item.id} onClick={() => onCategory(item.id)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left ${category === item.id ? 'bg-[#f2f2f2] font-medium' : 'hover:bg-[#f7f7f7]'}`}>
-        <span className="text-[#777]">{item.icon}</span><span className="min-w-0 flex-1 truncate">{item.label}</span><ChevronRight size={14} className="text-[#aaa]" />
+    <div className="min-w-0 border-r border-[#eeeeee] dark:border-[#374151] pr-1">
+      {categories.map(item => <button type="button" role="menuitem" key={item.id} onClick={() => onCategory(item.id)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left ${category === item.id ? 'bg-[#f2f2f2] dark:bg-[#1f2937] font-medium' : 'hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]'}`}>
+        <span className="text-[#777] dark:text-[#b8bec7]">{item.icon}</span><span className="min-w-0 flex-1 truncate">{item.label}</span><ChevronRight size={14} className="text-[#4b5563] dark:text-[#aaa]" />
       </button>)}
     </div>
     <div className="max-h-[360px] min-w-0 overflow-y-auto pl-1">
-      {options[category].map(item => <button type="button" role="menuitem" key={item.id} onClick={() => onSelect(category, item.id)} className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left hover:bg-[#f4f4f4] ${selected === item.id ? 'bg-[#f6f2ff] text-[#6843be]' : ''}`}>
+      {options[category].map(item => <button type="button" role="menuitem" key={item.id} onClick={() => onSelect(category, item.id)} className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] ${selected === item.id ? 'bg-[#f6f2ff] dark:bg-[#1f2937] text-[#6843be] dark:text-[#c0b0e4]' : ''}`}>
         <span>{item.label}</span>{selected === item.id && <Check size={14} />}
       </button>)}
     </div>
@@ -100,23 +100,23 @@ export function WorkflowIfParameters({ settings, onChange }: Props) {
   const changeOperator = (index: number, type: Category, operator: string) => { patch(index, { type, operator }); setOperatorMenu(null) }
   const addRule = () => { if (rows.length < 25) save([...rows, { type: 'string', operator: 'equals', left: { mode: 'expression', value: '' }, right: { mode: 'fixed', value: '' } }]) }
 
-  return <div className="space-y-6 text-[#292929]">
+  return <div className="space-y-6 text-[#292929] dark:text-[#f3f4f6]">
     <section className="space-y-3">
-      <div className="border-b border-[#e5e5e5] pb-2 text-[14px] font-semibold">Conditions</div>
+      <div className="border-b border-[#e5e5e5] dark:border-[#374151] pb-2 text-[14px] font-semibold">Conditions</div>
       {rows.map((row, index) => {
         const selectedOperator = options[row.type].find(item => item.id === row.operator)
         return <div key={row.id ?? index} className="space-y-2">
-          {index > 0 && <div className="flex justify-center py-1"><span className="rounded-full border border-[#e2e2e2] bg-[#f8f8f8] px-4 py-1 text-[11px] font-semibold text-[#777]">{combine === 'all' ? 'AND' : 'OR'}</span></div>}
-          <div className="rounded-xl border border-[#e2e2e2] bg-white p-3 shadow-[0_1px_2px_#00000008]">
+          {index > 0 && <div className="flex justify-center py-1"><span className="rounded-full border border-[#e2e2e2] dark:border-[#374151] bg-[#f8f8f8] dark:bg-[#1f2937] px-4 py-1 text-[11px] font-semibold text-[#777] dark:text-[#b8bec7]">{combine === 'all' ? 'AND' : 'OR'}</span></div>}
+          <div className="rounded-xl border border-[#e2e2e2] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-3 shadow-[0_1px_2px_#00000008]">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(160px,0.75fr)_auto] sm:items-end">
               <OperandInput label="value1" operand={row.left} type={row.type} onChange={left => patch(index, { left })} />
               <div className="min-w-0 space-y-1.5">
-                <span className="text-[11px] font-medium text-[#777]">Operator</span>
-                <button type="button" aria-label={`Condition ${index + 1} operator`} aria-haspopup="menu" aria-expanded={operatorMenu?.row === index} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); setOperatorMenu({ row: index, category: row.type, x: rect.left, y: rect.bottom + 5 }) }} className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-[#dedede] bg-[#f9f9f9] px-2.5 text-left text-[12px] text-[#3f3f3f] hover:bg-[#f1f1f1]">
-                  <span className="text-[11px] text-[#888]">{categories.find(cat => cat.id === row.type)?.icon}</span><span className="min-w-0 flex-1 truncate">{selectedOperator?.label ?? row.operator}</span><ChevronDown size={15} />
+                <span className="text-[11px] font-medium text-[#777] dark:text-[#b8bec7]">Operator</span>
+                <button type="button" aria-label={`Condition ${index + 1} operator`} aria-haspopup="menu" aria-expanded={operatorMenu?.row === index} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); setOperatorMenu({ row: index, category: row.type, x: rect.left, y: rect.bottom + 5 }) }} className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-[#dedede] dark:border-[#374151] bg-[#f9f9f9] dark:bg-[#1f2937] px-2.5 text-left text-[12px] text-[#3f3f3f] dark:text-[#f3f4f6] hover:bg-[#f1f1f1] dark:hover:bg-[#1f2937]">
+                  <span className="text-[11px] text-[#888] dark:text-[#b8bec7]">{categories.find(cat => cat.id === row.type)?.icon}</span><span className="min-w-0 flex-1 truncate">{selectedOperator?.label ?? row.operator}</span><ChevronDown size={15} />
                 </button>
               </div>
-              <button type="button" title={rows.length > 1 ? 'Remove condition' : 'Clear condition'} aria-label="Remove condition" onClick={() => rows.length > 1 ? save(rows.filter((_, i) => i !== index)) : save([{ type: 'string', operator: 'equals', left: { mode: 'expression', value: '' }, right: { mode: 'fixed', value: '' } }])} className="mb-[2px] grid size-9 place-items-center rounded-full text-[#999] hover:bg-red-50 hover:text-red-600"><Trash2 size={17}/></button>
+              <button type="button" title={rows.length > 1 ? 'Remove condition' : 'Clear condition'} aria-label="Remove condition" onClick={() => rows.length > 1 ? save(rows.filter((_, i) => i !== index)) : save([{ type: 'string', operator: 'equals', left: { mode: 'expression', value: '' }, right: { mode: 'fixed', value: '' } }])} className="mb-[2px] grid size-9 place-items-center rounded-full text-[#4b5563] dark:text-[#999] hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-300"><Trash2 size={17}/></button>
             </div>
             {!unary.has(row.operator) && <div className="mt-3"><OperandInput label="value2" operand={row.right} type={row.type} onChange={right => patch(index, { right })}/></div>}
           </div>
@@ -129,11 +129,11 @@ export function WorkflowIfParameters({ settings, onChange }: Props) {
     </section>
     <SwitchField label="Convert types where required" checked={convert} onChange={value => onChange('convert_types', value)} description="Convert text into numbers, booleans and JSON values when needed" />
     <section className="space-y-3">
-      <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-2"><span className="text-[14px] font-semibold">Options</span><button type="button" aria-label="Toggle options" aria-expanded={optionsOpen} className="rounded-md p-1 hover:bg-[#f4f4f4]" onClick={() => setOptionsOpen(value => !value)}><Plus size={21}/></button></div>
-      {optionsOpen ? <div className="space-y-3 rounded-lg bg-[#fafafa] p-3"><SwitchField label="Ignore case" checked={ignoreCase} onChange={value => onChange('ignore_case', value)} description="Applies to string comparisons"/><p className="text-[11px] leading-4 text-[#888]">Expressions only resolve upstream JSON paths. Arbitrary JavaScript execution is disabled.</p><Button appearance="light" variant="ghost" icon={<ArrowLeft size={14}/>} className="min-h-8 text-xs" onClick={() => setOptionsOpen(false)}>Close options</Button></div>
+      <div className="flex items-center justify-between border-b border-[#e5e5e5] dark:border-[#374151] pb-2"><span className="text-[14px] font-semibold">Options</span><button type="button" aria-label="Toggle options" aria-expanded={optionsOpen} className="rounded-md p-1 hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937]" onClick={() => setOptionsOpen(value => !value)}><Plus size={21}/></button></div>
+      {optionsOpen ? <div className="space-y-3 rounded-lg bg-[#fafafa] dark:bg-[#1f2937] p-3"><SwitchField label="Ignore case" checked={ignoreCase} onChange={value => onChange('ignore_case', value)} description="Applies to string comparisons"/><p className="text-[11px] leading-4 text-[#888] dark:text-[#b8bec7]">Expressions only resolve upstream JSON paths. Arbitrary JavaScript execution is disabled.</p><Button appearance="light" variant="ghost" icon={<ArrowLeft size={14}/>} className="min-h-8 text-xs" onClick={() => setOptionsOpen(false)}>Close options</Button></div>
         : <Button appearance="light" variant="primary" icon={<Plus size={16}/>} className="min-h-9 rounded-full text-xs" onClick={() => setOptionsOpen(true)}>Add option</Button>}
     </section>
-    <div className="flex items-start gap-2 rounded-lg bg-[#f8f7fc] p-3 text-[11px] leading-5 text-[#706c7b]"><Settings2 size={16} className="mt-0.5 shrink-0" />Use expressions like <code className="rounded bg-white px-1 font-mono">{'{{ $json.probe.duration }}'}</code> to read data from the previous node. You can also target an explicit node: <code className="rounded bg-white px-1 font-mono">{'{{ probe.probe.width }}'}</code>.</div>
+    <div className="flex items-start gap-2 rounded-lg bg-[#f8f7fc] dark:bg-[#1f2937] p-3 text-[11px] leading-5 text-[#706c7b] dark:text-[#b8bec7]"><Settings2 size={16} className="mt-0.5 shrink-0" />Use expressions like <code className="rounded bg-white dark:bg-cl-dark-panel px-1 font-mono">{'{{ $json.probe.duration }}'}</code> to read data from the previous node. You can also target an explicit node: <code className="rounded bg-white dark:bg-cl-dark-panel px-1 font-mono">{'{{ probe.probe.width }}'}</code>.</div>
     <CategoryOperatorMenu menu={operatorMenu ? { x: operatorMenu.x, y: operatorMenu.y, actions: [] } : null} onClose={() => setOperatorMenu(null)} category={operatorMenu?.category ?? 'string'} onCategory={category => setOperatorMenu(value => value ? { ...value, category } : value)} onSelect={(category, operator) => { if (operatorMenu) changeOperator(operatorMenu.row, category, operator) }} selected={operatorMenu ? rows[operatorMenu.row]?.operator ?? '' : ''} />
   </div>
 }

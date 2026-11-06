@@ -17,8 +17,8 @@ export type ComponentCategory = 'All' | 'Text' | 'Shapes' | 'Blur' | 'Saved'
 export type ComponentView = 'grid' | 'list'
 export type CardSize = 'compact' | 'comfortable'
 
-export const fieldClass = 'rounded-md border border-[#333940] bg-[#171a1e] px-2 py-1.5 text-xs text-white outline-none focus:border-[#9060d9]'
-export const buttonClass = 'rounded-md border border-[#41464e] px-2 py-1.5 text-xs text-[#d2d4da] hover:bg-[#30343b] disabled:cursor-not-allowed disabled:opacity-40'
+export const fieldClass = 'rounded-md border border-[#d1d5db] dark:border-[#333940] bg-[#f8fafc] dark:bg-[#171a1e] px-2 py-1.5 text-xs text-gray-900 dark:text-white outline-none focus:border-[#e7dcf7] dark:focus:border-[#9060d9]'
+export const buttonClass = 'rounded-md border border-[#d1d5db] dark:border-[#41464e] px-2 py-1.5 text-xs text-[#4b5563] dark:text-[#d2d4da] hover:bg-[#f8fafc] dark:hover:bg-[#30343b] disabled:cursor-not-allowed disabled:opacity-40'
 export const variableTypes: VariableType[] = [
   'string', 'number', 'boolean', 'color', 'date', 'datetime', 'duration',
   'percentage', 'url', 'media', 'select', 'json',

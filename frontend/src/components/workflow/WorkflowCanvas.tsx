@@ -439,7 +439,7 @@ function ActionEdge({
           <button
             type="button"
             title="Double-click to rename label"
-            className="nodrag nopan pointer-events-auto absolute z-20 max-w-40 truncate rounded-full border border-[#dedee3] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#666b73] shadow-sm"
+            className="nodrag nopan pointer-events-auto absolute z-20 max-w-40 truncate rounded-full border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2.5 py-1 text-[11px] font-semibold text-[#666b73] dark:text-[#b8bec7] shadow-sm"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 37}px)`,
             }}
@@ -471,7 +471,7 @@ function ActionEdge({
             type="button"
             aria-label="Insert node into connection"
             title="Insert node"
-            className="grid size-10 place-items-center rounded-full border border-[#e4e4e6] bg-white text-[#222] shadow-md hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700"
+            className="grid size-10 place-items-center rounded-full border border-[#e4e4e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#222] dark:text-[#f3f4f6] shadow-md hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300"
             onClick={event => {
               event.stopPropagation()
               actions?.onInsert?.(event)
@@ -484,7 +484,7 @@ function ActionEdge({
             type="button"
             aria-label="Delete connection"
             title="Delete connection"
-            className="grid size-10 place-items-center rounded-full border border-[#e4e4e6] bg-white text-[#222] shadow-md hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+            className="grid size-10 place-items-center rounded-full border border-[#e4e4e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#222] dark:text-[#f3f4f6] shadow-md hover:border-red-300 dark:hover:border-red-900/70 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-300"
             onClick={event => {
               event.stopPropagation()
               actions?.onDelete?.()
@@ -518,7 +518,7 @@ const WorkflowNodeToolbarContext =
   createContext<WorkflowNodeToolbarActions | null>(null)
 
 const actionButton =
-  'nodrag nopan nowheel grid size-8 place-items-center rounded-md text-[#191919] transition-colors duration-150 hover:bg-white/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-30'
+  'nodrag nopan nowheel grid size-8 place-items-center rounded-md text-[#191919] dark:text-[#f3f4f6] transition-colors duration-150 hover:bg-white dark:hover:bg-cl-dark-panel/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-30'
 
 function StudioNodeWithToolbar(props: NodeProps<StudioFlowNode>) {
   const actions = useContext(WorkflowNodeToolbarContext)
@@ -556,7 +556,7 @@ function StudioNodeWithToolbar(props: NodeProps<StudioFlowNode>) {
 
           <button
             type="button"
-            className={`${actionButton} ${inactive ? 'text-amber-600' : ''}`}
+            className={`${actionButton} ${inactive ? 'text-amber-600 dark:text-amber-300' : ''}`}
             title={inactive ? 'Reactivate node (visual flag)' : 'Deactivate node (visual flag only)'}
             aria-label={inactive ? 'Reactivate node' : 'Deactivate node'}
             disabled={disabled}
@@ -572,7 +572,7 @@ function StudioNodeWithToolbar(props: NodeProps<StudioFlowNode>) {
 
           <button
             type="button"
-            className={`${actionButton} hover:text-rose-600`}
+            className={`${actionButton} hover:text-rose-600 dark:hover:text-rose-300`}
             title="Delete node"
             aria-label="Delete node"
             disabled={disabled}
@@ -2449,10 +2449,10 @@ export function WorkflowCanvas({
   ])
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#fbfbfa]">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#fbfbfa] dark:bg-[#1f2937]">
       <div
         ref={canvasRef}
-        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#fbfbfa] [&_.react-flow__attribution]:!hidden [&_.react-flow__node]:!border-0 [&_.react-flow__node]:!bg-transparent [&_.react-flow__node]:!shadow-none [&_.react-flow__node]:!overflow-visible [&_.react-flow__handle]:!transition-all [&_.react-flow__handle:hover]:!scale-125 [&_.react-flow__handle-connecting]:!ring-4 [&_.react-flow__handle-connecting]:!ring-violet-200"
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#fbfbfa] dark:bg-[#1f2937] [&_.react-flow__attribution]:!hidden [&_.react-flow__node]:!border-0 [&_.react-flow__node]:!bg-transparent [&_.react-flow__node]:!shadow-none [&_.react-flow__node]:!overflow-visible [&_.react-flow__handle]:!transition-all [&_.react-flow__handle:hover]:!scale-125 [&_.react-flow__handle-connecting]:!ring-4 [&_.react-flow__handle-connecting]:!ring-violet-200 dark:ring-violet-900/70"
         onDragOver={event => {
           event.preventDefault()
           event.dataTransfer.dropEffect = 'copy'
@@ -2758,7 +2758,7 @@ onPaneClick={() => {
                 <MiniMap
                   zoomable
                   pannable
-                  className="!hidden !rounded-xl !border !border-[#ddd] !bg-white 2xl:!block"
+                  className="!hidden !rounded-xl !border !border-[#ddd] dark:border-[#374151] !bg-white dark:bg-cl-dark-panel 2xl:!block"
                   nodeColor="#ded8ed"
                 />
               </ReactFlow>
@@ -2769,7 +2769,7 @@ onPaneClick={() => {
         <div
           role="toolbar"
           aria-label="Canvas quick actions"
-          className={`nodrag nopan absolute top-1/2 z-[80] -translate-y-1/2 rounded-full border border-[#e3e4e6] bg-white p-2 shadow-[0_5px_22px_#00000012] transition-[right] ${sidePanelOpen ? 'right-[412px]' : 'right-5'}`}
+          className={`nodrag nopan absolute top-1/2 z-[80] -translate-y-1/2 rounded-full border border-[#e3e4e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-2 shadow-[0_5px_22px_#00000012] transition-[right] ${sidePanelOpen ? 'right-[412px]' : 'right-5'}`}
           onPointerDown={event => event.stopPropagation()}
           onDoubleClick={event => event.stopPropagation()}
         >
@@ -2784,7 +2784,7 @@ onPaneClick={() => {
                 if (libraryOpen) setLibraryOpen(false)
                 else showToolLibrary()
               }}
-              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] ${libraryOpen ? 'text-violet-600' : 'text-[#202020]'
+              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] ${libraryOpen ? 'text-violet-600 dark:text-violet-300' : 'text-[#202020] dark:text-[#f3f4f6]'
                 }`}
             >
               <Plus size={22} strokeWidth={2} />
@@ -2800,7 +2800,7 @@ onPaneClick={() => {
                 setCommandTab('all')
                 setCommandIndex(0)
               }}
-              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5]"
+              className="grid size-9 place-items-center rounded-full text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]"
             >
               <Search size={20} strokeWidth={2} />
             </button>
@@ -2810,7 +2810,7 @@ onPaneClick={() => {
               title="Add sticky note (Shift+S)"
               aria-label="Add sticky note"
               onClick={addStickyNote}
-              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5]"
+              className="grid size-9 place-items-center rounded-full text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]"
             >
               <StickyNote size={20} strokeWidth={2} />
             </button>
@@ -2821,7 +2821,7 @@ onPaneClick={() => {
               aria-label={sidePanelOpen ? 'Close side panel' : 'Open side panel'}
               aria-pressed={sidePanelOpen}
               onClick={() => setSidePanelOpen(value => !value)}
-              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] ${sidePanelOpen ? 'text-violet-600' : 'text-[#202020]'
+              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] ${sidePanelOpen ? 'text-violet-600 dark:text-violet-300' : 'text-[#202020] dark:text-[#f3f4f6]'
                 }`}
             >
               <PanelRight size={20} strokeWidth={2} />
@@ -2833,7 +2833,7 @@ onPaneClick={() => {
               aria-label="Tidy up workflow"
               disabled={!nodes.length || working}
               onClick={tidyWorkflow}
-              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5] disabled:opacity-35"
+              className="grid size-9 place-items-center rounded-full text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-35"
             >
               <Sparkles size={20} strokeWidth={2} />
             </button>
@@ -2844,16 +2844,16 @@ onPaneClick={() => {
         {sidePanelOpen && (
           <aside
             aria-label="Node side panel"
-            className="nodrag nopan absolute inset-y-0 right-0 z-[75] flex w-[392px] max-w-[calc(100%-90px)] flex-col border-l border-[#e5e5e7] bg-white shadow-[-8px_0_28px_rgba(0,0,0,0.06)]"
+            className="nodrag nopan absolute inset-y-0 right-0 z-[75] flex w-[392px] max-w-[calc(100%-90px)] flex-col border-l border-[#e5e5e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel shadow-[-8px_0_28px_rgba(0,0,0,0.06)]"
             onPointerDown={event => event.stopPropagation()}
           >
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#eeeeef] px-5">
-              <h2 className="text-[17px] font-semibold text-[#252525]">Node details</h2>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#eeeeef] dark:border-[#374151] px-5">
+              <h2 className="text-[17px] font-semibold text-[#252525] dark:text-[#f3f4f6]">Node details</h2>
               <button
                 type="button"
                 title="Close side panel"
                 aria-label="Close side panel"
-                className="grid size-8 place-items-center rounded-lg text-[#666] hover:bg-[#f5f5f5]"
+                className="grid size-8 place-items-center rounded-lg text-[#666] dark:text-[#b8bec7] hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937]"
                 onClick={() => setSidePanelOpen(false)}
               >
                 <X size={20} />
@@ -2861,25 +2861,25 @@ onPaneClick={() => {
             </div>
             {selectedSideNode ? (
               <>
-                <div className="flex items-center gap-3 border-b border-[#efeff0] px-5 py-4">
+                <div className="flex items-center gap-3 border-b border-[#efeff0] dark:border-[#374151] px-5 py-4">
                   <span className="grid size-10 shrink-0 place-items-center">
                     <WorkflowToolIcon type={selectedSideNode.type} size={32} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[#252525]">
+                    <p className="truncate text-sm font-semibold text-[#252525] dark:text-[#f3f4f6]">
                       {selectedSideMeta?.label ?? selectedSideNode.type}
                     </p>
-                    <p className="mt-1 truncate text-xs text-[#999]">
+                    <p className="mt-1 truncate text-xs text-[#4b5563] dark:text-[#999]">
                       {selectedSideStatus || 'Not executed'} · {selectedSideNode.type}
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 border-b border-[#efeff0] px-5 py-3">
+                <div className="flex flex-wrap gap-2 border-b border-[#efeff0] dark:border-[#374151] px-5 py-3">
                   <button
                     type="button"
                     disabled={working}
                     onClick={() => void testStep(selectedSideNode.id)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#242424] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#f8fafc] dark:bg-[#242424] px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white disabled:opacity-40"
                   >
                     <Play size={14} /> Execute step
                   </button>
@@ -2887,16 +2887,16 @@ onPaneClick={() => {
                     type="button"
                     disabled={!onOpenNode}
                     onClick={() => onOpenNode?.(selectedSideNode.id)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#dedee2] px-3 py-2 text-xs font-semibold text-[#333] hover:bg-[#f7f7f7] disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#dedee2] dark:border-[#374151] px-3 py-2 text-xs font-semibold text-[#333] dark:text-[#f3f4f6] hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937] disabled:opacity-40"
                   >
                     <ExternalLink size={14} /> Open editor
                   </button>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
-                  <label htmlFor="ws-side-settings" className="text-sm font-semibold text-[#27272a]">
+                  <label htmlFor="ws-side-settings" className="text-sm font-semibold text-[#27272a] dark:text-[#f3f4f6]">
                     Settings (JSON)
                   </label>
-                  <p className="text-xs leading-5 text-[#85858d]">
+                  <p className="text-xs leading-5 text-[#85858d] dark:text-[#b8bec7]">
                     Edit this node's saved settings. Credentials and other settings remain linked to the node.
                   </p>
                   <textarea
@@ -2907,23 +2907,23 @@ onPaneClick={() => {
                       setSideSettingsDraft(event.target.value)
                       setSideSettingsError('')
                     }}
-                    className="min-h-40 flex-1 resize-none rounded-xl border border-[#dfdfe4] bg-[#fafafa] p-3 font-mono text-[12px] leading-5 text-[#222] outline-none focus:border-violet-400"
+                    className="min-h-40 flex-1 resize-none rounded-xl border border-[#dfdfe4] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] p-3 font-mono text-[12px] leading-5 text-[#222] dark:text-[#f3f4f6] outline-none focus:border-violet-400"
                   />
-                  {sideSettingsError && <p role="alert" className="text-xs text-red-600">{sideSettingsError}</p>}
+                  {sideSettingsError && <p role="alert" className="text-xs text-red-600 dark:text-red-300">{sideSettingsError}</p>}
                   <button
                     type="button"
                     disabled={working}
                     onClick={saveSideSettings}
-                    className="self-end rounded-lg bg-[#252525] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                    className="self-end rounded-lg bg-[#f8fafc] dark:bg-[#252525] px-4 py-2 text-xs font-semibold text-gray-900 dark:text-white disabled:opacity-40"
                   >
                     Apply settings
                   </button>
                 </div>
               </>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-[#888]">
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-[#888] dark:text-[#b8bec7]">
                 <PanelRight size={35} strokeWidth={1.5} />
-                <p className="text-sm font-medium text-[#454545]">Select a node to inspect it</p>
+                <p className="text-sm font-medium text-[#454545] dark:text-[#b8bec7]">Select a node to inspect it</p>
                 <p className="text-xs leading-5">Click a node on the canvas to see its settings here.</p>
               </div>
             )}
@@ -2932,7 +2932,7 @@ onPaneClick={() => {
 
         {commandOpen && createPortal(
           <div
-            className="nodrag nopan fixed inset-0 z-[9999] flex items-center justify-center bg-[#171717]/35 px-4 py-6 backdrop-blur-[3px]"
+            className="nodrag nopan fixed inset-0 z-[9999] flex items-center justify-center bg-[#f8fafc]/35 dark:bg-[#171717]/35 px-4 py-6 backdrop-blur-[3px]"
             onPointerDown={event => event.stopPropagation()}
             onClick={() => setCommandOpen(false)}
           >
@@ -2940,12 +2940,12 @@ onPaneClick={() => {
               role="dialog"
               aria-modal="true"
               aria-label="Search CLIPTORA"
-              className="flex max-h-[min(690px,calc(100dvh-36px))] w-full max-w-[850px] flex-col overflow-hidden rounded-[20px] border border-[#e8e8e8] bg-white shadow-[0_18px_65px_rgba(0,0,0,0.22)]"
+              className="flex max-h-[min(690px,calc(100dvh-36px))] w-full max-w-[850px] flex-col overflow-hidden rounded-[20px] border border-[#e8e8e8] dark:border-[#374151] bg-white dark:bg-cl-dark-panel shadow-[0_18px_65px_rgba(0,0,0,0.22)]"
               onClick={event => event.stopPropagation()}
               onPointerDown={event => event.stopPropagation()}
             >
               <div className="flex items-center gap-3 px-5 py-4">
-                <Search size={22} className="shrink-0 text-[#999]" />
+                <Search size={22} className="shrink-0 text-[#4b5563] dark:text-[#999]" />
                 <input
                   autoFocus
                   type="search"
@@ -2955,7 +2955,7 @@ onPaneClick={() => {
                     setCommandIndex(0)
                   }}
                   placeholder="Type a command or search..."
-                  className="min-w-0 flex-1 text-[17px] text-[#242424] outline-none placeholder:text-[#999]"
+                  className="min-w-0 flex-1 text-[17px] text-[#242424] dark:text-[#f3f4f6] outline-none placeholder:text-[#4b5563] dark:placeholder:text-[#999]"
                   onKeyDown={event => {
                     if (event.key === 'Escape') setCommandOpen(false)
                     if (event.key === 'ArrowDown') {
@@ -2976,13 +2976,13 @@ onPaneClick={() => {
                   type="button"
                   title="Close search"
                   aria-label="Close search"
-                  className="rounded-lg p-1 text-[#777] hover:bg-[#f5f5f5]"
+                  className="rounded-lg p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937]"
                   onClick={() => setCommandOpen(false)}
                 >
                   <X size={22} />
                 </button>
               </div>
-              <div className="flex shrink-0 gap-1 border-b border-[#ebebec] px-4 pb-2">
+              <div className="flex shrink-0 gap-1 border-b border-[#ebebec] dark:border-[#374151] px-4 pb-2">
                 {(['all', 'nodes', 'workflows', 'actions'] as const).map(tab => (
                   <button
                     key={tab}
@@ -2992,15 +2992,15 @@ onPaneClick={() => {
                       setCommandIndex(0)
                     }}
                     className={`rounded-lg px-3 py-2 text-[13px] capitalize ${commandTab === tab
-                      ? 'bg-[#ececed] font-semibold text-[#222]'
-                      : 'text-[#555] hover:bg-[#f7f7f7]'}`}
+                      ? 'bg-[#ececed] dark:bg-[#1f2937] font-semibold text-[#222] dark:text-[#f3f4f6]'
+                      : 'text-[#555] dark:text-[#b8bec7] hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]'}`}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin]">
-                <p className="px-3 pb-2 pt-1 text-[12px] text-[#999]">
+                <p className="px-3 pb-2 pt-1 text-[12px] text-[#4b5563] dark:text-[#999]">
                   {commandQuery.trim() ? `${searchEntries.length} matching results` : 'Suggestions'}
                 </p>
                 {searchEntries.map((entry, index) => (
@@ -3010,32 +3010,32 @@ onPaneClick={() => {
                     disabled={working || (entry.kind !== 'workflow' && nodes.length >= 100)}
                     onMouseEnter={() => setCommandIndex(index)}
                     onClick={() => selectSearchEntry(entry)}
-                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left disabled:opacity-40 ${commandIndex === index ? 'bg-[#f2f2f2]' : 'hover:bg-[#f7f7f7]'}`}
+                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left disabled:opacity-40 ${commandIndex === index ? 'bg-[#f2f2f2] dark:bg-[#1f2937]' : 'hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]'}`}
                   >
-                    <span className="grid size-7 shrink-0 place-items-center text-[#777]">
+                    <span className="grid size-7 shrink-0 place-items-center text-[#777] dark:text-[#b8bec7]">
                       {entry.kind === 'workflow'
                         ? <WorkflowIcon size={20} />
                         : entry.nodeType
                           ? <WorkflowToolIcon type={entry.nodeType} actionId={entry.actionId} size={22} />
                           : <Search size={19} />}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#282828]">
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#282828] dark:text-[#f3f4f6]">
                       {entry.label}
                     </span>
-                    <span className="max-w-[38%] truncate text-xs text-[#888]">
+                    <span className="max-w-[38%] truncate text-xs text-[#888] dark:text-[#b8bec7]">
                       {entry.detail}
                     </span>
-                    <ChevronRight size={16} className="text-[#bbb]" />
+                    <ChevronRight size={16} className="text-[#4b5563] dark:text-[#bbb]" />
                   </button>
                 ))}
                 {!searchEntries.length && (
-                  <p className="px-4 py-10 text-center text-sm text-[#999]">No matching results.</p>
+                  <p className="px-4 py-10 text-center text-sm text-[#4b5563] dark:text-[#999]">No matching results.</p>
                 )}
               </div>
-              <div className="flex shrink-0 items-center gap-4 border-t border-[#ededed] px-5 py-3 text-xs text-[#888]">
-                <span>Close <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">Esc</kbd></span>
-                <span>Navigate <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">↑ ↓</kbd></span>
-                <span>Open <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">Enter</kbd></span>
+              <div className="flex shrink-0 items-center gap-4 border-t border-[#ededed] dark:border-[#374151] px-5 py-3 text-xs text-[#888] dark:text-[#b8bec7]">
+                <span>Close <kbd className="rounded bg-[#f3f3f3] dark:bg-[#1f2937] px-1.5 py-1">Esc</kbd></span>
+                <span>Navigate <kbd className="rounded bg-[#f3f3f3] dark:bg-[#1f2937] px-1.5 py-1">↑ ↓</kbd></span>
+                <span>Open <kbd className="rounded bg-[#f3f3f3] dark:bg-[#1f2937] px-1.5 py-1">Enter</kbd></span>
               </div>
             </div>
           </div>,
@@ -3046,12 +3046,12 @@ onPaneClick={() => {
           <div
             role="toolbar"
             aria-label="Canvas controls"
-            className="flex items-center gap-2 rounded-full border border-[#e3e4e6] bg-white px-3 py-2 shadow-[0_5px_22px_#00000012]"
+            className="flex items-center gap-2 rounded-full border border-[#e3e4e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2 shadow-[0_5px_22px_#00000012]"
             onPointerDown={event => event.stopPropagation()}
           >
             <button
               type="button"
-              className="grid place-items-center rounded-full text-[#191919] transition-colors hover:bg-[#f4f4f5]"
+              className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]"
               title="Fit workflow to view"
               aria-label="Fit workflow to view"
               onClick={() => {
@@ -3073,7 +3073,7 @@ onPaneClick={() => {
 
             <button
               type="button"
-              className="grid place-items-center rounded-full text-[#191919] transition-colors hover:bg-[#f4f4f5] disabled:opacity-30"
+              className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-30"
               title="Zoom in"
               aria-label="Zoom in"
               disabled={viewport.zoom >= 1.25}
@@ -3086,7 +3086,7 @@ onPaneClick={() => {
 
             <button
               type="button"
-              className="grid place-items-center rounded-full text-[#191919] transition-colors hover:bg-[#f4f4f5] disabled:opacity-30"
+              className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-30"
               title="Zoom out"
               aria-label="Zoom out"
               disabled={viewport.zoom <= 0.25}
@@ -3099,7 +3099,7 @@ onPaneClick={() => {
 
             <button
               type="button"
-              className="grid place-items-center rounded-full text-[#191919] transition-colors hover:bg-[#f4f4f5] disabled:opacity-30"
+              className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-30"
               title="Tidy up workflow"
               aria-label="Tidy up workflow"
               disabled={!nodes.length || working}
@@ -3111,7 +3111,7 @@ onPaneClick={() => {
 
           <button
             type="button"
-            className="grid place-items-center rounded-full border border-[#e3e4e6] bg-white text-[#27272a] shadow-[0_5px_22px_#00000012] transition-colors hover:bg-[#f4f4f5]"
+            className="grid place-items-center rounded-full border border-[#e3e4e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#27272a] dark:text-[#f3f4f6] shadow-[0_5px_22px_#00000012] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]"
             title={
               bottomOpen
                 ? 'Hide execution preview'
@@ -3144,9 +3144,9 @@ onPaneClick={() => {
           <div className="absolute inset-0 z-[105] flex items-center justify-center bg-[#00000040] px-4">
             <form
               onSubmit={renameNode}
-              className="w-full max-w-[370px] rounded-xl border border-[#e4e4e5] bg-white p-5 shadow-xl"
+              className="w-full max-w-[370px] rounded-xl border border-[#e4e4e5] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-5 shadow-xl"
             >
-              <h3 className="font-semibold text-[#202020]">
+              <h3 className="font-semibold text-[#202020] dark:text-[#f3f4f6]">
                 Rename node
               </h3>
 
@@ -3167,7 +3167,7 @@ onPaneClick={() => {
                     setRenameDraft(null)
                   }
                 }}
-                className="mt-4 h-11 w-full rounded-lg border border-violet-300 px-3 text-sm text-[#222] outline-none"
+                className="mt-4 h-11 w-full rounded-lg border border-violet-300 dark:border-violet-900/70 px-3 text-sm text-[#222] dark:text-[#f3f4f6] outline-none"
               />
 
               <div className="mt-4 flex justify-end gap-2">
@@ -3182,7 +3182,7 @@ onPaneClick={() => {
                 <button
                   type="submit"
                   disabled={!renameDraft.value.trim()}
-                  className="rounded-lg bg-[#252525] px-4 py-2 text-sm text-white disabled:opacity-50"
+                  className="rounded-lg bg-[#f8fafc] dark:bg-[#252525] px-4 py-2 text-sm text-gray-900 dark:text-white disabled:opacity-50"
                 >
                   Rename
                 </button>
@@ -3195,13 +3195,13 @@ onPaneClick={() => {
           <div className="absolute inset-0 z-[106] flex items-center justify-center bg-[#00000040] px-4">
             <form
               onSubmit={submitEdgeRename}
-              className="w-full max-w-[370px] rounded-xl border border-[#e4e4e5] bg-white p-5 shadow-xl"
+              className="w-full max-w-[370px] rounded-xl border border-[#e4e4e5] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-5 shadow-xl"
             >
-              <h3 className="font-semibold text-[#202020]">
+              <h3 className="font-semibold text-[#202020] dark:text-[#f3f4f6]">
                 Connection label
               </h3>
 
-              <p className="mt-1 text-xs text-[#858585]">
+              <p className="mt-1 text-xs text-[#858585] dark:text-[#b8bec7]">
                 Visual label only. Routing conditions stay unchanged.
               </p>
 
@@ -3223,7 +3223,7 @@ onPaneClick={() => {
                   }
                 }}
                 placeholder="true, false, success, error..."
-                className="mt-4 h-11 w-full rounded-lg border border-violet-300 px-3 text-sm text-[#222] outline-none"
+                className="mt-4 h-11 w-full rounded-lg border border-violet-300 dark:border-violet-900/70 px-3 text-sm text-[#222] dark:text-[#f3f4f6] outline-none"
               />
 
               <div className="mt-4 flex justify-end gap-2">
@@ -3237,7 +3237,7 @@ onPaneClick={() => {
 
                 <button
                   type="submit"
-                  className="rounded-lg bg-[#252525] px-4 py-2 text-sm text-white"
+                  className="rounded-lg bg-[#f8fafc] dark:bg-[#252525] px-4 py-2 text-sm text-gray-900 dark:text-white"
                 >
                   Save label
                 </button>
@@ -3250,7 +3250,7 @@ onPaneClick={() => {
           <div
             role="dialog"
             aria-label="Add next node"
-            className="absolute z-[60] w-[560px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[#dddddf] bg-white shadow-[0_14px_44px_rgba(0,0,0,0.12)]"
+            className="absolute z-[60] w-[560px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[#dddddf] dark:border-[#374151] bg-white dark:bg-cl-dark-panel shadow-[0_14px_44px_rgba(0,0,0,0.12)]"
             style={{
               left: quickAdd.left,
               top: quickAdd.top,
@@ -3258,8 +3258,8 @@ onPaneClick={() => {
             }}
             onPointerDown={event => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#ededed] px-3 py-2.5">
-              <strong className="text-sm font-semibold text-[#222]">
+            <div className="flex items-center justify-between border-b border-[#ededed] dark:border-[#374151] px-3 py-2.5">
+              <strong className="text-sm font-semibold text-[#222] dark:text-[#f3f4f6]">
                 {quickAdd.mode === 'replace'
                   ? 'Replace node'
                   : quickAdd.mode === 'insert'
@@ -3269,7 +3269,7 @@ onPaneClick={() => {
 
               <button
                 type="button"
-                className="rounded p-1 text-[#777] hover:bg-[#eee]"
+                className="rounded p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#eee] dark:hover:bg-[#1f2937]"
                 onClick={() => setQuickAdd(null)}
                 aria-label="Close"
               >
@@ -3277,7 +3277,7 @@ onPaneClick={() => {
               </button>
             </div>
 
-            <label className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-violet-300 px-3 py-2 text-[#777]">
+            <label className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-900/70 px-3 py-2 text-[#777] dark:text-[#b8bec7]">
               <Search size={17} />
 
               <input
@@ -3285,7 +3285,7 @@ onPaneClick={() => {
                 value={quickSearch}
                 onChange={event => setQuickSearch(event.target.value)}
                 placeholder="Search executable nodes..."
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#222] outline-none"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#222] dark:text-[#f3f4f6] outline-none"
               />
             </label>
 
@@ -3296,7 +3296,7 @@ onPaneClick={() => {
                     key={item.type}
                     type="button"
                     onClick={() => addAfter(item.type)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#f7f5fa]"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#f7f5fa] dark:hover:bg-[#1f2937]"
                   >
                     <span className="grid size-7 shrink-0 place-items-center">
                       <WorkflowToolIcon
@@ -3307,20 +3307,20 @@ onPaneClick={() => {
                     </span>
 
                     <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-[13px] font-medium text-[#222]">
+                      <strong className="block truncate text-[13px] font-medium text-[#222] dark:text-[#f3f4f6]">
                         {item.label}
                       </strong>
 
-                      <span className="block truncate text-[11px] text-[#858585]">
+                      <span className="block truncate text-[11px] text-[#858585] dark:text-[#b8bec7]">
                         {item.group}
                       </span>
                     </span>
 
-                    <Plus size={15} className="text-[#aaa]" />
+                    <Plus size={15} className="text-[#4b5563] dark:text-[#aaa]" />
                   </button>
                 ))
               ) : (
-                <p className="px-4 py-4 text-[13px] text-[#777]">
+                <p className="px-4 py-4 text-[13px] text-[#777] dark:text-[#b8bec7]">
                   No available nodes found.
                 </p>
               )}
@@ -3330,23 +3330,23 @@ onPaneClick={() => {
 
         {!nodes.length && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-            <div className="pointer-events-auto max-w-[300px] rounded-2xl border border-[#e7e7e7] bg-white px-6 py-7 text-center shadow-sm">
-              <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
+            <div className="pointer-events-auto max-w-[300px] rounded-2xl border border-[#e7e7e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-6 py-7 text-center shadow-sm">
+              <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl border border-violet-200 dark:border-violet-900/70 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300">
                 <Plus size={22} />
               </div>
 
-              <h2 className="text-sm font-semibold text-[#252525]">
+              <h2 className="text-sm font-semibold text-[#252525] dark:text-[#f3f4f6]">
                 Start your workflow
               </h2>
 
-              <p className="mt-2 text-xs leading-5 text-[#858585]">
+              <p className="mt-2 text-xs leading-5 text-[#858585] dark:text-[#b8bec7]">
                 Choose a tool from the sidebar or drag one onto the canvas.
               </p>
 
               <button
                 type="button"
                 onClick={showToolLibrary}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#222] px-4 py-2 text-xs font-semibold text-white"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#f8fafc] dark:bg-[#222] px-4 py-2 text-xs font-semibold text-gray-900 dark:text-white"
               >
                 <Plus size={15} />
                 Add first tool

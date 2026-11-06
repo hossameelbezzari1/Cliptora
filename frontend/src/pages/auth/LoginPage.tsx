@@ -107,7 +107,7 @@ export function LoginPage() {
 
   if (loading || user) {
     return (
-      <div className="grid min-h-screen place-items-center bg-cl-bg text-cl-muted">
+      <div className="grid min-h-screen place-items-center bg-cl-bg dark:bg-cl-dark-bg text-cl-muted dark:text-cl-dark-muted">
         <div className="flex flex-col items-center gap-3">
           <div className="size-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
 
@@ -173,7 +173,7 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-7 text-center text-xs text-cl-muted">
+      <p className="mt-7 text-center text-xs text-cl-muted dark:text-cl-dark-muted">
         New to Cliptora?{' '}
 
         <Link

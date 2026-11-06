@@ -57,19 +57,19 @@ export function WorkflowTopbar({
   }
 
   return (
-    <header className="relative z-20 flex h-[66px] shrink-0 items-center gap-2 border-b border-[#e5e7eb] bg-white px-3 text-[#171717] sm:gap-3 sm:px-5">
+    <header className="relative z-20 flex h-[66px] shrink-0 items-center gap-2 border-b border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 text-[#171717] dark:text-[#f3f4f6] sm:gap-3 sm:px-5">
       <button
         type="button"
         onClick={onClose}
         title="Back to Timeline"
         aria-label="Back to Timeline"
-        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-[#626976] hover:bg-[#f3f4f6]"
+        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-[#626976] dark:text-[#b8bec7] hover:bg-[#f3f4f6] dark:hover:bg-[#1f2937]"
       >
         <ArrowLeft size={17} />
         <span className="hidden lg:inline">Timeline</span>
       </button>
 
-      <span className="hidden h-6 w-px bg-[#e5e7eb] sm:block" />
+      <span className="hidden h-6 w-px bg-[#e5e7eb] dark:bg-[#1f2937] sm:block" />
 
 
       <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-initial">
@@ -79,26 +79,26 @@ export function WorkflowTopbar({
           onChange={event => setName(event.target.value)}
           placeholder="Untitled Workflow"
           maxLength={160}
-          className="h-9 w-auto min-w-[20px] max-w-[200px] [field-sizing:content] rounded-lg border border-transparent bg-transparent px-2 text-sm font-semibold text-[#171717] outline-none"
+          className="h-9 w-auto min-w-[20px] max-w-[200px] [field-sizing:content] rounded-lg border border-transparent bg-transparent px-2 text-sm font-semibold text-[#171717] dark:text-[#f3f4f6] outline-none"
         />
 
-        <span className="hidden shrink-0 rounded-md bg-[#f4f4f5] px-2 py-1 text-[10px] font-semibold text-[#71717a] xl:inline">
+        <span className="hidden shrink-0 rounded-md bg-[#f4f4f5] dark:bg-[#1f2937] px-2 py-1 text-[10px] font-semibold text-[#71717a] dark:text-[#b8bec7] xl:inline">
           {activeId ? `#${activeId}` : 'Draft'}
         </span>
       </div>
 
       <div
-        className="hidden items-center gap-3 text-[11px] text-[#777] 2xl:flex"
+        className="hidden items-center gap-3 text-[11px] text-[#777] dark:text-[#b8bec7] 2xl:flex"
         aria-live="polite"
       >
         {run && <span>Run #{run.id} · {run.state}</span>}
 
-        <span className="inline-flex items-center gap-1 text-emerald-700">
+        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 size={14} />
           {completedNodes}
         </span>
 
-        <span className="inline-flex items-center gap-1 text-amber-700">
+        <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
           <Clock3 size={14} />
           {waitingNodes}
         </span>
@@ -107,12 +107,12 @@ export function WorkflowTopbar({
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         <ThemeToggle compact />
         <div
-          className="flex shrink-0 items-center gap-1 rounded-xl border border-[#ededf0] bg-[#fafafa] p-1"
+          className="flex shrink-0 items-center gap-1 rounded-xl border border-[#ededf0] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] p-1"
           aria-label="Workflow edit history"
         >
           <button
             type="button"
-            className="grid size-8 place-items-center rounded-lg text-[#52525b] transition-colors hover:bg-white hover:text-[#18181b] disabled:cursor-not-allowed disabled:opacity-30"
+            className="grid size-8 place-items-center rounded-lg text-[#52525b] dark:text-[#b8bec7] transition-colors hover:bg-white dark:hover:bg-cl-dark-panel hover:text-[#18181b] dark:hover:text-[#f3f4f6] disabled:cursor-not-allowed disabled:opacity-30"
             onClick={undo}
             disabled={!canUndo || working || canvasDragging}
             title="Undo (Ctrl+Z)"
@@ -123,7 +123,7 @@ export function WorkflowTopbar({
 
           <button
             type="button"
-            className="grid size-8 place-items-center rounded-lg text-[#52525b] transition-colors hover:bg-white hover:text-[#18181b] disabled:cursor-not-allowed disabled:opacity-30"
+            className="grid size-8 place-items-center rounded-lg text-[#52525b] dark:text-[#b8bec7] transition-colors hover:bg-white dark:hover:bg-cl-dark-panel hover:text-[#18181b] dark:hover:text-[#f3f4f6] disabled:cursor-not-allowed disabled:opacity-30"
             onClick={redo}
             disabled={!canRedo || working || canvasDragging}
             title="Redo (Ctrl+Y)"

@@ -23,17 +23,17 @@ export function MediaAssetCard({media,selected,view,onSelect,onAdd,onDragStart,o
   const icon = kind==='video' ? <Film size={13}/> : kind==='audio' ? <AudioLines size={13}/> : <ImageIcon size={13}/>
   return <article draggable onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onSelect} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect()}}} tabIndex={0}
     role="button" aria-pressed={selected} title={`Select ${mediaName(media)}. Drag into Timeline to add.`}
-    className={`group relative min-w-0 cursor-grab overflow-hidden rounded-xl border text-left text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ac84ff] ${selected?'border-[#a37af9] bg-[#202136] ring-1 ring-[#9975ea]/70':'border-[#323843] bg-[#151a22] hover:border-[#7758b7] hover:bg-[#1c202c]'} ${view==='list'?'flex items-center gap-3 p-2':'p-1.5'}`}>
-    <div className={`relative shrink-0 overflow-hidden rounded-lg bg-[#1d242d] ${view==='list'?'h-[62px] w-[104px]':'aspect-[16/10] w-full'}`}>
+    className={`group relative min-w-0 cursor-grab overflow-hidden rounded-xl border text-left text-gray-900 dark:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ac84ff] ${selected?'border-[#a37af9] bg-[#f8fafc] dark:bg-[#202136] ring-1 ring-[#9975ea]/70':'border-[#d1d5db] dark:border-[#323843] bg-[#f8fafc] dark:bg-[#151a22] hover:border-[#e1daef] dark:hover:border-[#7758b7] hover:bg-[#f8fafc] dark:hover:bg-[#1c202c]'} ${view==='list'?'flex items-center gap-3 p-2':'p-1.5'}`}>
+    <div className={`relative shrink-0 overflow-hidden rounded-lg bg-[#f8fafc] dark:bg-[#1d242d] ${view==='list'?'h-[62px] w-[104px]':'aspect-[16/10] w-full'}`}>
       {picture}
-      <span className="absolute left-1.5 bottom-1.5 rounded-md bg-[#10131b]/85 p-1 text-[#eae6f9]">{icon}</span>
-      {mediaDuration(media)!==null&&<span className="absolute bottom-1 right-1 rounded bg-[#0b1017]/85 px-1.5 py-0.5 text-[10px] text-white">{formatDuration(mediaDuration(media))}</span>}
+      <span className="absolute left-1.5 bottom-1.5 rounded-md bg-[#f8fafc]/85 dark:bg-[#10131b]/85 p-1 text-[#4b5563] dark:text-[#eae6f9]">{icon}</span>
+      {mediaDuration(media)!==null&&<span className="absolute bottom-1 right-1 rounded bg-[#f8fafc]/85 dark:bg-[#0b1017]/85 px-1.5 py-0.5 text-[10px] text-gray-900 dark:text-white">{formatDuration(mediaDuration(media))}</span>}
     </div>
     <div className={`min-w-0 flex-1 ${view==='list'?'pr-2':'px-1 py-2'}`}>
       <p className="truncate text-[11px] font-semibold" title={mediaName(media)}>{mediaName(media)}</p>
-      <p className="mt-1 truncate text-[10px] text-[#9ba5b5]">{mediaDimensions(media)} · {mediaSize(media)}</p>
-      <p className="mt-0.5 text-[10px] capitalize text-[#7f899d]">{kind}</p>
+      <p className="mt-1 truncate text-[10px] text-[#4b5563] dark:text-[#9ba5b5]">{mediaDimensions(media)} · {mediaSize(media)}</p>
+      <p className="mt-0.5 text-[10px] capitalize text-[#7f899d] dark:text-[#b8bec7]">{kind}</p>
     </div>
-    <button type="button" onClick={event=>{event.stopPropagation();onAdd()}} title={`Add ${mediaName(media)} to Timeline`} aria-label={`Add ${mediaName(media)} to Timeline`} className={`rounded-lg bg-[#342747] p-1.5 text-[#dcc5ff] hover:bg-[#7846d4] hover:text-white ${view==='list'?'mr-1':'absolute right-3 top-3 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100'}`}><Plus size={14}/></button>
+    <button type="button" onClick={event=>{event.stopPropagation();onAdd()}} title={`Add ${mediaName(media)} to Timeline`} aria-label={`Add ${mediaName(media)} to Timeline`} className={`rounded-lg bg-[#ebe9ed] dark:bg-[#342747] p-1.5 text-[#dcc5ff] hover:bg-[#f2edfb] dark:hover:bg-[#7846d4] hover:text-gray-900 dark:hover:text-white ${view==='list'?'mr-1':'absolute right-3 top-3 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100'}`}><Plus size={14}/></button>
   </article>
 }

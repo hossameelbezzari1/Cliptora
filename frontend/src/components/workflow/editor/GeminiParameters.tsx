@@ -32,8 +32,8 @@ const TEXT_MODELS = [
   { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite' },
   { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite (if available)' },
 ]
-const FIELD = 'block w-full rounded-lg border border-[#dedee3] bg-white px-3 py-2.5 text-[12px] text-[#303030] outline-none transition-colors focus:border-[#8a5cf4] focus:ring-2 focus:ring-violet-100 disabled:bg-[#f2f2f2] disabled:text-[#999]'
-const LABEL = 'mb-1.5 block text-[12px] font-medium text-[#3c3c3c]'
+const FIELD = 'block w-full rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2.5 text-[12px] text-[#303030] dark:text-[#f3f4f6] outline-none transition-colors focus:border-[#e5dbfd] dark:focus:border-[#8a5cf4] focus:ring-2 focus:ring-violet-100 dark:focus:ring-violet-900/70 disabled:bg-[#f2f2f2] dark:disabled:bg-[#1f2937] disabled:text-[#4b5563] dark:disabled:text-[#999]'
+const LABEL = 'mb-1.5 block text-[12px] font-medium text-[#3c3c3c] dark:text-[#f3f4f6]'
 
 function stringSetting(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
@@ -50,8 +50,8 @@ function Checkbox({ checked, onChange, label, description }: {
 }) {
   return <label className="flex cursor-pointer items-start justify-between gap-3 py-1.5">
     <span className="min-w-0">
-      <span className="block text-[12px] font-medium text-[#3c3c3c]">{label}</span>
-      {description && <span className="mt-0.5 block text-[11px] leading-4 text-[#888]">{description}</span>}
+      <span className="block text-[12px] font-medium text-[#3c3c3c] dark:text-[#f3f4f6]">{label}</span>
+      {description && <span className="mt-0.5 block text-[11px] leading-4 text-[#888] dark:text-[#b8bec7]">{description}</span>}
     </span>
     <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-violet-600" />
   </label>
@@ -70,7 +70,7 @@ function NumberField({ name, value, onChange, min, max, step = 1, hint }: {
     <input type="number" min={min} max={max} step={step} value={value} onChange={event => {
       if (event.target.value !== '') onChange(Number(event.target.value))
     }} className={FIELD} />
-    {hint && <span className="mt-1 block text-[11px] text-[#858585]">{hint}</span>}
+    {hint && <span className="mt-1 block text-[11px] text-[#858585] dark:text-[#b8bec7]">{hint}</span>}
   </label>
 }
 
@@ -109,11 +109,11 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
     <section>
       <span className={LABEL}>Credential</span>
       <button type="button" onClick={onManageCredentials} disabled={!onManageCredentials}
-        className="inline-flex max-w-full items-center gap-2 rounded-lg border border-[#dedee3] bg-white px-3 py-2 text-left text-[12px] text-[#333] hover:bg-[#f7f7fa] disabled:cursor-default disabled:opacity-80">
-        <KeyRound size={15} className="shrink-0 text-[#6c48c7]" />
+        className="inline-flex max-w-full items-center gap-2 rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2 text-left text-[12px] text-[#333] dark:text-[#f3f4f6] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937] disabled:cursor-default disabled:opacity-80">
+        <KeyRound size={15} className="shrink-0 text-[#6c48c7] dark:text-[#c1b2e7]" />
         <span className="truncate">Google Gemini API credential</span>
       </button>
-      <p className="mt-1 text-[11px] leading-4 text-[#818181]">The executor reads <code>GEMINI_API_KEY</code> from the backend environment. Never paste the key into this node.</p>
+      <p className="mt-1 text-[11px] leading-4 text-[#818181] dark:text-[#b8bec7]">The executor reads <code>GEMINI_API_KEY</code> from the backend environment. Never paste the key into this node.</p>
     </section>
 
     <section>
@@ -122,7 +122,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
         <select id={`gemini-resource-${node.id}`} value={resource} onChange={e => changeResource(e.target.value)} className={`${FIELD} appearance-none pr-9`}>
           {RESOURCES.map(item => <option key={item} value={item}>{item}</option>)}
         </select>
-        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#888]" />
+        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#888] dark:text-[#b8bec7]" />
       </div>
     </section>
 
@@ -132,16 +132,16 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
         <select id={`gemini-action-${node.id}`} value={actionId} onChange={e => onChange('action', e.target.value)} className={`${FIELD} appearance-none pr-9`}>
           {availableActions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
-        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#888]" />
+        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#888] dark:text-[#b8bec7]" />
       </div>
-      {unavailable && <p role="alert" className="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800"><AlertTriangle size={15} className="shrink-0" />{currentAction.reason ?? 'This action is unavailable in the backend.'}</p>}
+      {unavailable && <p role="alert" className="mt-2 flex gap-2 rounded-lg border border-amber-200 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 px-3 py-2 text-[11px] leading-4 text-amber-800 dark:text-amber-300"><AlertTriangle size={15} className="shrink-0" />{currentAction.reason ?? 'This action is unavailable in the backend.'}</p>}
     </section>
 
     {freeCandidate && <>
       <section>
         <span className={LABEL}>Model</span>
         <div className="flex items-center gap-2">
-          <select value={stringSetting(cfg.model_by_id).trim() ? 'id' : 'list'} onChange={e => onChange('model_by_id', e.target.value === 'id' ? stringSetting(cfg.model, 'gemini-2.5-flash') : '')} className="min-w-[112px] rounded-lg border border-[#dedee3] bg-white px-2 py-2.5 text-[12px] text-[#333]">
+          <select value={stringSetting(cfg.model_by_id).trim() ? 'id' : 'list'} onChange={e => onChange('model_by_id', e.target.value === 'id' ? stringSetting(cfg.model, 'gemini-2.5-flash') : '')} className="min-w-[112px] rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2 py-2.5 text-[12px] text-[#333] dark:text-[#f3f4f6]">
             <option value="list">From list</option>
             <option value="id">By ID</option>
           </select>
@@ -151,7 +151,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
               {TEXT_MODELS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>}
         </div>
-        <p className="mt-1 text-[11px] leading-4 text-[#858585]">Free-tier candidate list, not a billing guarantee. Availability depends on your Google project.</p>
+        <p className="mt-1 text-[11px] leading-4 text-[#858585] dark:text-[#b8bec7]">Free-tier candidate list, not a billing guarantee. Availability depends on your Google project.</p>
       </section>
 
       <section>
@@ -162,7 +162,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       {!highlights && <section>
         <label htmlFor={`gemini-input-${node.id}`} className={LABEL}>Input Path (optional)</label>
         <input id={`gemini-input-${node.id}`} value={stringSetting(cfg.input_path)} onChange={e => onChange('input_path', e.target.value)} className={FIELD} placeholder="audio_transcribe.text" />
-        <p className="mt-1 text-[11px] leading-4 text-[#858585]">Reference a connected node output. Example: <code>audio_transcribe.text</code>.</p>
+        <p className="mt-1 text-[11px] leading-4 text-[#858585] dark:text-[#b8bec7]">Reference a connected node output. Example: <code>audio_transcribe.text</code>.</p>
       </section>}
 
       <section>
@@ -170,11 +170,11 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
         <select id={`gemini-mode-${node.id}`} value={mode} onChange={e => onChange('output_mode', e.target.value)} className={FIELD}>
           <option value="text">Text</option><option value="json">JSON</option><option value="highlights">Highlights (word-timed clips)</option>
         </select>
-        {highlights && <p className="mt-1 text-[11px] leading-4 text-[#858585]">Automatically reads the <code>words</code> array from exactly one connected transcription node, then validates word IDs and timestamps.</p>}
+        {highlights && <p className="mt-1 text-[11px] leading-4 text-[#858585] dark:text-[#b8bec7]">Automatically reads the <code>words</code> array from exactly one connected transcription node, then validates word IDs and timestamps.</p>}
       </section>
 
-      {highlights && <section className="space-y-3 rounded-xl border border-[#e9e4f5] bg-[#fbfaff] p-3">
-        <p className="text-[12px] font-semibold text-[#4f397d]">Highlights & Cuts</p>
+      {highlights && <section className="space-y-3 rounded-xl border border-[#e9e4f5] dark:border-[#374151] bg-[#fbfaff] dark:bg-[#1f2937] p-3">
+        <p className="text-[12px] font-semibold text-[#4f397d] dark:text-[#b5acc8]">Highlights & Cuts</p>
         <div className="grid grid-cols-2 gap-3">
           <NumberField name="Target duration (sec)" value={numberSetting(cfg.target_duration, 120)} min={10} max={7200} onChange={n => onChange('target_duration', n)} />
           <NumberField name="Max highlights" value={numberSetting(cfg.max_highlights, 12)} min={1} max={100} onChange={n => onChange('max_highlights', n)} />
@@ -182,18 +182,18 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
           <NumberField name="Max clip (sec)" value={numberSetting(cfg.max_clip_seconds, 35)} min={1} max={900} step={0.5} onChange={n => onChange('max_clip_seconds', n)} />
         </div>
         <NumberField name="Transcript chunk size (characters)" value={numberSetting(cfg.chunk_chars, 14000)} min={2000} max={50000} step={500} onChange={n => onChange('chunk_chars', n)} />
-        <p className="text-[11px] leading-4 text-[#80738e]">Long transcripts are split into chunks. Every chunk uses an API request; actual usage depends on the model and available quota.</p>
+        <p className="text-[11px] leading-4 text-[#80738e] dark:text-[#b8bec7]">Long transcripts are split into chunks. Every chunk uses an API request; actual usage depends on the model and available quota.</p>
       </section>}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] font-semibold text-[#3c3c3c]">Messages</span>
-          <span className="text-[11px] text-[#888]">{messages.length} / 30</span>
+          <span className="text-[12px] font-semibold text-[#3c3c3c] dark:text-[#f3f4f6]">Messages</span>
+          <span className="text-[11px] text-[#888] dark:text-[#b8bec7]">{messages.length} / 30</span>
         </div>
-        {messages.map((message, index) => <div key={index} className="space-y-2 rounded-lg border border-[#e5e5e9] bg-white p-3">
+        {messages.map((message, index) => <div key={index} className="space-y-2 rounded-lg border border-[#e5e5e9] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-[#555]">Message {index + 1}</span>
-            <button type="button" onClick={() => removeMessage(index)} title="Remove message" aria-label={`Remove message ${index + 1}`} className="rounded-md p-1.5 text-[#888] hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+            <span className="text-[11px] font-semibold text-[#555] dark:text-[#b8bec7]">Message {index + 1}</span>
+            <button type="button" onClick={() => removeMessage(index)} title="Remove message" aria-label={`Remove message ${index + 1}`} className="rounded-md p-1.5 text-[#888] dark:text-[#b8bec7] hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-300"><Trash2 size={15} /></button>
           </div>
           <label className="block"><span className={LABEL}>Role</span>
             <select value={message.role} onChange={e => updateMessage(index, { role: e.target.value as GeminiMessage['role'] })} className={FIELD}>
@@ -202,17 +202,17 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
           <label className="block"><span className={LABEL}>Text</span>
             <textarea rows={3} value={message.text} onChange={e => updateMessage(index, { text: e.target.value })} className={`${FIELD} resize-y`} placeholder="Enter message..." /></label>
         </div>)}
-        <button type="button" onClick={addMessage} disabled={messages.length >= 30} className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#e2e2e7] bg-[#f6f6f8] px-3 py-2 text-[12px] font-medium text-[#555] hover:bg-[#ededf2] disabled:opacity-50"><Plus size={14} /> Add Message</button>
+        <button type="button" onClick={addMessage} disabled={messages.length >= 30} className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#e2e2e7] dark:border-[#374151] bg-[#f6f6f8] dark:bg-[#1f2937] px-3 py-2 text-[12px] font-medium text-[#555] dark:text-[#b8bec7] hover:bg-[#ededf2] dark:hover:bg-[#1f2937] disabled:opacity-50"><Plus size={14} /> Add Message</button>
       </section>
 
       <section className="space-y-2">
         {mode === 'text'
           ? <Checkbox checked={Boolean(cfg.output_content_as_json)} onChange={value => onChange('output_content_as_json', value)} label="Output Content as JSON" description="Parse a JSON-formatted response from Gemini." />
-          : <p className="text-[11px] text-[#858585]">JSON output is enabled automatically in {mode} mode.</p>}
+          : <p className="text-[11px] text-[#858585] dark:text-[#b8bec7]">JSON output is enabled automatically in {mode} mode.</p>}
       </section>
 
-      <details className="group border-t border-[#e6e6ea] pt-3">
-        <summary className="flex cursor-pointer list-none items-center justify-between py-2 text-[12px] font-semibold text-[#444] [&::-webkit-details-marker]:hidden">Advanced Options <ChevronDown size={16} className="transition-transform group-open:rotate-180" /></summary>
+      <details className="group border-t border-[#e6e6ea] dark:border-[#374151] pt-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between py-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7] [&::-webkit-details-marker]:hidden">Advanced Options <ChevronDown size={16} className="transition-transform group-open:rotate-180" /></summary>
         <div className="space-y-4 pt-3">
           <label className="block"><span className={LABEL}>System instruction</span>
             <textarea rows={3} value={stringSetting(cfg.system_prompt)} onChange={e => onChange('system_prompt', e.target.value)} className={`${FIELD} resize-y`} placeholder="You are a careful assistant..." /></label>
@@ -227,18 +227,18 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       <label className="block"><span className={LABEL}>Image Model ID</span><input value={stringSetting(cfg.model)} onChange={e => onChange('model', e.target.value)} placeholder="gemini-3.1-flash-image-preview" className={FIELD} /></label>
       <label className="block"><span className={LABEL}>Prompt</span><textarea rows={4} value={stringSetting(cfg.prompt)} onChange={e => onChange('prompt', e.target.value)} className={`${FIELD} resize-y`} placeholder="Describe the image..." /></label>
       <label className="block"><span className={LABEL}>Aspect Ratio</span><select value={stringSetting(cfg.image_aspect_ratio, '1:1')} onChange={e => onChange('image_aspect_ratio', e.target.value)} className={FIELD}>{['1:1','3:2','2:3','4:3','3:4','16:9','9:16'].map(v => <option key={v}>{v}</option>)}</select></label>
-      <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-[11px] text-amber-800"><CircleHelp size={15} className="shrink-0" />Image generation may require paid Gemini billing. Check your project permissions and model availability.</p>
+      <p className="flex gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/35 p-3 text-[11px] text-amber-800 dark:text-amber-300"><CircleHelp size={15} className="shrink-0" />Image generation may require paid Gemini billing. Check your project permissions and model availability.</p>
     </>}
 
     {actionId === 'create_file_search_store' && <label className="block"><span className={LABEL}>Display Name</span><input value={stringSetting(cfg.display_name)} onChange={e => onChange('display_name', e.target.value)} className={FIELD} placeholder="e.g. My File Search Store" /></label>}
     {actionId === 'delete_file_search_store' && <label className="block"><span className={LABEL}>File Search Store Name</span><input value={stringSetting(cfg.store_name)} onChange={e => onChange('store_name', e.target.value)} className={FIELD} placeholder="fileSearchStores/abc123" /></label>}
-    {actionId === 'list_file_search_stores' && <p className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2.5 text-[12px] text-[#777]">Lists stores available to the configured Gemini API credential.</p>}
+    {actionId === 'list_file_search_stores' && <p className="rounded-lg border border-[#e8e8e8] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2.5 text-[12px] text-[#777] dark:text-[#b8bec7]">Lists stores available to the configured Gemini API credential.</p>}
 
     {/* Native Gemini Files API: choose one upstream node output, workspace file, or Gemini Files URI. */}
     {(['analyze_audio', 'transcribe_recording', 'analyze_document', 'analyze_image', 'analyze_video', 'upload_media_file', 'upload_file_to_search_store', 'edit_image'] as string[]).includes(actionId) && <>
-      <section className="space-y-3 rounded-xl border border-[#e9e9ed] bg-[#fafafa] p-3">
-        <p className="text-[12px] font-semibold text-[#393939]">Media input</p>
-        <p className="text-[11px] leading-5 text-[#777]">Connect a media node or supply a path under CLIPTORA backend storage. Fill only one source. Uploaded Gemini Files URIs can be reused, except for File Search indexing.</p>
+      <section className="space-y-3 rounded-xl border border-[#e9e9ed] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] p-3">
+        <p className="text-[12px] font-semibold text-[#393939] dark:text-[#f3f4f6]">Media input</p>
+        <p className="text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">Connect a media node or supply a path under CLIPTORA backend storage. Fill only one source. Uploaded Gemini Files URIs can be reused, except for File Search indexing.</p>
         <label className="block"><span className={LABEL}>Upstream input path (optional)</span>
           <input className={FIELD} value={stringSetting(cfg.media_input_path)} onChange={e => onChange('media_input_path', e.target.value)} placeholder="extract_audio.audio or uploaded.file_uri" />
         </label>
@@ -271,7 +271,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       <label className="block"><span className={LABEL}>File Search Store Name</span>
         <input className={FIELD} value={stringSetting(cfg.store_name)} onChange={e => onChange('store_name', e.target.value)} placeholder="fileSearchStores/your-store-id" />
       </label>
-      <p className="text-[11px] leading-5 text-[#7b5c2f]">Google may bill for creating embeddings while indexing. Audio and video are not supported by File Search.</p>
+      <p className="text-[11px] leading-5 text-[#7b5c2f] dark:text-[#c8bba8]">Google may bill for creating embeddings while indexing. Audio and video are not supported by File Search.</p>
     </>}
 
     {actionId === 'edit_image' && <>
@@ -301,11 +301,11 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       <label className="block"><span className={LABEL}>Previous interaction ID (optional)</span>
         <input className={FIELD} value={stringSetting(cfg.previous_interaction_id)} onChange={e => onChange('previous_interaction_id', e.target.value)} placeholder="interactions/your-id" />
       </label>
-      <p className="text-[11px] leading-5 text-[#777]">Generates via Gemini Omni Interactions API. If video is not ready, the output provides an interaction ID for Download a video.</p>
+      <p className="text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">Generates via Gemini Omni Interactions API. If video is not ready, the output provides an interaction ID for Download a video.</p>
     </>}
 
     {actionId === 'download_video' && <>
-      <p className="text-[11px] leading-5 text-[#777]">Connect a Generate a video node (preferred), or enter its interaction ID / generated video URI.</p>
+      <p className="text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">Connect a Generate a video node (preferred), or enter its interaction ID / generated video URI.</p>
       <label className="block"><span className={LABEL}>Interaction ID (optional)</span>
         <input className={FIELD} value={stringSetting(cfg.interaction_id)} onChange={e => onChange('interaction_id', e.target.value)} placeholder="v1_... or interactions/..." />
       </label>
@@ -315,13 +315,13 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
     </>}
 
     {(['upload_file_to_search_store', 'generate_video', 'edit_image'] as string[]).includes(actionId) &&
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+      <div className="rounded-lg border border-amber-200 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 px-3 py-2">
         <Checkbox checked={Boolean(cfg.allow_paid_action)} onChange={v => onChange('allow_paid_action', v)}
           label="Allow paid operation" description="Requires GEMINI_ENABLE_PAID_ACTIONS=1 on the backend. Google may charge your project." />
       </div>}
 
     {(['analyze_audio', 'transcribe_recording', 'analyze_document', 'analyze_image', 'analyze_video', 'upload_media_file', 'upload_file_to_search_store', 'edit_image', 'generate_video', 'download_video'] as string[]).includes(actionId) &&
-      <details className="border-t border-[#e6e6ea] pt-3"><summary className="cursor-pointer py-2 text-[12px] font-semibold text-[#444]">Request & processing</summary>
+      <details className="border-t border-[#e6e6ea] dark:border-[#374151] pt-3"><summary className="cursor-pointer py-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">Request & processing</summary>
         <div className="space-y-3 pt-3">
           <NumberField name="Request timeout (seconds)" value={numberSetting(cfg.timeout_seconds, 120)} min={15} max={300} onChange={n => onChange('timeout_seconds', n)} />
           <NumberField name="Media processing wait (seconds)" value={numberSetting(cfg.poll_seconds, 180)} min={30} max={900} onChange={n => onChange('poll_seconds', n)} />
@@ -329,7 +329,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       </details>}
 
 
-    <div className="border-t border-[#ececf0] pt-3 text-[11px] leading-5 text-[#999]">
+    <div className="border-t border-[#ececf0] dark:border-[#374151] pt-3 text-[11px] leading-5 text-[#4b5563] dark:text-[#999]">
       <p>Native CLIPTORA · Google Gemini</p>
       <p>Execution and results are handled by the FastAPI workflow engine.</p>
     </div>

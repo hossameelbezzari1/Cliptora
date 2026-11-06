@@ -187,11 +187,11 @@ export function PreviewPanel({ project }: { project: Project }) {
     })
   }
 
-  return <section data-preview-root onKeyDown={keyDown} className="flex h-full min-h-0 min-w-0 flex-col gap-1.5 overflow-hidden bg-[#141618] p-1.5" aria-label="Interactive video preview">
-    <div ref={viewport} className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-[#0d0f12]">
+  return <section data-preview-root onKeyDown={keyDown} className="flex h-full min-h-0 min-w-0 flex-col gap-1.5 overflow-hidden bg-[#f8fafc] dark:bg-[#141618] p-1.5" aria-label="Interactive video preview">
+    <div ref={viewport} className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-[#f8fafc] dark:bg-[#0d0f12]">
       <div data-preview-canvas tabIndex={0} role="application" aria-label="Canvas, click an object to select or right-click for options" className="relative shrink-0 select-none overflow-hidden shadow-[0_0_0_1px_#ffffff25] outline-none focus-visible:ring-2 focus-visible:ring-[#bb98ff]" style={{ width: canvasWidth, height: canvasHeight, background: active.background }}
         onClick={() => selectClip(null)} onContextMenu={event => showMenu(event)}>
-        {!active.visible.length && <div className="pointer-events-none grid h-full w-full place-items-center text-[#757a82]"><div className="grid justify-items-center gap-2"><Aperture size={32}/><p className="text-center text-xs">No visual clip at {formatTime(playhead)}<br/><span className="text-[10px]">Drag media onto Timeline to begin.</span></p></div></div>}
+        {!active.visible.length && <div className="pointer-events-none grid h-full w-full place-items-center text-[#757a82] dark:text-[#b8bec7]"><div className="grid justify-items-center gap-2"><Aperture size={32}/><p className="text-center text-xs">No visual clip at {formatTime(playhead)}<br/><span className="text-[10px]">Drag media onto Timeline to begin.</span></p></div></div>}
         {active.visible.map(({ clip, track }) => <PreviewObject
           key={clip.client_id}
           clip={clip}
@@ -207,13 +207,13 @@ export function PreviewPanel({ project }: { project: Project }) {
       <div className="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden="true">{active.audio.map(({ clip, muted: trackMuted }) => <AudioSource key={clip.client_id} clip={clip} playhead={playhead} playing={playing} muted={trackMuted}/>)}</div>
     </div>
 
-    <div className="flex w-full shrink-0 items-center gap-2 rounded-md bg-[#25282c] px-2 py-1.5">
-      {selected && !selectionIsOnCanvas && selected.clip.type!=='audio' && <button type="button" onClick={()=>jumpTo(selected.clip)} title="Jump to selected clip" className="shrink-0 rounded bg-[#4d3467] px-2 py-1 text-[10px] text-white">Go to clip</button>}
-      <button type="button" onClick={()=>{if(selected)useEditor.getState().splitClip(selected.clip.client_id,playhead)}} disabled={!editable||!selected||playhead<=selected.clip.start+MIN_CLIP||playhead>=selected.clip.start+selected.clip.duration-MIN_CLIP} className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] text-[#e7d9ff] hover:bg-white/10" aria-label="Cut selected clip at playhead" title="Cut / split selected clip at playhead"><Scissors size={14}/><span className="hidden sm:inline">Cut</span></button>
-      <button type="button" aria-label={playing ? 'Pause preview' : 'Play preview'} title={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(!playing)} className="shrink-0 text-white hover:text-[#cfaaff]">{playing ? <Pause size={19} /> : <Play size={19} />}</button>
-      <span className="shrink-0 text-[10px] tabular-nums text-[#d1d4da]">{formatTime(playhead)} / {formatTime(total)}</span>
+    <div className="flex w-full shrink-0 items-center gap-2 rounded-md bg-[#f8fafc] dark:bg-[#25282c] px-2 py-1.5">
+      {selected && !selectionIsOnCanvas && selected.clip.type!=='audio' && <button type="button" onClick={()=>jumpTo(selected.clip)} title="Jump to selected clip" className="shrink-0 rounded bg-[#edebf0] dark:bg-[#4d3467] px-2 py-1 text-[10px] text-gray-900 dark:text-white">Go to clip</button>}
+      <button type="button" onClick={()=>{if(selected)useEditor.getState().splitClip(selected.clip.client_id,playhead)}} disabled={!editable||!selected||playhead<=selected.clip.start+MIN_CLIP||playhead>=selected.clip.start+selected.clip.duration-MIN_CLIP} className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] text-[#7f778c] dark:text-[#e7d9ff] hover:bg-white dark:hover:bg-cl-dark-panel/10" aria-label="Cut selected clip at playhead" title="Cut / split selected clip at playhead"><Scissors size={14}/><span className="hidden sm:inline">Cut</span></button>
+      <button type="button" aria-label={playing ? 'Pause preview' : 'Play preview'} title={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(!playing)} className="shrink-0 text-gray-900 dark:text-white hover:text-[#cfaaff]">{playing ? <Pause size={19} /> : <Play size={19} />}</button>
+      <span className="shrink-0 text-[10px] tabular-nums text-[#4b5563] dark:text-[#d1d4da]">{formatTime(playhead)} / {formatTime(total)}</span>
       <input aria-label="Preview playhead" className="min-w-0 flex-1" type="range" min={0} max={total} step={0.01} value={Math.min(playhead, total)} onChange={event => { setPlaying(false); setPlayhead(Number(event.target.value)) }} />
-      <button type="button" aria-label={muted ? 'Unmute preview' : 'Mute preview'} title={muted ? 'Unmute preview' : 'Mute preview'} onClick={() => setMuted(value => !value)} className="shrink-0 text-[#c7cbd2] hover:text-white">{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button>
+      <button type="button" aria-label={muted ? 'Unmute preview' : 'Mute preview'} title={muted ? 'Unmute preview' : 'Mute preview'} onClick={() => setMuted(value => !value)} className="shrink-0 text-[#4b5563] dark:text-[#c7cbd2] hover:text-gray-900 dark:hover:text-white">{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button>
     </div>
     <ContextMenu menu={menu} onClose={() => setMenu(null)} />
   </section>

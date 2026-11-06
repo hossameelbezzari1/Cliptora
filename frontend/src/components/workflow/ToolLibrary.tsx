@@ -349,20 +349,20 @@ export function ToolLibrary({
             event.dataTransfer.effectAllowed = 'copy'
           }
         }}
-        className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-[#f5f5f5] disabled:opacity-45 ${selectedProvider === provider.key ? 'bg-[#f5f5f5]' : ''}`}
+        className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937] disabled:opacity-45 ${selectedProvider === provider.key ? 'bg-[#f5f5f5] dark:bg-[#1f2937]' : ''}`}
       >
         <span className="grid size-9 shrink-0 place-items-center">
           <WorkflowToolIcon type={provider.items[0].type} size={27} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#222]">{provider.label}</span>
-        <ChevronRight size={17} className="shrink-0 text-[#b8b8b8]" />
+        <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#222] dark:text-[#f3f4f6]">{provider.label}</span>
+        <ChevronRight size={17} className="shrink-0 text-[#4b5563] dark:text-[#b8b8b8]" />
       </button>
       <button
         type="button"
         title={favorites.includes(provider.key) ? 'Remove from favorites' : 'Add to favorites'}
         aria-label={favorites.includes(provider.key) ? `Unfavorite ${provider.label}` : `Favorite ${provider.label}`}
         onClick={() => toggleFavorite(provider.key)}
-        className="grid size-8 shrink-0 place-items-center rounded-lg text-[#aaa] opacity-0 transition hover:text-amber-500 focus:opacity-100 group-hover:opacity-100"
+        className="grid size-8 shrink-0 place-items-center rounded-lg text-[#4b5563] dark:text-[#aaa] opacity-0 transition hover:text-amber-500 focus:opacity-100 group-hover:opacity-100"
       >
         <Star size={17} fill={favorites.includes(provider.key) ? 'currentColor' : 'none'} />
       </button>
@@ -374,7 +374,7 @@ export function ToolLibrary({
       <aside
         id="ws-tool-library"
         aria-label="Add Node"
-        className="absolute left-4 top-4 z-[90] flex h-fit min-h-0 flex-col overflow-visible rounded-[24px] border border-[#e2e2e2] bg-white text-[#242424] shadow-[0_9px_30px_rgba(0,0,0,0.09)]"
+        className="absolute left-4 top-4 z-[90] flex h-fit min-h-0 flex-col overflow-visible rounded-[24px] border border-[#e2e2e2] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#242424] dark:text-[#f3f4f6] shadow-[0_9px_30px_rgba(0,0,0,0.09)]"
         style={{ width, maxWidth: 'calc(100% - 96px)', maxHeight: 'calc(100% - 32px)' }}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-5">
@@ -383,37 +383,37 @@ export function ToolLibrary({
           </h2>
           {view === 'nodes' ? (
             <div className="flex shrink-0 items-center gap-1">
-              <div className="flex rounded-xl border border-[#dedede] bg-[#f7f7f7] p-0.5">
+              <div className="flex rounded-xl border border-[#dedede] dark:border-[#374151] bg-[#f7f7f7] dark:bg-[#1f2937] p-0.5">
                 {(['actions', 'triggers'] as const).map(value => (
                   <button
                     key={value}
                     type="button"
                     aria-pressed={mode === value}
                     onClick={() => changeMode(value)}
-                    className={`rounded-[10px] px-3.5 py-2 text-[14px] font-medium transition-colors ${mode === value ? 'bg-white text-[#202020] shadow-[0_1px_4px_#00000014]' : 'text-[#444] hover:text-black'}`}
+                    className={`rounded-[10px] px-3.5 py-2 text-[14px] font-medium transition-colors ${mode === value ? 'bg-white dark:bg-cl-dark-panel text-[#202020] dark:text-[#f3f4f6] shadow-[0_1px_4px_#00000014]' : 'text-[#444] dark:text-[#b8bec7] hover:text-gray-900 dark:hover:text-white'}`}
                   >
                     {value === 'actions' ? 'Actions' : 'Triggers'}
                   </button>
                 ))}
               </div>
-              <button type="button" onClick={() => setLibraryOpen(false)} title="Close" aria-label="Close Add Node" className="ml-1 grid size-8 place-items-center rounded-lg text-[#999] hover:bg-[#f5f5f5] hover:text-[#222]">
+              <button type="button" onClick={() => setLibraryOpen(false)} title="Close" aria-label="Close Add Node" className="ml-1 grid size-8 place-items-center rounded-lg text-[#4b5563] dark:text-[#999] hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937] hover:text-[#222] dark:hover:text-[#f3f4f6]">
                 <X size={18} />
               </button>
             </div>
           ) : (
             <div className="flex gap-1">
-              <button type="button" onClick={() => changeView('nodes')} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-[#666] hover:bg-[#f7f7f7]">
+              <button type="button" onClick={() => changeView('nodes')} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-[#666] dark:text-[#b8bec7] hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]">
                 <ArrowLeft size={16} /> Nodes
               </button>
-              <button type="button" onClick={() => setLibraryOpen(false)} title="Close" aria-label="Close Add Node" className="grid size-8 place-items-center rounded-lg text-[#999] hover:bg-[#f5f5f5]">
+              <button type="button" onClick={() => setLibraryOpen(false)} title="Close" aria-label="Close Add Node" className="grid size-8 place-items-center rounded-lg text-[#4b5563] dark:text-[#999] hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937]">
                 <X size={18} />
               </button>
             </div>
           )}
         </header>
 
-        <div className="relative mx-3 mb-2 flex shrink-0 items-center gap-2 rounded-2xl bg-[#f6f6f6] px-4 py-3">
-          <Search size={22} className="shrink-0 text-[#969696]" />
+        <div className="relative mx-3 mb-2 flex shrink-0 items-center gap-2 rounded-2xl bg-[#f6f6f6] dark:bg-[#1f2937] px-4 py-3">
+          <Search size={22} className="shrink-0 text-[#4b5563] dark:text-[#969696]" />
           <input
             ref={toolSearchRef}
             type="search"
@@ -421,19 +421,19 @@ export function ToolLibrary({
             value={nodeSearch}
             onChange={event => { setNodeSearch(event.target.value); setSelectedProvider(null) }}
             placeholder={view === 'nodes' ? 'Search Apps' : `Search ${view}`}
-            className="min-w-0 flex-1 bg-transparent text-[16px] text-[#222] outline-none placeholder:text-[#999]"
+            className="min-w-0 flex-1 bg-transparent text-[16px] text-[#222] dark:text-[#f3f4f6] outline-none placeholder:text-[#4b5563] dark:placeholder:text-[#999]"
           />
           {view === 'nodes' && (
-            <button type="button" title="Filter categories" aria-label="Filter categories" aria-expanded={filterOpen} onClick={() => setFilterOpen(value => !value)} className="grid size-8 shrink-0 place-items-center rounded-lg text-[#888] hover:text-[#333]">
+            <button type="button" title="Filter categories" aria-label="Filter categories" aria-expanded={filterOpen} onClick={() => setFilterOpen(value => !value)} className="grid size-8 shrink-0 place-items-center rounded-lg text-[#888] dark:text-[#b8bec7] hover:text-[#333] dark:hover:text-[#f3f4f6]">
               <ListFilter size={21} />
             </button>
           )}
         </div>
 
         {view === 'nodes' && filterOpen && (
-          <div className="mx-4 mb-2 max-h-32 shrink-0 overflow-y-auto rounded-xl border border-[#eee] p-1.5">
+          <div className="mx-4 mb-2 max-h-32 shrink-0 overflow-y-auto rounded-xl border border-[#eee] dark:border-[#374151] p-1.5">
             {['All', ...categories].map(group => (
-              <button key={group} type="button" onClick={() => { setNodeGroup(group); setSelectedProvider(null); setFilterOpen(false) }} className={`block w-full rounded-lg px-3 py-1.5 text-left text-[12px] hover:bg-[#f4f4f4] ${nodeGroup === group ? 'font-semibold text-[#222]' : 'text-[#777]'}`}>
+              <button key={group} type="button" onClick={() => { setNodeGroup(group); setSelectedProvider(null); setFilterOpen(false) }} className={`block w-full rounded-lg px-3 py-1.5 text-left text-[12px] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] ${nodeGroup === group ? 'font-semibold text-[#222] dark:text-[#f3f4f6]' : 'text-[#777] dark:text-[#b8bec7]'}`}>
                 {group}
               </button>
             ))}
@@ -444,15 +444,15 @@ export function ToolLibrary({
           <div className="min-h-0 overflow-y-auto px-2 pb-3 [scrollbar-width:thin]">
             {favoriteProviders.length > 0 && (
               <section className="mb-3">
-                <h3 className="px-3 pb-2 pt-2 text-[15px] font-medium text-[#777]">Favorites</h3>
+                <h3 className="px-3 pb-2 pt-2 text-[15px] font-medium text-[#777] dark:text-[#b8bec7]">Favorites</h3>
                 {favoriteProviders.map(provider => providerRow(provider, true))}
               </section>
             )}
             <section>
-              <h3 className="px-3 pb-2 pt-2 text-[15px] font-medium text-[#777]">All App/Providers</h3>
+              <h3 className="px-3 pb-2 pt-2 text-[15px] font-medium text-[#777] dark:text-[#b8bec7]">All App/Providers</h3>
               {providers.map(provider => providerRow(provider))}
               {!providers.length && (
-                <p className="px-4 py-7 text-center text-sm text-[#999]">No available {mode} found.</p>
+                <p className="px-4 py-7 text-center text-sm text-[#4b5563] dark:text-[#999]">No available {mode} found.</p>
               )}
             </section>
           </div>
@@ -461,12 +461,12 @@ export function ToolLibrary({
         {view === 'templates' && (
           <div className="min-h-0 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
             {templatesFiltered.map(template => (
-              <button key={template.key} type="button" disabled={working} onClick={() => { openTemplate(template); setLibraryOpen(false) }} className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#f6f6f6] disabled:opacity-40">
-                <Layers3 size={22} className="mt-0.5 shrink-0 text-[#7956ba]" />
-                <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{template.name}</strong><span className="mt-1 block text-[12px] text-[#888]">{template.description}</span></span>
+              <button key={template.key} type="button" disabled={working} onClick={() => { openTemplate(template); setLibraryOpen(false) }} className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#f6f6f6] dark:hover:bg-[#1f2937] disabled:opacity-40">
+                <Layers3 size={22} className="mt-0.5 shrink-0 text-[#7956ba] dark:text-[#c7b8e2]" />
+                <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{template.name}</strong><span className="mt-1 block text-[12px] text-[#888] dark:text-[#b8bec7]">{template.description}</span></span>
               </button>
             ))}
-            {!templatesFiltered.length && <p className="p-5 text-center text-sm text-[#999]">No matching templates.</p>}
+            {!templatesFiltered.length && <p className="p-5 text-center text-sm text-[#4b5563] dark:text-[#999]">No matching templates.</p>}
           </div>
         )}
 
@@ -474,28 +474,28 @@ export function ToolLibrary({
           <div className="min-h-0 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
             {workflowsFiltered.map(item => (
               <div key={item.id}>
-                <button type="button" disabled={working} onClick={() => openDefinition(item)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#f6f6f6] disabled:opacity-40 ${activeId === item.id ? 'bg-[#f7f5fb]' : ''}`}>
-                  <Workflow size={22} className="shrink-0 text-[#7956ba]" />
-                  <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{item.name}</strong><span className="block text-[12px] text-[#999]">{item.nodes.length} nodes · v{item.version || 1}</span></span>
-                  <ChevronRight size={17} className="text-[#bbb]" />
+                <button type="button" disabled={working} onClick={() => openDefinition(item)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-[#f6f6f6] dark:hover:bg-[#1f2937] disabled:opacity-40 ${activeId === item.id ? 'bg-[#f7f5fb] dark:bg-[#1f2937]' : ''}`}>
+                  <Workflow size={22} className="shrink-0 text-[#7956ba] dark:text-[#c7b8e2]" />
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{item.name}</strong><span className="block text-[12px] text-[#4b5563] dark:text-[#999]">{item.nodes.length} nodes · v{item.version || 1}</span></span>
+                  <ChevronRight size={17} className="text-[#4b5563] dark:text-[#bbb]" />
                 </button>
                 {activeId === item.id && versions.length > 0 && (
-                  <div className="ml-10 border-l border-[#eee] pl-3">
+                  <div className="ml-10 border-l border-[#eee] dark:border-[#374151] pl-3">
                     {versions.map(version => (
-                      <div key={version.id} className="flex items-center justify-between py-1.5 text-xs text-[#777]">
+                      <div key={version.id} className="flex items-center justify-between py-1.5 text-xs text-[#777] dark:text-[#b8bec7]">
                         <span>Version {version.version}</span>
-                        <button type="button" disabled={working || version.version === item.version} onClick={() => void restoreVersion(version.version)} className="rounded-md px-2 py-1 text-[#7453b7] hover:bg-[#f5f1fb] disabled:opacity-40">Restore</button>
+                        <button type="button" disabled={working || version.version === item.version} onClick={() => void restoreVersion(version.version)} className="rounded-md px-2 py-1 text-[#7453b7] dark:text-[#c5b7e1] hover:bg-[#f5f1fb] dark:hover:bg-[#1f2937] disabled:opacity-40">Restore</button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             ))}
-            {!workflowsFiltered.length && <p className="flex items-center justify-center gap-2 p-5 text-sm text-[#999]"><FolderOpen size={18} /> No workflows found.</p>}
+            {!workflowsFiltered.length && <p className="flex items-center justify-center gap-2 p-5 text-sm text-[#4b5563] dark:text-[#999]"><FolderOpen size={18} /> No workflows found.</p>}
           </div>
         )}
 
-        <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f1f1] px-5 py-3 text-[12px] text-[#999]">
+        <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f1f1] dark:border-[#374151] px-5 py-3 text-[12px] text-[#4b5563] dark:text-[#999]">
           <div className="flex items-center gap-2">
             {view === 'nodes' ? (
               <><Zap size={14} /> {nodes.length >= 100 ? 'Maximum 100 nodes' : 'Select an app to see its actions'}</>
@@ -506,9 +506,9 @@ export function ToolLibrary({
             )}
           </div>
           <div className="flex items-center gap-2 font-medium">
-            {view !== 'nodes' && <button type="button" onClick={() => changeView('nodes')} className="hover:text-[#444]">Nodes</button>}
-            {view !== 'templates' && <button type="button" onClick={() => changeView('templates')} className="hover:text-[#444]">Templates</button>}
-            {view !== 'workflows' && <button type="button" onClick={() => changeView('workflows')} className="hover:text-[#444]">Workflows</button>}
+            {view !== 'nodes' && <button type="button" onClick={() => changeView('nodes')} className="hover:text-[#444] dark:hover:text-[#f3f4f6]">Nodes</button>}
+            {view !== 'templates' && <button type="button" onClick={() => changeView('templates')} className="hover:text-[#444] dark:hover:text-[#f3f4f6]">Templates</button>}
+            {view !== 'workflows' && <button type="button" onClick={() => changeView('workflows')} className="hover:text-[#444] dark:hover:text-[#f3f4f6]">Workflows</button>}
           </div>
         </footer>
 
@@ -527,7 +527,7 @@ export function ToolLibrary({
           }}
           className="absolute inset-y-0 -right-1.5 z-50 w-3 cursor-col-resize touch-none outline-none"
         >
-          <GripVertical size={15} className="absolute left-0 top-1/2 -translate-y-1/2 text-transparent hover:text-[#aaa]" />
+          <GripVertical size={15} className="absolute left-0 top-1/2 -translate-y-1/2 text-transparent hover:text-[#4b5563] dark:hover:text-[#aaa]" />
         </div>
       </aside>
 
@@ -535,22 +535,22 @@ export function ToolLibrary({
         <div
           role="dialog"
           aria-label={`${currentProvider.label} actions`}
-          className="fixed z-[9999] flex w-[480px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[22px] border border-[#e2e2e2] bg-white shadow-[0_12px_36px_#00000019]"
+          className="fixed z-[9999] flex w-[480px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[22px] border border-[#e2e2e2] dark:border-[#374151] bg-white dark:bg-cl-dark-panel shadow-[0_12px_36px_#00000019]"
           style={{ left: flyoutPosition.left, top: flyoutPosition.top, maxHeight: 'min(610px, calc(100dvh - 24px))' }}
         >
           <div className="flex shrink-0 items-center gap-3 px-4 pb-2 pt-4">
-            <label className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-[#f7f7f7] px-3 py-3">
-              <Search size={21} className="shrink-0 text-[#999]" />
+            <label className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-[#f7f7f7] dark:bg-[#1f2937] px-3 py-3">
+              <Search size={21} className="shrink-0 text-[#4b5563] dark:text-[#999]" />
               <input
                 type="search"
                 autoFocus
                 value={actionSearch}
                 onChange={event => setActionSearch(event.target.value)}
                 placeholder="Search Actions"
-                className="min-w-0 flex-1 bg-transparent text-[15px] text-[#222] outline-none placeholder:text-[#999]"
+                className="min-w-0 flex-1 bg-transparent text-[15px] text-[#222] dark:text-[#f3f4f6] outline-none placeholder:text-[#4b5563] dark:placeholder:text-[#999]"
               />
             </label>
-            <button type="button" title="Close actions" aria-label="Close actions" onClick={() => setSelectedProvider(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-[#aaa] hover:bg-[#f4f4f4] hover:text-[#333]">
+            <button type="button" title="Close actions" aria-label="Close actions" onClick={() => setSelectedProvider(null)} className="grid size-8 shrink-0 place-items-center rounded-lg text-[#4b5563] dark:text-[#aaa] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] hover:text-[#333] dark:hover:text-[#f3f4f6]">
               <X size={17} />
             </button>
           </div>
@@ -567,18 +567,18 @@ export function ToolLibrary({
                 }}
                 onClick={() => add(item, action.id || undefined)}
                 title={action.reason || action.label}
-                className="group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f5f5f5] focus-visible:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-40"
+                className="group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f5f5f5] dark:hover:bg-[#1f2937] focus-visible:bg-[#f5f5f5] dark:focus-visible:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="mt-0.5 grid size-7 shrink-0 place-items-center">
                   <WorkflowToolIcon type={item.type} actionId={action.id || undefined} size={22} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium leading-6 text-[#222]">{action.label}</span>
-                  <span className="mt-0.5 block text-[12px] leading-[18px] text-[#999]">{action.reason || action.description}</span>
+                  <span className="block text-[15px] font-medium leading-6 text-[#222] dark:text-[#f3f4f6]">{action.label}</span>
+                  <span className="mt-0.5 block text-[12px] leading-[18px] text-[#4b5563] dark:text-[#999]">{action.reason || action.description}</span>
                 </span>
               </button>
             ))}
-            {!actionItems.length && <p className="px-4 py-8 text-center text-sm text-[#999]">No matching actions.</p>}
+            {!actionItems.length && <p className="px-4 py-8 text-center text-sm text-[#4b5563] dark:text-[#999]">No matching actions.</p>}
           </div>
         </div>,
         document.body,

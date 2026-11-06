@@ -41,10 +41,10 @@ function ManualTriggerCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
   const borderColor = data.status === 'done'
     ? 'border-[#00b449]'
     : data.status === 'failed'
-      ? 'border-[#ed1933]'
+      ? 'border-[#fbccd2] dark:border-[#ed1933]'
       : data.status === 'running'
         ? 'border-[#ff9acb]'
-        : 'border-[#d9dce0]'
+        : 'border-[#d9dce0] dark:border-[#374151]'
 
   return (
     <div className="group/manual relative flex w-[190px] cursor-grab select-none flex-col items-center overflow-visible text-center active:cursor-grabbing">
@@ -59,25 +59,25 @@ function ManualTriggerCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
           event.stopPropagation()
           if (execution && !execution.disabled) execution.execute()
         }}
-        className="nodrag nopan absolute right-[calc(100%+10px)] top-[33px] z-30 flex h-[43px] items-center gap-2 whitespace-nowrap rounded-full bg-[#252525] px-4 text-[14px] font-semibold text-white shadow-sm transition-colors hover:bg-[#393939] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="nodrag nopan absolute right-[calc(100%+10px)] top-[33px] z-30 flex h-[43px] items-center gap-2 whitespace-nowrap rounded-full bg-[#f8fafc] dark:bg-[#252525] px-4 text-[14px] font-semibold text-gray-900 dark:text-white shadow-sm transition-colors hover:bg-[#f8fafc] dark:hover:bg-[#393939] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {running ? <LoaderCircle size={18} strokeWidth={2.2} className="animate-spin" /> : <FlaskConical size={19} strokeWidth={2.2} />}
         Execute workflow
       </button>
 
       {data.pinned && (
-        <span title="Pinned node" className="pointer-events-none absolute left-[30px] top-[4px] z-30 grid size-5 place-items-center rounded-full bg-white text-[#666] shadow-sm">
+        <span title="Pinned node" className="pointer-events-none absolute left-[30px] top-[4px] z-30 grid size-5 place-items-center rounded-full bg-white dark:bg-cl-dark-panel text-[#666] dark:text-[#b8bec7] shadow-sm">
           <LockKeyhole size={13} />
         </span>
       )}
 
-      <div className={`relative grid size-[108px] place-items-center rounded-[28px] border-[2px] bg-white shadow-[0_2px_5px_#00000010] transition-shadow hover:shadow-[0_4px_13px_#00000016] ${borderColor} ${selected ? 'ring-[6px] ring-[#d8c6ff99]' : 'ring-[6px] ring-[#e7e8eacc]'}`}>
+      <div className={`relative grid size-[108px] place-items-center rounded-[28px] border-[2px] bg-white dark:bg-cl-dark-panel shadow-[0_2px_5px_#00000010] transition-shadow hover:shadow-[0_4px_13px_#00000016] ${borderColor} ${selected ? 'ring-[6px] ring-[#d8c6ff99]' : 'ring-[6px] ring-[#e7e8eacc]'}`}>
         <ManualClickIcon />
         <Handle
           id="main"
           type="source"
           position={Position.Right}
-          className="!z-20 !size-[18px] !border-[2px] !border-[#a5abb0] !bg-white !opacity-100 !shadow-[0_0_0_4px_#ffffffcc] hover:!border-[#8c57ff] hover:!bg-[#f7f2ff]"
+          className="!z-20 !size-[18px] !border-[2px] !border-[#a5abb0] !bg-white dark:bg-cl-dark-panel !opacity-100 !shadow-[0_0_0_4px_#ffffffcc] hover:!border-[#e6daff] dark:border-[#8c57ff] hover:!bg-[#f7f2ff] dark:bg-[#1f2937]"
           style={{ right: -10, top: '50%' }}
         />
 
@@ -91,26 +91,26 @@ function ManualTriggerCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
               event.stopPropagation()
               onQuickAdd(id, 'main', event)
             }}
-            className="nodrag nopan absolute -right-[40px] top-1/2 z-20 grid size-[25px] -translate-y-1/2 place-items-center rounded-[6px] bg-[#ededee] text-[#555] opacity-0 transition-opacity hover:bg-[#dcdce0] group-hover/manual:opacity-100 focus:opacity-100"
+            className="nodrag nopan absolute -right-[40px] top-1/2 z-20 grid size-[25px] -translate-y-1/2 place-items-center rounded-[6px] bg-[#ededee] dark:bg-[#1f2937] text-[#555] dark:text-[#b8bec7] opacity-0 transition-opacity hover:bg-[#dcdce0] dark:hover:bg-[#1f2937] group-hover/manual:opacity-100 focus:opacity-100"
           >
             <Plus size={17} strokeWidth={2} />
           </button>
         )}
 
         {data.status !== 'waiting' && (
-          <span className={`pointer-events-none absolute -bottom-[11px] -right-[11px] z-20 grid size-[26px] place-items-center rounded-full border-[3px] border-white ${data.status === 'done' ? 'bg-[#eefff3] text-[#00ad4c]' : data.status === 'failed' ? 'bg-[#fff0f2] text-[#ed1933]' : 'bg-[#fff3f8] text-[#f36aa8]'}`}>
+          <span className={`pointer-events-none absolute -bottom-[11px] -right-[11px] z-20 grid size-[26px] place-items-center rounded-full border-[3px] border-white dark:border-cl-dark-line ${data.status === 'done' ? 'bg-[#eefff3] dark:bg-[#1f2937] text-[#00ad4c]' : data.status === 'failed' ? 'bg-[#fff0f2] dark:bg-[#1f2937] text-[#ed1933] dark:text-[#f79ea9]' : 'bg-[#fff3f8] dark:bg-[#1f2937] text-[#f36aa8]'}`}>
             <StatusIcon status={data.status} />
           </span>
         )}
       </div>
 
-      <strong className="mt-[13px] block w-[275px] max-w-none text-center text-[16px] font-semibold leading-[1.25] text-[#202020]">
+      <strong className="mt-[13px] block w-[275px] max-w-none text-center text-[16px] font-semibold leading-[1.25] text-[#202020] dark:text-[#f3f4f6]">
         {title}
       </strong>
 
-      {running && <span className="mt-1 text-[12px] text-[#777]">Executing…</span>}
+      {running && <span className="mt-1 text-[12px] text-[#777] dark:text-[#b8bec7]">Executing…</span>}
       {data.note && (
-        <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] bg-[#fffbe6] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37]">
+        <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] dark:border-[#696553] bg-[#fffbe6] dark:bg-[#1f2937] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37] dark:text-[#bfbbab]">
           {data.note}
         </div>
       )}
@@ -120,10 +120,10 @@ function ManualTriggerCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
 
 function ManualTriggerParameters(_props: WorkflowNodeParametersProps) {
   return <>
-    <div className="rounded-[9px] border border-[#eab308] bg-[#fffbeb] p-3 text-[12px] leading-[1.5] text-[#66461c]">
+    <div className="rounded-[9px] border border-[#eab308] bg-[#fffbeb] dark:bg-[#1f2937] p-3 text-[12px] leading-[1.5] text-[#66461c] dark:text-[#bfb1a0]">
       This node starts the workflow when you manually execute it. Other trigger types can start workflows from schedules or incoming events.
     </div>
-    <p className="text-[13px] text-[#454545]">This node does not have any parameters.</p>
+    <p className="text-[13px] text-[#454545] dark:text-[#b8bec7]">This node does not have any parameters.</p>
   </>
 }
 

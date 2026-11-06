@@ -82,7 +82,7 @@ export function WorkflowContextMenu({ x, y, actions, onClose }: Props) {
       onContextMenu={event => event.preventDefault()}
       onPointerDown={event => event.stopPropagation()}
       onKeyDown={handleKeyDown}
-      className="fixed z-[1000] w-[min(330px,calc(100vw-16px))] overflow-y-auto overscroll-contain rounded-[12px] border border-[#e3e3e5] bg-white py-[7px] text-[#202020] shadow-[0_14px_45px_rgba(0,0,0,0.18)] [scrollbar-width:thin]"
+      className="fixed z-[1000] w-[min(330px,calc(100vw-16px))] overflow-y-auto overscroll-contain rounded-[12px] border border-[#e3e3e5] dark:border-[#374151] bg-white dark:bg-cl-dark-panel py-[7px] text-[#202020] dark:text-[#f3f4f6] shadow-[0_14px_45px_rgba(0,0,0,0.18)] [scrollbar-width:thin]"
       style={{
         left: position.left,
         top: position.top,
@@ -94,20 +94,20 @@ export function WorkflowContextMenu({ x, y, actions, onClose }: Props) {
         const Icon = action.icon
         return (
           <div key={action.id}>
-            {action.dividerBefore && <div role="separator" className="mx-3 my-[6px] border-t border-[#e8e8e8]" />}
+            {action.dividerBefore && <div role="separator" className="mx-3 my-[6px] border-t border-[#e8e8e8] dark:border-[#374151]" />}
             <button
               type="button"
               role="menuitem"
               disabled={action.disabled}
               title={action.disabledReason}
-              className={`flex min-h-[38px] w-full items-center gap-3 px-[13px] py-[7px] text-left outline-none transition-colors focus-visible:bg-[#f2edff] ${action.disabled ? 'cursor-not-allowed text-[#bdbdbd]' : action.destructive ? 'text-[#c62838] hover:bg-red-50' : 'text-[#202020] hover:bg-[#f6f6f7]'}`}
+              className={`flex min-h-[38px] w-full items-center gap-3 px-[13px] py-[7px] text-left outline-none transition-colors focus-visible:bg-[#f2edff] dark:focus-visible:bg-[#1f2937] ${action.disabled ? 'cursor-not-allowed text-[#4b5563] dark:text-[#bdbdbd]' : action.destructive ? 'text-[#c62838] dark:text-[#e7a5ab] hover:bg-red-50 dark:hover:bg-red-950/40' : 'text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f6f6f7] dark:hover:bg-[#1f2937]'}`}
               onClick={() => { if (!action.disabled) { onClose(); action.run() } }}
             >
               <Icon size={17} strokeWidth={1.8} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate text-[13.5px] font-normal">{action.label}</span>
               {action.shortcut?.length && (
                 <span aria-hidden="true" className="flex shrink-0 items-center gap-1">
-                  {action.shortcut.map((part, i) => <kbd key={`${part}-${i}`} className="grid min-h-[23px] min-w-[23px] place-items-center rounded-full border border-[#e4e4e5] bg-[#f6f6f7] px-1.5 text-[11px] text-[#777] shadow-[0_1px_1px_#0000000b]">{part}</kbd>)}
+                  {action.shortcut.map((part, i) => <kbd key={`${part}-${i}`} className="grid min-h-[23px] min-w-[23px] place-items-center rounded-full border border-[#e4e4e5] dark:border-[#374151] bg-[#f6f6f7] dark:bg-[#1f2937] px-1.5 text-[11px] text-[#777] dark:text-[#b8bec7] shadow-[0_1px_1px_#0000000b]">{part}</kbd>)}
                 </span>
               )}
             </button>

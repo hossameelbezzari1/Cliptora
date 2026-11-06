@@ -109,28 +109,28 @@ export function NodeProgress({
   const unit = typeof node.unit === 'string' ? node.unit : 'items'
 
   const StatusIcon = failed ? AlertCircle : completed ? CheckCircle2 : queued ? Clock3 : LoaderCircle
-  const colorClass = failed ? 'text-red-600' : completed ? 'text-emerald-600' : 'text-[#7c3aed]'
+  const colorClass = failed ? 'text-red-600 dark:text-red-300' : completed ? 'text-emerald-600 dark:text-emerald-300' : 'text-[#7c3aed] dark:text-[#c8acf7]'
 
   if (variant === 'compact') {
     return (
       <div className={`nodrag nopan w-full min-w-0 text-left ${className}`} role="status" aria-label={`${label} progress`}>
         <div className="flex items-center justify-between gap-1 text-[10px] leading-4">
-          <span className="inline-flex min-w-0 items-center gap-1 truncate text-[#777]">
+          <span className="inline-flex min-w-0 items-center gap-1 truncate text-[#777] dark:text-[#b8bec7]">
             <StatusIcon size={12} className={`${colorClass} shrink-0 ${running ? 'animate-spin' : ''}`} />
             <span className="truncate">{failed ? 'Failed' : completed ? 'Completed' : stage}</span>
           </span>
-          <strong className="shrink-0 tabular-nums text-[#444]">
+          <strong className="shrink-0 tabular-nums text-[#444] dark:text-[#b8bec7]">
             {percent === null ? '—' : `${percent}%`}
           </strong>
         </div>
-        <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-[#e7e7eb]" role="progressbar"
+        <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-[#e7e7eb] dark:bg-[#1f2937]" role="progressbar"
           aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined}>
           {percent !== null
             ? <div className={`h-full rounded-full transition-[width] duration-500 ${failed ? 'bg-red-500' : completed ? 'bg-emerald-500' : 'bg-[#8b5cf6]'}`}
                 style={{ width: `${percent}%` }} />
             : <div className="h-full w-1/3 animate-pulse rounded-full bg-[#a78bfa]" />}
         </div>
-        {elapsed !== null && <div className="mt-1 text-[10px] tabular-nums text-[#888]">{formatTime(elapsed)} elapsed</div>}
+        {elapsed !== null && <div className="mt-1 text-[10px] tabular-nums text-[#888] dark:text-[#b8bec7]">{formatTime(elapsed)} elapsed</div>}
       </div>
     )
   }
@@ -149,21 +149,21 @@ export function NodeProgress({
   if (elapsed !== null) metrics.push({ label: 'Real elapsed time', value: formatTime(elapsed) })
 
   return (
-    <section className={`rounded-xl border border-[#e7e7eb] bg-white p-4 text-[#292929] ${className}`}
+    <section className={`rounded-xl border border-[#e7e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-4 text-[#292929] dark:text-[#f3f4f6] ${className}`}
       role="status" aria-live="polite" aria-label={`${label} progress`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <StatusIcon size={18} className={`shrink-0 ${colorClass} ${running ? 'animate-spin' : ''}`} />
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold">{label}</p>
-            <p className="mt-0.5 text-[11px] text-[#777]">{failed ? 'Execution failed' : completed ? 'Completed' : stage}</p>
+            <p className="mt-0.5 text-[11px] text-[#777] dark:text-[#b8bec7]">{failed ? 'Execution failed' : completed ? 'Completed' : stage}</p>
           </div>
         </div>
-        <span className={`shrink-0 text-[20px] font-semibold tabular-nums ${failed ? 'text-red-600' : 'text-[#292929]'}`}>
+        <span className={`shrink-0 text-[20px] font-semibold tabular-nums ${failed ? 'text-red-600 dark:text-red-300' : 'text-[#292929] dark:text-[#f3f4f6]'}`}>
           {failed ? 'Failed' : percent === null ? '—' : `${percent}%`}
         </span>
       </div>
-      <div className="mt-3 h-[7px] overflow-hidden rounded-full bg-[#ececf0]" role="progressbar"
+      <div className="mt-3 h-[7px] overflow-hidden rounded-full bg-[#ececf0] dark:bg-[#1f2937]" role="progressbar"
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined}
         aria-valuetext={percent === null ? stage : `${percent}%`}>
         {percent !== null
@@ -173,15 +173,15 @@ export function NodeProgress({
       </div>
       {metrics.length > 0 && <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
         {metrics.map(item => <div key={item.label} className="min-w-0">
-          <p className="truncate text-[10px] text-[#888]">{item.label}</p>
-          <p className="mt-0.5 break-words text-[12px] font-medium tabular-nums text-[#444]">{item.value}</p>
+          <p className="truncate text-[10px] text-[#888] dark:text-[#b8bec7]">{item.label}</p>
+          <p className="mt-0.5 break-words text-[12px] font-medium tabular-nums text-[#444] dark:text-[#b8bec7]">{item.value}</p>
         </div>)}
       </div>}
-      {message && !failed && <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-5 text-[#777]">
+      {message && !failed && <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">
         <Activity size={13} className="mt-0.5 shrink-0" />{message}
       </p>}
-      {failed && error && <p className="mt-3 break-words text-[11px] leading-5 text-red-700">{error}</p>}
-      {queued && <p className="mt-2 text-[11px] text-[#777]">Waiting for execution to start...</p>}
+      {failed && error && <p className="mt-3 break-words text-[11px] leading-5 text-red-700 dark:text-red-300">{error}</p>}
+      {queued && <p className="mt-2 text-[11px] text-[#777] dark:text-[#b8bec7]">Waiting for execution to start...</p>}
     </section>
   )
 }

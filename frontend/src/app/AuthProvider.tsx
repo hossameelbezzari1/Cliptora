@@ -135,7 +135,7 @@ export function Protected({
 
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-cl-bg text-cl-muted">
+      <div className="grid min-h-screen place-items-center bg-cl-bg dark:bg-cl-dark-bg text-cl-muted dark:text-cl-dark-muted">
         <div className="loading-pulse text-xl">
           Loading Cliptora…
         </div>

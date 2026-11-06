@@ -99,21 +99,21 @@ export function TransitionPreview({ entry, settings, progress, onProgress }: Pro
   }
   const value = easing(progress, settings.easing)
   const styles = previewStyles(entry.id, value, settings)
-  const stage = <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[#324356] bg-[#101924]">
+  const stage = <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[#d2d6da] dark:border-[#324356] bg-[#f8fafc] dark:bg-[#101924]">
     <img className="absolute inset-0 h-full w-full object-cover" src={imageA} alt="Outgoing demo image" style={styles.before}/>
     <img className="absolute inset-0 h-full w-full object-cover" src={imageB} alt="Incoming demo image" style={styles.after}/>
     {styles.shade && <div className="pointer-events-none absolute inset-0" style={styles.shade}/>}
-    <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-[#0e1622]/80 px-2 py-1 text-[10px] text-white">Illustrative preview · {entry.name}</div>
-    <div className="pointer-events-none absolute right-2 top-2 rounded bg-[#0e1622]/80 px-2 py-1 text-[10px] text-white">{Math.round(progress * 100)}%</div>
+    <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-[#f8fafc]/80 dark:bg-[#0e1622]/80 px-2 py-1 text-[10px] text-gray-900 dark:text-white">Illustrative preview · {entry.name}</div>
+    <div className="pointer-events-none absolute right-2 top-2 rounded bg-[#f8fafc]/80 dark:bg-[#0e1622]/80 px-2 py-1 text-[10px] text-gray-900 dark:text-white">{Math.round(progress * 100)}%</div>
   </div>
-  return <div className={expanded ? 'fixed inset-4 z-[100] m-auto flex max-w-5xl flex-col justify-center gap-3 overflow-auto rounded-2xl border border-[#46526c] bg-[#101722] p-4 shadow-2xl' : 'min-w-0'}>
+  return <div className={expanded ? 'fixed inset-4 z-[100] m-auto flex max-w-5xl flex-col justify-center gap-3 overflow-auto rounded-2xl border border-[#d6d9df] dark:border-[#46526c] bg-[#f8fafc] dark:bg-[#101722] p-4 shadow-2xl' : 'min-w-0'}>
     {stage}
-    <div className="mt-2 flex min-w-0 items-center gap-2 text-[10px] text-[#a2aec0]">
-      <button type="button" onClick={toggle} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#3a4556] bg-[#1d2939] text-white" aria-label={playing ? 'Pause preview' : 'Play preview'}>{playing ? <Pause size={15}/> : <Play size={15}/>}</button>
+    <div className="mt-2 flex min-w-0 items-center gap-2 text-[10px] text-[#4b5563] dark:text-[#a2aec0]">
+      <button type="button" onClick={toggle} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d1d5db] dark:border-[#3a4556] bg-[#f8fafc] dark:bg-[#1d2939] text-gray-900 dark:text-white" aria-label={playing ? 'Pause preview' : 'Play preview'}>{playing ? <Pause size={15}/> : <Play size={15}/>}</button>
       <span className="shrink-0 tabular-nums">{(progress * settings.duration).toFixed(2)} / {settings.duration.toFixed(2)}s</span>
       <input className="min-w-0 flex-1 accent-[#9864f5]" aria-label="Transition preview progress" type="range" min={0} max={100} step={1} value={Math.round(progress * 100)} onChange={event => {setPlaying(false);onProgress(Number(event.target.value) / 100)}}/>
-      <button type="button" onClick={() => { setPlaying(false); onProgress(0) }} title="Restart preview" aria-label="Restart preview" className="rounded-md p-1.5 hover:bg-[#293548]"><RotateCcw size={14}/></button>
-      <button type="button" onClick={() => setExpanded(x => !x)} title={expanded ? 'Close expanded preview' : 'Expand preview'} aria-label={expanded ? 'Close expanded preview' : 'Expand preview'} className="rounded-md p-1.5 hover:bg-[#293548]">{expanded ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}</button>
+      <button type="button" onClick={() => { setPlaying(false); onProgress(0) }} title="Restart preview" aria-label="Restart preview" className="rounded-md p-1.5 hover:bg-[#eaebed] dark:hover:bg-[#293548]"><RotateCcw size={14}/></button>
+      <button type="button" onClick={() => setExpanded(x => !x)} title={expanded ? 'Close expanded preview' : 'Expand preview'} aria-label={expanded ? 'Close expanded preview' : 'Expand preview'} className="rounded-md p-1.5 hover:bg-[#eaebed] dark:hover:bg-[#293548]">{expanded ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}</button>
     </div>
   </div>
 }

@@ -172,7 +172,7 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
   const suggest = popover || connected.length === 0 || showSuggestions
   const connectorLabel = input ? 'Previous nodes' : 'Next nodes'
   const emptyLabel = input ? 'No incoming connection' : 'No outgoing connection'
-  const actionClass = 'shrink-0 cursor-pointer rounded-md px-2 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40'
+  const actionClass = 'shrink-0 cursor-pointer rounded-md px-2 py-1 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40'
 
   function actions(sourceType: string, activate: (branch?: Branch) => void, adding = false) {
     return sourceType === 'flow.if'
@@ -183,20 +183,20 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
       : <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => activate()} aria-label="Connect node"><Plus size={16} /></button>
   }
 
-  return <div className={popover ? 'overflow-hidden rounded-xl border border-[#e4e4e7] bg-white' : 'shrink-0 border-b border-[#e4e4e7] bg-white'} data-connection-side={side}>
-    {popover && <div className="flex h-11 items-center justify-between border-b border-[#ececec] px-3">
-      <span className="text-[12px] font-semibold text-[#333]">{input ? 'Choose previous node' : 'Choose next node'}</span>
-      <button type="button" onClick={onClose} aria-label="Close node suggestions" className="grid size-7 cursor-pointer place-items-center rounded-md text-[#777] hover:bg-[#f4f4f4]"><X size={16} /></button>
+  return <div className={popover ? 'overflow-hidden rounded-xl border border-[#e4e4e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel' : 'shrink-0 border-b border-[#e4e4e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel'} data-connection-side={side}>
+    {popover && <div className="flex h-11 items-center justify-between border-b border-[#ececec] dark:border-[#374151] px-3">
+      <span className="text-[12px] font-semibold text-[#333] dark:text-[#f3f4f6]">{input ? 'Choose previous node' : 'Choose next node'}</span>
+      <button type="button" onClick={onClose} aria-label="Close node suggestions" className="grid size-7 cursor-pointer place-items-center rounded-md text-[#777] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937]"><X size={16} /></button>
     </div>}
     {!popover && <div className="flex min-h-10 items-center justify-between gap-2 px-3">
-      <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#494949]">
-        {input ? <ArrowDownLeft size={15} className="text-[#777]" /> : <ArrowUpRight size={15} className="text-[#777]" />}
+      <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#494949] dark:text-[#b8bec7]">
+        {input ? <ArrowDownLeft size={15} className="text-[#777] dark:text-[#b8bec7]" /> : <ArrowUpRight size={15} className="text-[#777] dark:text-[#b8bec7]" />}
         {connectorLabel}
-        <span className="ml-1 rounded-md bg-[#f0f0f2] px-1.5 text-[10px] tabular-nums text-[#727272]">{connected.length}</span>
+        <span className="ml-1 rounded-md bg-[#f0f0f2] dark:bg-[#1f2937] px-1.5 text-[10px] tabular-nums text-[#727272] dark:text-[#b8bec7]">{connected.length}</span>
       </span>
       <button type="button" disabled={working || (input && isEntry(selected.type))}
         onClick={() => setShowSuggestions(current => !current)}
-        className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-[#7654b6] hover:text-[#57328f] disabled:cursor-not-allowed disabled:opacity-35">
+        className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-[#7654b6] dark:text-[#c5b7e0] hover:text-[#57328f] dark:hover:text-[#b8a9d0] disabled:cursor-not-allowed disabled:opacity-35">
         {connected.length === 0 ? 'Suggestions' : showSuggestions ? 'Hide suggestions' : 'Add connection'}
         <ChevronDown size={13} className={suggest && connected.length > 0 ? 'rotate-180' : ''} />
       </button>
@@ -207,60 +207,60 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
         const state = studio.run?.results?.[node.id]?.state
         return <button type="button" key={node.id} onClick={() => setSelectedId(node.id)}
           title={`Open ${labelOf(node, catalog)}`}
-          className="flex w-full cursor-pointer items-center gap-2 border-t border-[#f0f0f0] px-1 py-2 text-left hover:bg-[#f8f7fb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500">
+          className="flex w-full cursor-pointer items-center gap-2 border-t border-[#f0f0f0] dark:border-[#374151] px-1 py-2 text-left hover:bg-[#f8f7fb] dark:hover:bg-[#1f2937] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500">
           {nodeIcon(node, catalog)}
-          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#393939]">{labelOf(node, catalog)}</span>
-          {state && <span className="truncate text-[10px] text-[#999]">{state}</span>}
-          <Link2 size={13} className="shrink-0 text-[#999]" />
+          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#393939] dark:text-[#f3f4f6]">{labelOf(node, catalog)}</span>
+          {state && <span className="truncate text-[10px] text-[#4b5563] dark:text-[#999]">{state}</span>}
+          <Link2 size={13} className="shrink-0 text-[#4b5563] dark:text-[#999]" />
         </button>
       })}
-    </div> : <p className="px-4 pb-2 text-[11px] text-[#929292]">{emptyLabel}. {input ? 'Choose a node to send data here.' : 'Choose a node to receive this output.'}</p>)}
+    </div> : <p className="px-4 pb-2 text-[11px] text-[#4b5563] dark:text-[#929292]">{emptyLabel}. {input ? 'Choose a node to send data here.' : 'Choose a node to receive this output.'}</p>)}
 
-    {popover && connected.length > 0 && <div className="max-h-[120px] overflow-y-auto border-b border-[#ececf0] [scrollbar-width:thin]">
-      <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#999]">Connected nodes</p>
+    {popover && connected.length > 0 && <div className="max-h-[120px] overflow-y-auto border-b border-[#ececf0] dark:border-[#374151] [scrollbar-width:thin]">
+      <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#4b5563] dark:text-[#999]">Connected nodes</p>
       {connected.map(node => <button key={node.id} type="button" onClick={() => { setSelectedId(node.id); onClose?.() }}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#f7f7f7]">
+        className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#f7f7f7] dark:hover:bg-[#1f2937]">
         {nodeIcon(node, catalog)}<span className="min-w-0 flex-1 truncate text-[12px]">{labelOf(node, catalog)}</span>
       </button>)}
     </div>}
 
-    {suggest && !(input && isEntry(selected.type)) && <div className="border-t border-[#ececf0] bg-[#fafafa]">
+    {suggest && !(input && isEntry(selected.type)) && <div className="border-t border-[#ececf0] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937]">
       <div className="flex items-center gap-2 px-3 py-2">
-        <Search size={14} className="text-[#999]" />
+        <Search size={14} className="text-[#4b5563] dark:text-[#999]" />
         <input type="search" value={search} onChange={event => { setSearch(event.target.value); setShowAll(false) }}
           placeholder={input ? 'Find a previous node...' : 'Find a next node...'}
           aria-label={`Search ${side} node suggestions`}
-          className="min-w-0 flex-1 bg-transparent text-[12px] text-[#333] outline-none placeholder:text-[#aaa]" />
-        {search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="cursor-pointer text-[#888]"><X size={14} /></button>}
+          className="min-w-0 flex-1 bg-transparent text-[12px] text-[#333] dark:text-[#f3f4f6] outline-none placeholder:text-[#4b5563] dark:placeholder:text-[#aaa]" />
+        {search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="cursor-pointer text-[#888] dark:text-[#b8bec7]"><X size={14} /></button>}
       </div>
-      <div className="max-h-[min(43dvh,340px)] overflow-y-auto border-t border-[#ededf0] [scrollbar-width:thin]">
+      <div className="max-h-[min(43dvh,340px)] overflow-y-auto border-t border-[#ededf0] dark:border-[#374151] [scrollbar-width:thin]">
         {existingMatches.length > 0 && <div>
-          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#999]">Already in workflow</p>
-          {existingMatches.slice(0, limit).map(node => <div key={node.id} className="flex min-h-10 items-center gap-2 border-t border-[#ededed] px-3 hover:bg-white">
+          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#4b5563] dark:text-[#999]">Already in workflow</p>
+          {existingMatches.slice(0, limit).map(node => <div key={node.id} className="flex min-h-10 items-center gap-2 border-t border-[#ededed] dark:border-[#374151] px-3 hover:bg-white dark:hover:bg-cl-dark-panel">
             {nodeIcon(node, catalog)}
-            <span className="min-w-0 flex-1 truncate text-[12px] text-[#454545]">{labelOf(node, catalog)}</span>
+            <span className="min-w-0 flex-1 truncate text-[12px] text-[#454545] dark:text-[#b8bec7]">{labelOf(node, catalog)}</span>
             {actions(input ? node.type : selected.type, branch => attachExisting(node, branch))}
           </div>)}
         </div>}
         {newMatches.length > 0 && <div>
-          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#999]">Add a new node</p>
-          {newMatches.slice(0, limit).map(item => <div key={item.type} className="flex min-h-11 items-center gap-2 border-t border-[#ededed] px-3 hover:bg-white">
+          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#4b5563] dark:text-[#999]">Add a new node</p>
+          {newMatches.slice(0, limit).map(item => <div key={item.type} className="flex min-h-11 items-center gap-2 border-t border-[#ededed] dark:border-[#374151] px-3 hover:bg-white dark:hover:bg-cl-dark-panel">
             <WorkflowToolIcon type={item.type} label={item.label} size={21} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] text-[#454545]">{item.label}</p>
-              <p className="truncate text-[10px] text-[#a0a0a0]">{item.group}</p>
+              <p className="truncate text-[12px] text-[#454545] dark:text-[#b8bec7]">{item.label}</p>
+              <p className="truncate text-[10px] text-[#4b5563] dark:text-[#a0a0a0]">{item.group}</p>
             </div>
             {actions(input ? item.type : selected.type, branch => addAndAttach(item, branch), true)}
           </div>)}
         </div>}
-        {!existingMatches.length && !newMatches.length && <p className="px-3 py-5 text-center text-[12px] text-[#888]">No matching available nodes.</p>}
+        {!existingMatches.length && !newMatches.length && <p className="px-3 py-5 text-center text-[12px] text-[#888] dark:text-[#b8bec7]">No matching available nodes.</p>}
       </div>
       {(existingMatches.length > limit || newMatches.length > limit) && <button type="button"
         onClick={() => setShowAll(current => !current)}
-        className="w-full cursor-pointer border-t border-[#ededed] px-3 py-2 text-center text-[11px] font-medium text-[#7a54b4] hover:bg-white">
+        className="w-full cursor-pointer border-t border-[#ededed] dark:border-[#374151] px-3 py-2 text-center text-[11px] font-medium text-[#7a54b4] dark:text-[#c7b7e0] hover:bg-white dark:hover:bg-cl-dark-panel">
         {showAll ? 'Show fewer' : `Show more suggestions (${existingMatches.length + newMatches.length})`}
       </button>}
-      <p className="border-t border-[#ececf0] px-3 py-1.5 text-[10px] text-[#999]">
+      <p className="border-t border-[#ececf0] dark:border-[#374151] px-3 py-1.5 text-[10px] text-[#4b5563] dark:text-[#999]">
         Suggestions use available catalog nodes and declared data types. Review settings after connecting.
       </p>
     </div>}

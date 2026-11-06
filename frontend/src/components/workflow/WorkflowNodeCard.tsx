@@ -105,18 +105,18 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
     )
 
   const handleClass =
-    "!z-20 !size-[18px] !border-[3px] !border-[#a5abb0] !bg-white !opacity-100 !shadow-[0_0_0_5px_#ffffffcc] after:!absolute after:!-inset-[9px] after:!content-[''] hover:!border-[#8c57ff] hover:!bg-[#f7f2ff]"
+    "!z-20 !size-[18px] !border-[3px] !border-[#a5abb0] !bg-white dark:bg-cl-dark-panel !opacity-100 !shadow-[0_0_0_5px_#ffffffcc] after:!absolute after:!-inset-[9px] after:!content-[''] hover:!border-[#e6daff] dark:border-[#8c57ff] hover:!bg-[#f7f2ff] dark:bg-[#1f2937]"
 
   const borderColor =
     data.status === 'done'
       ? 'border-[#00b449]'
       : data.status === 'failed'
-        ? 'border-[#ed1933]'
+        ? 'border-[#fbccd2] dark:border-[#ed1933]'
         : data.status === 'running'
           ? 'border-[#ff9acb]'
           : data.nodeType.startsWith('ai.')
             ? 'border-[#ff9acb]'
-            : 'border-[#e0e2e5]'
+            : 'border-[#e0e2e5] dark:border-[#374151]'
 
   const addButton = (
     handle: string,
@@ -126,7 +126,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
       type="button"
       title={`Add a node after ${data.label}${isBranch ? ` (${handle})` : ''}`}
       aria-label={`Add a node after ${data.label}${isBranch ? ` (${handle})` : ''}`}
-      className="nodrag nopan absolute z-20 grid size-[27px] place-items-center rounded-[7px] bg-[#ededee] text-[#494949] shadow-[0_1px_2px_#0000000d] transition-colors hover:bg-[#dedede] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+      className="nodrag nopan absolute z-20 grid size-[27px] place-items-center rounded-[7px] bg-[#ededee] dark:bg-[#1f2937] text-[#494949] dark:text-[#b8bec7] shadow-[0_1px_2px_#0000000d] transition-colors hover:bg-[#dedede] dark:hover:bg-[#1f2937] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
       style={style}
       onPointerDown={event => event.stopPropagation()}
       onClick={event => {
@@ -143,7 +143,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
       {data.pinned && (
         <span
           title="Pinned node"
-          className="pointer-events-none absolute left-[5px] top-[8px] z-30 grid size-5 place-items-center rounded-full bg-white text-[#777] shadow-sm"
+          className="pointer-events-none absolute left-[5px] top-[8px] z-30 grid size-5 place-items-center rounded-full bg-white dark:bg-cl-dark-panel text-[#777] dark:text-[#b8bec7] shadow-sm"
         >
           <LockKeyhole size={14} />
         </span>
@@ -153,12 +153,12 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
         <Zap
           size={21}
           strokeWidth={2.3}
-          className="pointer-events-none absolute left-[5px] top-[42px] text-[#292929]"
+          className="pointer-events-none absolute left-[5px] top-[42px] text-[#292929] dark:text-[#f3f4f6]"
           aria-hidden="true"
         />
       )}
 
-      <div className={`relative grid size-[108px] place-items-center rounded-[21px] border-[2px] bg-white shadow-[0_2px_4px_#00000010] transition-shadow hover:shadow-[0_4px_14px_#0000001c] ${borderColor} ${
+      <div className={`relative grid size-[108px] place-items-center rounded-[21px] border-[2px] bg-white dark:bg-cl-dark-panel shadow-[0_2px_4px_#00000010] transition-shadow hover:shadow-[0_4px_14px_#0000001c] ${borderColor} ${
         selected
           ? 'ring-[5px] ring-[#c8b5ff83] shadow-[0_4px_18px_#00000018]'
           : ''
@@ -201,7 +201,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
             />
 
             <span
-              className="pointer-events-none absolute text-[13px] text-[#777]"
+              className="pointer-events-none absolute text-[13px] text-[#777] dark:text-[#b8bec7]"
               style={{
                 left: 'calc(100% + 12px)',
                 top: 'calc(33% - 11px)',
@@ -211,7 +211,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
             </span>
 
             <span
-              className="pointer-events-none absolute text-[13px] text-[#777]"
+              className="pointer-events-none absolute text-[13px] text-[#777] dark:text-[#b8bec7]"
               style={{
                 left: 'calc(100% + 12px)',
                 top: 'calc(69% - 11px)',
@@ -247,24 +247,24 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
           </>
         )}
 
-        <span className={`pointer-events-none absolute -bottom-[12px] -right-[12px] z-20 grid size-[28px] place-items-center rounded-full border-[3px] border-white ${
+        <span className={`pointer-events-none absolute -bottom-[12px] -right-[12px] z-20 grid size-[28px] place-items-center rounded-full border-[3px] border-white dark:border-cl-dark-line ${
           data.status === 'done'
-            ? 'bg-[#eefff3] text-[#00ad4c]'
+            ? 'bg-[#eefff3] dark:bg-[#1f2937] text-[#00ad4c]'
             : data.status === 'running'
-              ? 'bg-[#fff3f8] text-[#f36aa8]'
+              ? 'bg-[#fff3f8] dark:bg-[#1f2937] text-[#f36aa8]'
               : data.status === 'failed'
-                ? 'bg-[#fff0f2] text-[#ed1933]'
-                : 'bg-[#f5f6f6] text-[#858585]'
+                ? 'bg-[#fff0f2] dark:bg-[#1f2937] text-[#ed1933] dark:text-[#f79ea9]'
+                : 'bg-[#f5f6f6] dark:bg-[#1f2937] text-[#858585] dark:text-[#b8bec7]'
         }`}>
           <StatusIcon status={data.status} />
         </span>
       </div>
 
-      <strong className="mt-[12px] max-w-[190px] break-words text-[16px] font-semibold leading-[1.25] text-[#202020]">
+      <strong className="mt-[12px] max-w-[190px] break-words text-[16px] font-semibold leading-[1.25] text-[#202020] dark:text-[#f3f4f6]">
         {data.label}
       </strong>
 
-      <span className="mt-[6px] max-w-[190px] break-words text-[13px] leading-[1.3] text-[#898989]">
+      <span className="mt-[6px] max-w-[190px] break-words text-[13px] leading-[1.3] text-[#898989] dark:text-[#b8bec7]">
         {data.status === 'running'
           ? 'Processing…'
           : data.status === 'done'
@@ -283,7 +283,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
       )}
 
       {data.note && (
-        <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] bg-[#fffbe6] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37]">
+        <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] dark:border-[#696553] bg-[#fffbe6] dark:bg-[#1f2937] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37] dark:text-[#bfbbab]">
           {data.note}
         </div>
       )}

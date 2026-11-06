@@ -118,10 +118,10 @@ export function EditorPage() {
   }, [playing])
 
   if (loading) {
-    return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm text-cl-muted">Loading editor…</div>
+    return <div className="grid min-h-screen place-items-center bg-cl-bg dark:bg-cl-dark-bg text-sm text-cl-muted dark:text-cl-dark-muted">Loading editor…</div>
   }
   if (!project) {
-    return <div className="grid min-h-screen place-items-center bg-cl-bg text-sm">
+    return <div className="grid min-h-screen place-items-center bg-cl-bg dark:bg-cl-dark-bg text-sm">
       <div><Alert error={error}/><Link to="/dashboard" className="mt-4 block text-cl-cyan">Back to projects</Link></div>
     </div>
   }
@@ -139,7 +139,7 @@ export function EditorPage() {
         inspector={<InspectorPanel/>}
         timeline={<TimelinePanel/>}
       />
-      {Boolean(error) && <div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-950 p-4 text-sm text-red-200">
+      {Boolean(error) && <div role="alert" className="absolute right-4 bottom-4 z-50 max-w-lg rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-700 dark:text-red-200">
         <button className="float-right ml-3" aria-label="Dismiss" onClick={() => setError(null)}>×</button>
         {error instanceof Error ? error.message : String(error)}
       </div>}

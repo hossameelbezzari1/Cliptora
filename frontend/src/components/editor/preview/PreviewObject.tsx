@@ -65,7 +65,7 @@ export function AudioSource({ clip, playhead, playing, muted }: { clip: Clip; pl
   /> : null
 }
 
-const commonHandle = 'absolute z-30 flex h-[19px] w-[19px] items-center justify-center rounded-[5px] border border-[#51247e] bg-white text-[#51247e] shadow-[0_1px_7px_#0009] hover:scale-110'
+const commonHandle = 'absolute z-30 flex h-[19px] w-[19px] items-center justify-center rounded-[5px] border border-[#d9cfe3] dark:border-[#51247e] bg-white dark:bg-cl-dark-panel text-[#51247e] dark:text-[#b6a3c9] shadow-[0_1px_7px_#0009] hover:scale-110'
 
 export function PreviewObject({ clip, playing, playhead, muted, selected, locked, tool, onContextMenu }: Props) {
   // Fixed visual stacking: selecting a clip never moves its pixels over upper layers.
@@ -219,13 +219,13 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
         : clip.type === 'text' ? <div className="flex h-full w-full items-center justify-center whitespace-pre-wrap px-2 text-center font-display text-[clamp(10px,2vw,32px)] font-extrabold leading-snug" style={{ color: clip.color }}>{clip.text || clip.name}</div> : null}
     </div>
     {selected && <>
-      <div aria-hidden className="pointer-events-none absolute inset-[3px] rounded-[2px] border-2 border-[#b78cff] ring-1 ring-white/90 shadow-[0_0_0_1px_#713cca,0_0_16px_#945ff055]" />
-      <div className="pointer-events-none absolute inset-x-2 top-1/2 h-px border-t border-dashed border-white/40" />
-      <div className="pointer-events-none absolute inset-y-2 left-1/2 w-px border-l border-dashed border-white/40" />
-      <span aria-hidden className="pointer-events-none absolute top-2 left-2 max-w-[calc(100%-16px)] truncate rounded-md bg-[#21162e]/95 px-2 py-1 text-[10px] font-semibold text-[#eedcff] shadow-lg">{locked ? '🔒 ' : ''}{clip.name}</span>
+      <div aria-hidden className="pointer-events-none absolute inset-[3px] rounded-[2px] border-2 border-[#b78cff] ring-1 ring-white dark:ring-cl-dark-line/90 shadow-[0_0_0_1px_#713cca,0_0_16px_#945ff055]" />
+      <div className="pointer-events-none absolute inset-x-2 top-1/2 h-px border-t border-dashed border-white dark:border-cl-dark-line/40" />
+      <div className="pointer-events-none absolute inset-y-2 left-1/2 w-px border-l border-dashed border-white dark:border-cl-dark-line/40" />
+      <span aria-hidden className="pointer-events-none absolute top-2 left-2 max-w-[calc(100%-16px)] truncate rounded-md bg-[#f8fafc]/95 dark:bg-[#21162e]/95 px-2 py-1 text-[10px] font-semibold text-[#83798c] dark:text-[#eedcff] shadow-lg">{locked ? '🔒 ' : ''}{clip.name}</span>
       {!locked && canCrop && <>
-        <div aria-hidden className="pointer-events-none absolute border-2 border-dashed border-[#5bff93] bg-[#5bff93]/5" style={{left:`${crop.left}%`,right:`${crop.right}%`,top:`${crop.top}%`,bottom:`${crop.bottom}%`}} />
-        {(['left','right','top','bottom'] as const).map(edge=><span key={edge} data-preview-handle={`crop-${edge}`} title={`Crop ${edge} edge — drag`} aria-label={`Crop ${edge} edge`} style={edge==='left'?{left:`${Math.max(2,crop.left)}%`,top:'50%'}:edge==='right'?{left:`${Math.min(98,100-crop.right)}%`,top:'50%'}:edge==='top'?{top:`${Math.max(2,crop.top)}%`,left:'50%'}:{top:`${Math.min(98,100-crop.bottom)}%`,left:'50%'}} className={`absolute z-40 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-sm ${edge==='top'||edge==='bottom'?'cursor-ns-resize':'cursor-ew-resize'} border border-[#1d5336] bg-[#5bff93] text-[8px] font-bold text-black`}>{edge[0].toUpperCase()}</span>)}
+        <div aria-hidden className="pointer-events-none absolute border-2 border-dashed border-[#5bff93] dark:border-[#297342] bg-[#5bff93] dark:bg-[#1d522f]/5" style={{left:`${crop.left}%`,right:`${crop.right}%`,top:`${crop.top}%`,bottom:`${crop.bottom}%`}} />
+        {(['left','right','top','bottom'] as const).map(edge=><span key={edge} data-preview-handle={`crop-${edge}`} title={`Crop ${edge} edge — drag`} aria-label={`Crop ${edge} edge`} style={edge==='left'?{left:`${Math.max(2,crop.left)}%`,top:'50%'}:edge==='right'?{left:`${Math.min(98,100-crop.right)}%`,top:'50%'}:edge==='top'?{top:`${Math.max(2,crop.top)}%`,left:'50%'}:{top:`${Math.min(98,100-crop.bottom)}%`,left:'50%'}} className={`absolute z-40 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-sm ${edge==='top'||edge==='bottom'?'cursor-ns-resize':'cursor-ew-resize'} border border-[#cdd9d3] dark:border-[#1d5336] bg-[#5bff93] dark:bg-[#1d522f] text-[8px] font-bold text-gray-900 dark:text-white`}>{edge[0].toUpperCase()}</span>)}
       </>}
       {!locked && !canCrop && <>
         <span data-preview-handle="scale" title="SCALE: drag to change size proportionally" aria-label="Scale object" className={`${commonHandle} bottom-[7px] left-[7px] cursor-nesw-resize`}><Scaling size={11}/></span>
@@ -233,7 +233,7 @@ export function PreviewObject({ clip, playing, playhead, muted, selected, locked
         <span data-preview-handle="rotate" title="ROTATE: drag around center" aria-label="Rotate object" className={`${commonHandle} top-[7px] right-[7px] cursor-crosshair rounded-full`}><RotateCw size={11}/></span>
         <span data-preview-handle="move" title="MOVE: drag object" aria-label="Move object" className={`${commonHandle} left-1/2 bottom-[7px] -translate-x-1/2 cursor-move`}><Move size={11}/></span>
       </>}
-      {locked && <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-[#201b2d] p-1 text-white"><LockKeyhole size={15}/></span>}
+      {locked && <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-[#f8fafc] dark:bg-[#201b2d] p-1 text-gray-900 dark:text-white"><LockKeyhole size={15}/></span>}
     </>}
   </div>
 }

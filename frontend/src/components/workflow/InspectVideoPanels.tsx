@@ -40,10 +40,10 @@ export function InspectVideoSourceParameters({
   sourceId, sources, mediaOptions, onSourceChange, onMediaChange, onUpload,
   uploadRef, working, isSourceNode = false,
 }: SourceProps) {
-  return <section className="space-y-4 border-b border-[#e9e9e9] pb-5" data-video-source-parameters>
-    <div className="flex items-center gap-2 border-b border-[#ededed] pb-2">
-      <Film size={17} className="shrink-0 text-violet-600" aria-hidden="true" />
-      <h3 className="text-[13px] font-semibold text-[#303030]">{isSourceNode ? 'Source video' : 'Workflow video input'}</h3>
+  return <section className="space-y-4 border-b border-[#e9e9e9] dark:border-[#374151] pb-5" data-video-source-parameters>
+    <div className="flex items-center gap-2 border-b border-[#ededed] dark:border-[#374151] pb-2">
+      <Film size={17} className="shrink-0 text-violet-600 dark:text-violet-300" aria-hidden="true" />
+      <h3 className="text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">{isSourceNode ? 'Source video' : 'Workflow video input'}</h3>
     </div>
     <SelectField
       label={isSourceNode ? 'Workflow source' : 'Video source'}
@@ -65,14 +65,14 @@ export function InspectVideoSourceParameters({
       {mediaOptions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
     </SelectField>
     <div className="space-y-2">
-      <span className="block text-[12px] font-semibold text-[#444]">Upload video</span>
+      <span className="block text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">Upload video</span>
       <input ref={uploadRef} type="file" accept=".mp4,.mov,.mkv,.webm,.m4v" className="sr-only" tabIndex={-1} onChange={onUpload} />
       <Button appearance="light" variant="primary" icon={<Upload size={16} />} disabled={working}
         onClick={() => uploadRef.current?.click()} className="min-h-9 rounded-full text-[12px]">
         Upload video
       </Button>
     </div>
-    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#777]">
+    <p className="flex items-start gap-2 text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">
       {isSourceNode ? <FolderOpen size={14} className="mt-0.5 shrink-0" aria-hidden="true" /> : <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />}
       {isSourceNode
         ? 'The selected video is shared with this workflow. Original media files are not modified.'
@@ -101,9 +101,9 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
   }
 
   return <div className="space-y-5" data-inspect-video-parameters>
-    <fieldset className="border-b border-[#e9e9e9] pb-5">
-      <legend className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-[#303030]">
-        <Gauge size={17} className="text-violet-600" aria-hidden="true" /> Inspection mode
+    <fieldset className="border-b border-[#e9e9e9] dark:border-[#374151] pb-5">
+      <legend className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">
+        <Gauge size={17} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> Inspection mode
       </legend>
       <div className="divide-y divide-[#ededed]">
         {([
@@ -111,49 +111,49 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
           { value: 'standard', label: 'Standard', description: 'Detailed stream metadata', icon: Layers3 },
         ] as const).map(item => {
           const Icon = item.icon
-          return <label key={item.value} className="flex cursor-pointer items-center gap-3 py-3 hover:bg-[#fafafa]">
+          return <label key={item.value} className="flex cursor-pointer items-center gap-3 py-3 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]">
             <input type="radio" name="inspect-video-mode" value={item.value}
               className="size-4 shrink-0 accent-violet-600" checked={mode === item.value}
               onChange={() => onChange('mode', item.value)} />
-            <Icon size={17} className="shrink-0 text-[#7563a6]" aria-hidden="true" />
+            <Icon size={17} className="shrink-0 text-[#7563a6] dark:text-[#c5bdda]" aria-hidden="true" />
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-[#292929]">{item.label}</span>
-              <span className="block text-[11px] leading-5 text-[#808080]">{item.description}</span>
+              <span className="block text-[13px] font-medium text-[#292929] dark:text-[#f3f4f6]">{item.label}</span>
+              <span className="block text-[11px] leading-5 text-[#808080] dark:text-[#b8bec7]">{item.description}</span>
             </span>
           </label>
         })}
       </div>
     </fieldset>
 
-    <fieldset className="border-b border-[#e9e9e9] pb-5">
-      <legend className="mb-1 flex items-center gap-2 text-[13px] font-semibold text-[#303030]">
-        <Layers3 size={17} className="text-violet-600" aria-hidden="true" /> Metadata to extract
+    <fieldset className="border-b border-[#e9e9e9] dark:border-[#374151] pb-5">
+      <legend className="mb-1 flex items-center gap-2 text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">
+        <Layers3 size={17} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> Metadata to extract
       </legend>
       <div className="divide-y divide-[#ededed]">
         {sections.map(item => {
           const Icon = item.icon
-          return <label key={item.id} className="flex cursor-pointer items-center gap-3 py-3 hover:bg-[#fafafa]">
+          return <label key={item.id} className="flex cursor-pointer items-center gap-3 py-3 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]">
             <input type="checkbox" className="size-4 shrink-0 accent-violet-600"
               checked={selected.has(item.id)} disabled={selected.size === 1 && selected.has(item.id)}
               onChange={event => setSection(item.id, event.target.checked)} />
-            <Icon size={17} className="shrink-0 text-[#7665a7]" aria-hidden="true" />
+            <Icon size={17} className="shrink-0 text-[#7665a7] dark:text-[#c5beda]" aria-hidden="true" />
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-[#313131]">{item.label}</span>
-              <span className="block text-[11px] leading-5 text-[#858585]">{item.help}</span>
+              <span className="block text-[13px] font-medium text-[#313131] dark:text-[#f3f4f6]">{item.label}</span>
+              <span className="block text-[11px] leading-5 text-[#858585] dark:text-[#b8bec7]">{item.help}</span>
             </span>
           </label>
         })}
       </div>
-      <p className="mt-2 flex items-start gap-2 text-[11px] leading-5 text-[#858585]">
+      <p className="mt-2 flex items-start gap-2 text-[11px] leading-5 text-[#858585] dark:text-[#b8bec7]">
         <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
         At least one section must remain selected. The five legacy fields are always included.
       </p>
     </fieldset>
 
-    <div className="space-y-4 border-b border-[#e9e9e9] pb-5">
+    <div className="space-y-4 border-b border-[#e9e9e9] dark:border-[#374151] pb-5">
       <div>
-        <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444]">
-          <Video size={16} className="text-violet-600" aria-hidden="true" /> Video stream index
+        <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">
+          <Video size={16} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> Video stream index
         </div>
         <Field label="Video stream index" hideLabel appearance="light" type="number" min={-1} max={256} step={1}
           value={numberValue('video_stream_index', -1)}
@@ -161,8 +161,8 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
           hint="-1 = auto" />
       </div>
       <div>
-        <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444]">
-          <AudioLines size={16} className="text-violet-600" aria-hidden="true" /> Audio stream index
+        <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">
+          <AudioLines size={16} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> Audio stream index
         </div>
         <Field label="Audio stream index" hideLabel appearance="light" type="number" min={-1} max={256} step={1}
           value={numberValue('audio_stream_index', -1)}
@@ -171,9 +171,9 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
       </div>
     </div>
 
-    <fieldset className="border-b border-[#e9e9e9] pb-5">
-      <legend className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-[#303030]">
-        <SlidersHorizontal size={17} className="text-violet-600" aria-hidden="true" /> Additional options
+    <fieldset className="border-b border-[#e9e9e9] dark:border-[#374151] pb-5">
+      <legend className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">
+        <SlidersHorizontal size={17} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> Additional options
       </legend>
       <div className="divide-y divide-[#ededed]">
         <div className="py-3"><SwitchField label="Include container and stream metadata tags"
@@ -186,17 +186,17 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
       </div>
     </fieldset>
 
-    <div className="border-b border-[#e9e9e9] pb-5">
-      <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444]">
-        <Clock3 size={16} className="text-violet-600" aria-hidden="true" /> FFprobe timeout (5–300 seconds)
+    <div className="border-b border-[#e9e9e9] dark:border-[#374151] pb-5">
+      <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">
+        <Clock3 size={16} className="text-violet-600 dark:text-violet-300" aria-hidden="true" /> FFprobe timeout (5–300 seconds)
       </div>
       <Field label="FFprobe timeout" hideLabel appearance="light" type="number" min={5} max={300} step={1}
         value={numberValue('timeout_seconds', 120)}
         onChange={event => changeNumber('timeout_seconds', 120, 5, 300, event.target.value)} />
     </div>
 
-    <p className="flex items-start gap-2 border-l-2 border-violet-300 bg-violet-50/50 px-3 py-2.5 text-[11px] leading-5 text-[#6b627b]">
-      <Info size={15} className="mt-0.5 shrink-0 text-violet-600" aria-hidden="true" />
+    <p className="flex items-start gap-2 border-l-2 border-violet-300 dark:border-violet-900/70 bg-violet-50/50 dark:bg-violet-950/40 px-3 py-2.5 text-[11px] leading-5 text-[#6b627b] dark:text-[#b8bec7]">
+      <Info size={15} className="mt-0.5 shrink-0 text-violet-600 dark:text-violet-300" aria-hidden="true" />
       This node reads metadata only. Silence, scene, freeze and black-frame scanning require separate analysis nodes.
     </p>
   </div>
@@ -204,21 +204,21 @@ export function InspectVideoParameters({ settings, onChange }: { settings: Recor
 
 /** Left input panel uses the same flat divider-list treatment as the settings. */
 export function InspectVideoInput({ source, hasUpstream }: { source: WorkflowSource | null; hasUpstream: boolean }) {
-  return <div className="divide-y divide-[#eaeaea] border-b border-[#eaeaea] bg-white" data-inspect-video-input>
+  return <div className="divide-y divide-[#eaeaea] border-b border-[#eaeaea] dark:border-[#374151] bg-white dark:bg-cl-dark-panel" data-inspect-video-input>
     <div className="flex items-start gap-3 px-4 py-4">
-      <FileVideo size={20} className="mt-0.5 shrink-0 text-violet-600" aria-hidden="true" />
+      <FileVideo size={20} className="mt-0.5 shrink-0 text-violet-600 dark:text-violet-300" aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <span className="block text-[12px] font-semibold text-[#303030]">Video source</span>
+        <span className="block text-[12px] font-semibold text-[#303030] dark:text-[#f3f4f6]">Video source</span>
         {source ? <>
-          <span className="mt-1 block break-all text-[13px] text-[#303030]">{source.filename}</span>
-          <span className="mt-1 block text-[11px] text-[#898989]">{size(source.size_bytes)} · Source #{source.id}</span>
-        </> : <span className="mt-1 block text-[12px] text-amber-700">No video selected. Choose a source in Parameters.</span>}
+          <span className="mt-1 block break-all text-[13px] text-[#303030] dark:text-[#f3f4f6]">{source.filename}</span>
+          <span className="mt-1 block text-[11px] text-[#898989] dark:text-[#b8bec7]">{size(source.size_bytes)} · Source #{source.id}</span>
+        </> : <span className="mt-1 block text-[12px] text-amber-700 dark:text-amber-300">No video selected. Choose a source in Parameters.</span>}
       </div>
     </div>
-    {source && <div className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium text-emerald-700">
+    {source && <div className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
       <CheckCircle2 size={17} className="shrink-0" aria-hidden="true" /> Selected for workflow execution
     </div>}
-    <div className="flex items-start gap-2 px-4 py-3 text-[11px] leading-5 text-[#777]">
+    <div className="flex items-start gap-2 px-4 py-3 text-[11px] leading-5 text-[#777] dark:text-[#b8bec7]">
       <Info size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
       <p>The original file is not modified. {hasUpstream ? 'Connected nodes also supply their JSON output below.' : 'No upstream JSON is required to inspect a workflow source.'}</p>
     </div>
@@ -227,8 +227,8 @@ export function InspectVideoInput({ source, hasUpstream }: { source: WorkflowSou
 
 function Metric({ name, value }: { name: string; value: unknown }) {
   return <div className="px-1 py-3">
-    <span className="block text-[11px] font-medium text-[#888]">{name}</span>
-    <span className="mt-1 block break-words text-[13px] font-semibold text-[#292929]">{show(value)}</span>
+    <span className="block text-[11px] font-medium text-[#888] dark:text-[#b8bec7]">{name}</span>
+    <span className="mt-1 block break-words text-[13px] font-semibold text-[#292929] dark:text-[#f3f4f6]">{show(value)}</span>
   </div>
 }
 
@@ -236,10 +236,10 @@ function DetailList({ data }: { data: Json }) {
   const entries = Object.entries(data).filter(([key]) => key !== 'tags')
   return <div className="divide-y divide-[#eaeaea]">
     {entries.length ? entries.map(([key, value]) => <div key={key} className="px-1 py-3 text-[12px]">
-      <span className="block font-medium text-[#777]">{key.replace(/_/g, ' ')}</span>
-      <span className="mt-1 block break-all text-[#333]">{typeof value === 'object' ? JSON.stringify(value) : show(value)}</span>
-    </div>) : <p className="py-3 text-xs text-[#888]">No values available.</p>}
-    {Object.keys(object(data.tags)).length > 0 && <details className="py-3"><summary className="cursor-pointer text-xs text-[#555]">Tags</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap text-[11px]">{JSON.stringify(data.tags, null, 2)}</pre></details>}
+      <span className="block font-medium text-[#777] dark:text-[#b8bec7]">{key.replace(/_/g, ' ')}</span>
+      <span className="mt-1 block break-all text-[#333] dark:text-[#f3f4f6]">{typeof value === 'object' ? JSON.stringify(value) : show(value)}</span>
+    </div>) : <p className="py-3 text-xs text-[#888] dark:text-[#b8bec7]">No values available.</p>}
+    {Object.keys(object(data.tags)).length > 0 && <details className="py-3"><summary className="cursor-pointer text-xs text-[#555] dark:text-[#b8bec7]">Tags</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap text-[11px]">{JSON.stringify(data.tags, null, 2)}</pre></details>}
   </div>
 }
 
@@ -302,22 +302,22 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
     })
   }
 
-  if (!hasProbe) return <p className="p-4 text-xs text-[#888]">No Inspect Video output found. Run the workflow to inspect the source.</p>
+  if (!hasProbe) return <p className="p-4 text-xs text-[#888] dark:text-[#b8bec7]">No Inspect Video output found. Run the workflow to inspect the source.</p>
 
   return <div className="space-y-4 p-4" data-inspect-video-output>
-    <div className="flex items-center gap-2 border-b border-[#ededed] pb-3">
-      <Film size={17} className="text-violet-600" aria-hidden="true" />
-      <div className="min-w-0"><p className="text-[13px] font-semibold text-[#303030]">Video inspection</p><p className="text-[11px] text-[#888]">{show(probe.inspection_mode ?? 'legacy')} · Non-destructive FFprobe</p></div>
+    <div className="flex items-center gap-2 border-b border-[#ededed] dark:border-[#374151] pb-3">
+      <Film size={17} className="text-violet-600 dark:text-violet-300" aria-hidden="true" />
+      <div className="min-w-0"><p className="text-[13px] font-semibold text-[#303030] dark:text-[#f3f4f6]">Video inspection</p><p className="text-[11px] text-[#888] dark:text-[#b8bec7]">{show(probe.inspection_mode ?? 'legacy')} · Non-destructive FFprobe</p></div>
     </div>
 
-    <div className="flex min-w-0 items-center gap-1 border-b border-[#ededed]" data-inspect-tabs-navigation>
+    <div className="flex min-w-0 items-center gap-1 border-b border-[#ededed] dark:border-[#374151]" data-inspect-tabs-navigation>
       <button
         type="button"
         onClick={() => scrollTabs(-1)}
         disabled={!canScrollBack}
         aria-label="Scroll tabs back"
         title="Back"
-        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] bg-white text-[#555] transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] disabled:hover:bg-white disabled:hover:text-[#555]"
+        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#555] dark:text-[#b8bec7] transition-colors hover:border-violet-200 dark:hover:border-violet-900/70 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] dark:disabled:hover:border-[#374151] disabled:hover:bg-white dark:disabled:hover:bg-cl-dark-panel disabled:hover:text-[#555] dark:disabled:hover:text-[#f3f4f6]"
       >
         <ChevronLeft size={15} aria-hidden="true" />
       </button>
@@ -336,7 +336,7 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`shrink-0 whitespace-nowrap border-b-2 px-1 pb-2 pt-1 text-[11px] font-medium ${tab === item.id ? 'border-[#303030] text-[#252525]' : 'border-transparent text-[#888] hover:text-[#333]'}`}
+            className={`shrink-0 whitespace-nowrap border-b-2 px-1 pb-2 pt-1 text-[11px] font-medium ${tab === item.id ? 'border-[#d1d5db] dark:border-[#303030] text-[#252525] dark:text-[#f3f4f6]' : 'border-transparent text-[#888] dark:text-[#b8bec7] hover:text-[#333] dark:hover:text-[#f3f4f6]'}`}
           >{item.label}</button>)}
         </div>
       </div>
@@ -347,7 +347,7 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
         disabled={!canScrollNext}
         aria-label="Scroll tabs next"
         title="Next"
-        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] bg-white text-[#555] transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] disabled:hover:bg-white disabled:hover:text-[#555]"
+        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#e6e6e6] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#555] dark:text-[#b8bec7] transition-colors hover:border-violet-200 dark:hover:border-violet-900/70 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[#e6e6e6] dark:disabled:hover:border-[#374151] disabled:hover:bg-white dark:disabled:hover:bg-cl-dark-panel disabled:hover:text-[#555] dark:disabled:hover:text-[#f3f4f6]"
       >
         <ChevronRight size={15} aria-hidden="true" />
       </button>
@@ -362,15 +362,15 @@ export function InspectVideoOutput({ value }: { value: unknown }) {
         <Metric name="Video codec" value={video.codec} />
         <Metric name="Audio" value={probe.has_audio ? `${audio.length || '✓'} stream(s)` : 'No audio'} />
       </div>
-      {Object.keys(format).length > 0 && <section><h3 className="border-b border-[#eaeaea] pb-2 text-[12px] font-semibold text-[#303030]">Container</h3><DetailList data={format} /></section>}
-    </> : collection.length ? collection.map((entry, index) => <section key={`${tab}-${index}`} className="space-y-2 border-b border-[#ededed] pb-3">
-      <h3 className="flex items-center gap-2 text-[12px] font-semibold text-[#444]">
+      {Object.keys(format).length > 0 && <section><h3 className="border-b border-[#eaeaea] dark:border-[#374151] pb-2 text-[12px] font-semibold text-[#303030] dark:text-[#f3f4f6]">Container</h3><DetailList data={format} /></section>}
+    </> : collection.length ? collection.map((entry, index) => <section key={`${tab}-${index}`} className="space-y-2 border-b border-[#ededed] dark:border-[#374151] pb-3">
+      <h3 className="flex items-center gap-2 text-[12px] font-semibold text-[#444] dark:text-[#b8bec7]">
         {tab === 'video' ? <Video size={15} /> : tab === 'audio' ? <AudioLines size={15} /> : tab === 'subtitles' ? <ListChecks size={15} /> : <Clapperboard size={15} />}
         {tab === 'chapters' ? `Chapter ${index + 1}` : `Stream #${show(entry.index)}`}
       </h3>
       <DetailList data={entry} />
-    </section>) : <p className="py-6 text-center text-[12px] text-[#888]">No {tab} metadata found or this section was disabled.</p>}
-    {warnings.length > 0 && <div className="border-l-2 border-amber-400 bg-amber-50 p-3"><p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber-800"><AlertTriangle size={15} /> Warnings</p>{warnings.map((item, index) => <p key={index} className="text-[11px] leading-5 text-amber-900">{item}</p>)}</div>}
-    <p className="text-[11px] leading-4 text-[#999]">Switch to JSON view to copy the full output for downstream workflow nodes.</p>
+    </section>) : <p className="py-6 text-center text-[12px] text-[#888] dark:text-[#b8bec7]">No {tab} metadata found or this section was disabled.</p>}
+    {warnings.length > 0 && <div className="border-l-2 border-amber-400 bg-amber-50 dark:bg-amber-950/35 p-3"><p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber-800 dark:text-amber-300"><AlertTriangle size={15} /> Warnings</p>{warnings.map((item, index) => <p key={index} className="text-[11px] leading-5 text-amber-900 dark:text-amber-300">{item}</p>)}</div>}
+    <p className="text-[11px] leading-4 text-[#4b5563] dark:text-[#999]">Switch to JSON view to copy the full output for downstream workflow nodes.</p>
   </div>
 }

@@ -4,7 +4,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
         <img className="h-10 w-10 rounded-lg object-contain" src="/assets/logo.png" alt="" />
         <div className={compact ? 'hidden xl:block' : ''}>
             <strong className="font-display text-base font-extrabold tracking-tight">Cliptora</strong>
-            <p className="text-[10px] text-cl-muted">AI Video Editor</p>
+            <p className="text-[10px] text-cl-muted dark:text-cl-dark-muted">AI Video Editor</p>
         </div>
     </Link>
 }

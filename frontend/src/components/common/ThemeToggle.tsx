@@ -49,7 +49,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
         aria-expanded={open}
         title={`Theme: ${theme}`}
         onClick={() => setOpen(value => !value)}
-        className="theme-control inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-cl-line bg-cl-panel px-3 text-cl-muted transition-colors hover:bg-cl-panel-2 hover:text-[var(--cl-text)]"
+        className="theme-control inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-cl-line dark:border-cl-dark-line bg-cl-panel dark:bg-cl-dark-panel px-3 text-cl-muted dark:text-cl-dark-muted transition-colors hover:bg-cl-panel-2 dark:hover:bg-cl-dark-panel-2 hover:text-[var(--cl-text)]"
       >
         <CurrentIcon size={17} />
         {!compact && <span className="text-xs font-semibold capitalize">{theme}</span>}
@@ -59,7 +59,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
         <div
           role="menu"
           aria-label="Choose theme"
-          className="theme-menu absolute right-0 top-12 z-[20000] w-44 rounded-2xl border border-cl-line bg-cl-panel p-1.5 text-[var(--cl-text)] shadow-2xl"
+          className="theme-menu absolute right-0 top-12 z-[20000] w-44 rounded-2xl border border-cl-line dark:border-cl-dark-line bg-cl-panel dark:bg-cl-dark-panel p-1.5 text-[var(--cl-text)] shadow-2xl"
         >
           {choices.map(choice => {
             const Icon = choice.icon
@@ -74,9 +74,9 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
                   setTheme(choice.value)
                   setOpen(false)
                 }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-semibold hover:bg-cl-panel-2"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-semibold hover:bg-cl-panel-2 dark:hover:bg-cl-dark-panel-2"
               >
-                <Icon size={16} className="text-cl-muted" />
+                <Icon size={16} className="text-cl-muted dark:text-cl-dark-muted" />
                 <span className="flex-1">{choice.label}</span>
                 {selected && <Check size={15} className="text-cl-purple" />}
               </button>

@@ -83,7 +83,7 @@ export function WorkflowNodeSideRail({ studio, side }: Props) {
 
   if (!selected || (input && isEntry(selected.type))) return null
   const visible = connected.slice(0, 6)
-  const badgeClass = 'group grid size-[54px] cursor-pointer place-items-center rounded-[18px] border border-[#dedede] bg-white text-[#454545] shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-all hover:-translate-y-px hover:border-violet-400 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500'
+  const badgeClass = 'group grid size-[54px] cursor-pointer place-items-center rounded-[18px] border border-[#dedede] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#454545] dark:text-[#b8bec7] shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-all hover:-translate-y-px hover:border-violet-400 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500'
 
   return <div ref={railRef} className={`pointer-events-none absolute top-1/2 z-[70] hidden -translate-y-1/2 lg:block ${input ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'}`}>
     <div className="pointer-events-auto flex flex-col items-center gap-2">
@@ -100,7 +100,7 @@ export function WorkflowNodeSideRail({ studio, side }: Props) {
         onClick={() => { setSearchHint(item.label); setOpen(true) }}>
         <WorkflowToolIcon label={item.label} type={item.type} size={28} />
       </button>)}
-      <button type="button" disabled={working} className="grid size-8 cursor-pointer place-items-center rounded-full border border-[#dcdce1] bg-white text-[#777] shadow-sm transition-colors hover:border-violet-400 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-40"
+      <button type="button" disabled={working} className="grid size-8 cursor-pointer place-items-center rounded-full border border-[#dcdce1] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#777] dark:text-[#b8bec7] shadow-sm transition-colors hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
         onClick={() => { setSearchHint(''); setOpen(value => !value) }} aria-expanded={open} aria-label={`Add ${input ? 'previous' : 'next'} node`} title={`Add ${input ? 'previous' : 'next'} node`}>
         <Plus size={17} />
       </button>
@@ -108,7 +108,7 @@ export function WorkflowNodeSideRail({ studio, side }: Props) {
 
     {open && <div role="dialog" aria-label={`${input ? 'Previous' : 'Next'} node connections`}
       onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false) } }}
-      className={`pointer-events-auto absolute top-0 w-[min(340px,75vw)] rounded-xl bg-white shadow-[0_18px_55px_rgba(0,0,0,0.25)] ${input ? 'left-[calc(100%+12px)]' : 'right-[calc(100%+12px)]'}`}>
+      className={`pointer-events-auto absolute top-0 w-[min(340px,75vw)] rounded-xl bg-white dark:bg-cl-dark-panel shadow-[0_18px_55px_rgba(0,0,0,0.25)] ${input ? 'left-[calc(100%+12px)]' : 'right-[calc(100%+12px)]'}`}>
       <WorkflowNodeConnections key={searchHint} studio={studio} side={side} mode="popover" initialSearch={searchHint} onClose={() => setOpen(false)} />
     </div>}
   </div>

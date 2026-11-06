@@ -172,11 +172,11 @@ export function ResizableEditorWorkspace({
       onKeyDown={event => keys(handle, event)}
       onDoubleClick={() => change(handle, DEFAULTS[handle])}
       style={{ ...handleStyle, cursor: vertical ? 'col-resize' : 'row-resize' }}
-      className={`group flex items-center justify-center outline-none focus-visible:bg-[#342b49] ${vertical ? 'h-full' : 'w-full'}`}
+      className={`group flex items-center justify-center outline-none focus-visible:bg-[#f8fafc] dark:focus-visible:bg-[#342b49] ${vertical ? 'h-full' : 'w-full'}`}
     >
       <div
         aria-hidden="true"
-        className={`rounded-full bg-[#53505f] transition-colors group-hover:bg-[#b38aff] group-focus-visible:bg-[#b38aff] ${moving === handle ? 'bg-[#b38aff]' : ''} ${vertical ? 'h-12 w-[3px]' : 'h-[3px] w-12'}`}
+        className={`rounded-full bg-[#f8fafc] dark:bg-[#53505f] transition-colors group-hover:bg-[#b38aff] group-focus-visible:bg-[#b38aff] ${moving === handle ? 'bg-[#b38aff]' : ''} ${vertical ? 'h-12 w-[3px]' : 'h-[3px] w-12'}`}
       />
     </div>
   }
