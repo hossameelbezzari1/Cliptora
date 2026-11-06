@@ -224,7 +224,7 @@ export function MediaLibraryTab({ projectId, media, onUpload, onAdd, busy, error
           </div>
           {folder !== 'all' && <div className="mb-2 flex shrink-0 items-center gap-1.5 text-[10px] text-[#aebacf]">Folder: <span className="rounded-md border border-[#dad6e2] dark:border-[#584379] bg-[#eae9ed] dark:bg-[#2e2348] px-2 py-1 text-[#e0ccff]">{folderLabel}</span><button type="button" title="Clear folder filter" aria-label="Clear folder filter" onClick={() => setSelectedFolder('all')} className="rounded p-1 hover:bg-[#f8fafc] dark:hover:bg-[#2e2842]"><X size={13}/></button></div>}
 
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin] [scrollbar-color:#555a6a_transparent]">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-width:thin] [scrollbar-color:var(--cl-scrollbar-thumb)_transparent]">
             {shown.length > 0 ? <div className={view === 'grid' ? 'grid gap-2.5' : 'flex flex-col gap-2'} style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,145px),1fr))' } : undefined}>{shown.map(asset => <MediaAssetCard key={asset.id} media={asset} selected={selected?.id === asset.id} view={view}
               onSelect={() => { setSelectedId(asset.id); if (layout !== 'wide') { setDetailsOpen(true); setFoldersOpen(false) } }}
               onAdd={() => { void onAdd(asset) }} onDragStart={event => doDrag(event, asset)} onDragEnd={() => useEditor.getState().startDrag(null)}/>)}</div>
