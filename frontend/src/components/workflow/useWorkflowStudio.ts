@@ -30,6 +30,23 @@ const workflowSnapshot = (name: string, nodes: WorkflowNode[]) =>
 const sameNodes = (left: WorkflowNode[], right: WorkflowNode[]) =>
   JSON.stringify(left) === JSON.stringify(right)
 
+const selectedRunKey = (projectId: number, workflowId: number) =>
+  `cliptora.workflow.selected-run.${projectId}.${workflowId}`
+
+const savedRunId = (projectId: number, workflowId: number): number | null => {
+  try {
+    const value = Number(window.localStorage.getItem(selectedRunKey(projectId, workflowId)))
+    return Number.isSafeInteger(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+const workflowIdOfRun = (item: WorkflowRun): number | null => {
+  const id = (item as WorkflowRun & { workflow_id?: unknown }).workflow_id
+  return typeof id === 'number' && Number.isInteger(id) ? id : null
+}
+
 const VIDEO_SOURCE_TYPES = new Set([
   'core.video_source', 'media.probe', 'audio.extract', 'video.render',
 ])
@@ -182,6 +199,29 @@ export function useWorkflowStudio({
   const selectedCatalog = catalog.find(item => item.type === selected?.type)
   const hasVideoSource = nodes.some(node => VIDEO_SOURCE_TYPES.has(node.type))
 
+  const restoreRun = useCallback((workflowId: number, items: WorkflowRun[]) => {
+    const matching = items.filter(item => workflowIdOfRun(item) === workflowId)
+    const persistedId = savedRunId(projectId, workflowId)
+    const preferred = matching.find(item => item.id === persistedId) ?? matching[0] ?? null
+    setRun(preferred)
+
+    // Selected history can be older than the 30 most recent project runs.
+    if (persistedId !== null && !matching.some(item => item.id === persistedId)) {
+      void api<WorkflowRun>(`/workflows/${projectId}/runs/${persistedId}`)
+        .then(saved => {
+          if (activeIdRef.current !== workflowId || workflowIdOfRun(saved) !== workflowId) return
+          setRun(current => current && workflowIdOfRun(current) === workflowId &&
+            current.id !== matching[0]?.id ? current : saved)
+          setRuns(previous => previous.some(item => item.id === saved.id)
+            ? previous
+            : [...previous, saved].sort((left, right) => right.id - left.id))
+        })
+        .catch(() => {
+          // Keep the latest available run if the old one is unavailable.
+        })
+    }
+  }, [projectId])
+
   const reload = useCallback(async () => {
     const [catalogRows, templateRows, definitionRows, sourceRows, runRows] =
       await Promise.all([
@@ -210,14 +250,16 @@ export function useWorkflowStudio({
       replaceNodes(requested.nodes)
       setSelectedId(preferredNode(requested.nodes))
       setSourceId(sourceIdFromNodes(requested.nodes))
+      restoreRun(requested.id, runRows)
 
       void api<WorkflowVersion[]>(
         `/workflows/${projectId}/definitions/${requested.id}/versions`,
       ).then(setVersions).catch(err => setError(errorMessage(err)))
     } else if (initialWorkflowId) {
+      setRun(null)
       setError('Workflow not found or it does not belong to this project.')
     }
-  }, [projectId, initialWorkflowId, replaceNodes])
+  }, [projectId, initialWorkflowId, replaceNodes, restoreRun])
 
   useEffect(() => {
     let disposed = false
@@ -228,6 +270,32 @@ export function useWorkflowStudio({
       disposed = true
     }
   }, [reload])
+
+  const refreshRuns = useCallback(async () => {
+    const rows = await api<WorkflowRun[]>(`/workflows/${projectId}/runs`)
+    const workflowId = activeIdRef.current
+    const persistedId = workflowId !== null ? savedRunId(projectId, workflowId) : null
+    setRuns(previous => {
+      const archived = previous.find(item => item.id === persistedId)
+      return archived && !rows.some(item => item.id === archived.id)
+        ? [...rows, archived].sort((left, right) => right.id - left.id)
+        : rows
+    })
+    setRun(current => rows.find(item => item.id === current?.id) ?? current)
+  }, [projectId])
+
+  const getRunDetails = useCallback((id: number) =>
+    api<WorkflowRun>(`/workflows/${projectId}/runs/${id}`), [projectId])
+
+  // Persist the selected ID only; full results remain in MySQL and storage.
+  useEffect(() => {
+    if (!run || activeId === null || workflowIdOfRun(run) !== activeId) return
+    try {
+      window.localStorage.setItem(selectedRunKey(projectId, activeId), String(run.id))
+    } catch {
+      // Storage may be unavailable; keep the active run in memory.
+    }
+  }, [run?.id, activeId, projectId])
 
   useEffect(() => {
     if (!selected) {
@@ -256,6 +324,8 @@ export function useWorkflowStudio({
       ).then(next => {
         if (!live) return
         setRun(next)
+        setRuns(previous => [next, ...previous.filter(item => item.id !== next.id)]
+          .sort((left, right) => right.id - left.id))
         if (
           next.state === 'completed' ||
           next.state === 'failed' ||
@@ -497,6 +567,7 @@ export function useWorkflowStudio({
     replaceNodes(definition.nodes)
     setSelectedId(preferredNode(definition.nodes))
     setSourceId(sourceIdFromNodes(definition.nodes))
+    restoreRun(definition.id, runs)
     setJsonEditor(JSON.stringify(definition.nodes[0]?.settings ?? {}, null, 2))
     setPage('nodes')
     setError(null)
@@ -511,6 +582,7 @@ export function useWorkflowStudio({
     lastSavedSnapshot.current = ''
     failedAutoSaveSnapshot.current = ''
     setActiveId(null)
+    setRun(null)
     setVersions([])
     setName(template.name)
     replaceNodes(template.nodes)
@@ -1124,6 +1196,7 @@ export function useWorkflowStudio({
     save, start, testStep, upload, useMediaSource, fetchArtifact, downloadVideo,
     applyCutPlan, cancel, retry, chooseRun, dropNode, exportWorkflow,
     importWorkflow, duplicateDefinition, restoreVersion, deleteDefinition,
+    refreshRuns, getRunDetails,
     previewMedia, completedNodes, downstream, waitingNodes,
   }
 }

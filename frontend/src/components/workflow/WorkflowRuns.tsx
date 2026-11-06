@@ -311,11 +311,19 @@ export function WorkflowRuns({
     return () => { active = false }
   }, [previewRunId])
 
+  useEffect(() => {
+    setPreviewRunId(null)
+    setSelectedNode(null)
+  }, [studio.activeId])
+
   // Browsing history is always read-only. chooseRun() is only called from
   // the explicit "Use this execution" button, never from a list click.
+  const scopedRuns = studio.activeId === null
+    ? []
+    : runs.filter(item => getNumber(asDict(item), 'workflow_id') === studio.activeId)
   const previewSummary = previewRunId === null
-    ? runs[0]
-    : runs.find(item => item.id === previewRunId)
+    ? scopedRuns[0]
+    : scopedRuns.find(item => item.id === previewRunId)
   const previewRun = run && (previewRunId === null || run.id === previewRunId)
     ? run
     : (previewDetails && getNumber(asDict(previewDetails), 'id') === previewRunId
@@ -347,7 +355,7 @@ export function WorkflowRuns({
   const selectedInfo = selectedNode ? previewResults?.[selectedNode] : null
   const selectedDetails = asDict(selectedInfo)
 
-  const visibleRuns = runs.filter(item => {
+  const visibleRuns = scopedRuns.filter(item => {
     const state = item.state.toLowerCase()
     if (filter === 'all') return true
     if (filter === 'completed') return ['completed', 'success', 'succeeded'].includes(state)

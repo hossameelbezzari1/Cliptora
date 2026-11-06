@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { AlertTriangle, ChevronDown, CircleHelp, KeyRound, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, ChevronDown, CircleHelp, KeyRound, LoaderCircle, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { api } from '../../../lib/api'
 import type { WorkflowNodeParametersProps } from '../nodeTypes'
 
 type Props = WorkflowNodeParametersProps & {
@@ -7,6 +8,7 @@ type Props = WorkflowNodeParametersProps & {
 }
 type Action = { id: string; label: string; resource: string; implemented: boolean; reason?: string }
 type GeminiMessage = { role: 'user' | 'model' | 'system'; text: string }
+type GeminiCredential = { id: number; name: string; provider: string; auth_type: string }
 
 const ACTIONS: Action[] = [
   { resource: 'Audio', id: 'analyze_audio', label: 'Analyze audio', implemented: true },
@@ -79,6 +81,68 @@ function NumberField({ name, value, onChange, min, max, step = 1, hint }: {
  */
 export function GeminiParameters({ node, catalog, onChange, onManageCredentials }: Props) {
   const cfg = node.settings ?? {}
+  const [credentials, setCredentials] = useState<GeminiCredential[]>([])
+  const [credentialLoading, setCredentialLoading] = useState(true)
+  const [credentialSaving, setCredentialSaving] = useState(false)
+  const [showConnect, setShowConnect] = useState(false)
+  const [connectionName, setConnectionName] = useState('My Google Gemini')
+  const [connectionKey, setConnectionKey] = useState('')
+  const [credentialError, setCredentialError] = useState('')
+  const [credentialNotice, setCredentialNotice] = useState('')
+
+  const credentialId = typeof cfg.credential_id === 'number' && Number.isInteger(cfg.credential_id) && cfg.credential_id > 0
+    ? cfg.credential_id : null
+
+  const refreshCredentials = useCallback(async () => {
+    setCredentialLoading(true)
+    try {
+      const items = await api<GeminiCredential[]>('/credentials')
+      setCredentials(items.filter(item => item.provider === 'gemini'))
+      setCredentialError('')
+    } catch (error) {
+      setCredentialError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setCredentialLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void refreshCredentials() }, [refreshCredentials])
+
+  const connectCredential = async () => {
+    if (credentialSaving) return
+    if (connectionName.trim().length < 2 || connectionKey.trim().length < 8) {
+      setCredentialError('Enter a name and a valid Gemini API key.')
+      return
+    }
+    setCredentialSaving(true)
+    setCredentialError('')
+    setCredentialNotice('')
+    try {
+      const created = await api<GeminiCredential>('/credentials', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: connectionName.trim(),
+          provider: 'gemini',
+          data: { api_key: connectionKey.trim() },
+        }),
+      })
+      setCredentials(previous => [created, ...previous.filter(item => item.id !== created.id)])
+      onChange('credential_id', created.id)
+      setConnectionKey('')
+      setShowConnect(false)
+      setCredentialNotice('Credential saved and linked. Save workflow to keep this selection.')
+      try {
+        await api<{ connected: boolean }>(`/credentials/${created.id}/test`, { method: 'POST' })
+        setCredentialNotice('Gemini connection verified. Save workflow to keep this selection.')
+      } catch {
+        setCredentialNotice('Credential saved, but Google connection test failed. Check the key or quota in Manage Credentials.')
+      }
+    } catch (error) {
+      setCredentialError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setCredentialSaving(false)
+    }
+  }
   const actionId = stringSetting(cfg.action, 'message_model')
   const currentAction = ACTIONS.find(item => item.id === actionId) ?? ACTIONS.find(item => item.id === 'message_model')!
   // Resource is derived from the current action. When switching resources, persist only
@@ -106,14 +170,59 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
   const unavailable = !currentAction.implemented || catalogCapability?.status === 'unavailable'
 
   return <div className="space-y-5" data-gemini-parameters>
-    <section>
-      <span className={LABEL}>Credential</span>
-      <button type="button" onClick={onManageCredentials} disabled={!onManageCredentials}
-        className="inline-flex max-w-full items-center gap-2 rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2 text-left text-[12px] text-[#333] dark:text-[#f3f4f6] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937] disabled:cursor-default disabled:opacity-80">
-        <KeyRound size={15} className="shrink-0 text-[#6c48c7] dark:text-[#c1b2e7]" />
-        <span className="truncate">Google Gemini API credential</span>
-      </button>
-      <p className="mt-1 text-[11px] leading-4 text-[#818181] dark:text-[#b8bec7]">The executor reads <code>GEMINI_API_KEY</code> from the backend environment. Never paste the key into this node.</p>
+    <section className="space-y-2">
+      <span className={LABEL}>Google Gemini Credential</span>
+      <div className="flex items-center gap-2">
+        <select aria-label="Google Gemini Credential" className={`${FIELD} min-w-0 flex-1`}
+          value={credentialId === null ? '' : String(credentialId)}
+          onChange={event => {
+            onChange('credential_id', event.target.value ? Number(event.target.value) : null)
+            setCredentialNotice('Save workflow to persist your credential selection.')
+          }}>
+          <option value="">Select a credential...</option>
+          {credentialId !== null && !credentials.some(item => item.id === credentialId) &&
+            <option value={credentialId}>Credential #{credentialId} (not loaded)</option>}
+          {credentials.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+        <button type="button" title="Refresh credentials" aria-label="Refresh credentials"
+          onClick={() => void refreshCredentials()} disabled={credentialLoading}
+          className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#dedee3] dark:border-[#374151] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937] disabled:opacity-50">
+          <RefreshCw size={15} className={credentialLoading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setShowConnect(value => !value)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2 text-[12px] font-medium text-[#333] dark:text-[#f3f4f6] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937]">
+          <KeyRound size={15} /> Connect
+        </button>
+        {onManageCredentials && <button type="button" onClick={() => {
+          onManageCredentials()
+          setCredentialNotice('Refresh the credential list after closing Manage Credentials.')
+        }} className="rounded-lg border border-[#dedee3] dark:border-[#374151] px-3 py-2 text-[12px] hover:bg-[#f7f7fa] dark:hover:bg-[#1f2937]">
+          Manage Credentials
+        </button>}
+      </div>
+      {showConnect && <div className="space-y-3 rounded-lg border border-[#e4dafa] dark:border-[#56436f] bg-[#faf8ff] dark:bg-[#272037] p-3">
+        <label className="block"><span className={LABEL}>Connection name</span>
+          <input className={FIELD} value={connectionName} maxLength={160}
+            onChange={e => setConnectionName(e.target.value)} placeholder="My Google Gemini" />
+        </label>
+        <label className="block"><span className={LABEL}>Gemini API key</span>
+          <input type="password" autoComplete="off" spellCheck={false} className={FIELD}
+            value={connectionKey} onChange={e => setConnectionKey(e.target.value)} placeholder="Paste API key here" />
+        </label>
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={() => { setShowConnect(false); setConnectionKey('') }}
+            className="rounded-lg px-3 py-2 text-[12px]">Cancel</button>
+          <button type="button" disabled={credentialSaving} onClick={() => void connectCredential()}
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60">
+            {credentialSaving && <LoaderCircle size={14} className="animate-spin" />} Save & Connect
+          </button>
+        </div>
+      </div>}
+      {credentialError && <p role="alert" className="text-[11px] leading-4 text-red-600 dark:text-red-300">{credentialError}</p>}
+      {credentialNotice && <p role="status" className="text-[11px] leading-4 text-[#6c48c7] dark:text-[#c1b2e7]">{credentialNotice}</p>}
+      <p className="text-[11px] leading-4 text-[#818181] dark:text-[#b8bec7]">Credentials are encrypted in CLIPTORA MySQL. This node stores only the credential ID.</p>
     </section>
 
     <section>

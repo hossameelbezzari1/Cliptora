@@ -205,6 +205,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const providerCapability = selectedCatalog?.action_capabilities?.[providerAction]
   const title = providerNode ? (providerCapability?.label ?? selectedCatalog?.label ?? 'AI') : selectedCatalog?.label ?? selected?.type ?? 'Node'
   const selectedId = selected?.id
+  const selectedCredentialId = selected?.settings?.credential_id
   const result = selectedId ? inspectedRun?.results?.[selectedId] : undefined
   const dependencies = useMemo(() => selected?.depends_on ?? [], [selected?.depends_on])
   const agentInputs = Object.values(getObject(selected?.settings.__cliptora_ui_target_handles)).map(String)
@@ -222,12 +223,17 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
 
   useEffect(() => {
     if (!requiresGemini) { setGeminiConfigured(null); return }
+    if (typeof selectedCredentialId !== 'number' || !Number.isInteger(selectedCredentialId) || selectedCredentialId < 1) {
+      setGeminiConfigured(false)
+      return
+    }
     let active = true
-    api<{ configured: boolean }>('/workflows/gemini/status')
-      .then(status => { if (active) setGeminiConfigured(status.configured) })
+    setGeminiConfigured(null)
+    api<Array<{ id: number; provider: string }>>('/credentials')
+      .then(rows => { if (active) setGeminiConfigured(rows.some(item => item.id === selectedCredentialId && item.provider === 'gemini')) })
       .catch(() => { if (active) setGeminiConfigured(false) })
     return () => { active = false }
-  }, [requiresGemini])
+  }, [requiresGemini, selectedCredentialId])
   const loadData = useCallback(async () => {
     if (!selectedId) return
     const request = ++dataRequestRef.current
@@ -361,13 +367,13 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 min-w-0 w-full flex-col bg-white dark:bg-cl-dark-panel lg:flex`}>
           <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] dark:border-[#374151] px-4">
             <div className="flex h-full gap-5">{(['parameters', 'settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] dark:text-[#f3f4f6] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#f8fafc] dark:after:bg-[#202020]' : 'text-[#666] dark:text-[#b8bec7]'}`}>{t}</button>)}</div>
-            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure OPENAI_API_KEY in the backend environment first.' : requiresGemini && geminiConfigured === false ? 'Configure GEMINI_API_KEY in the backend environment first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#f8fafc] dark:bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-gray-900 dark:text-white hover:bg-[#f8fafc] dark:hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
+            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure an OpenAI credential first.' : requiresGemini && geminiConfigured === false ? 'Select a saved Gemini credential in this node first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#f8fafc] dark:bg-[#242424] px-3 py-1.5 text-[12px] font-semibold text-gray-900 dark:text-white hover:bg-[#f8fafc] dark:hover:bg-[#404040] disabled:cursor-not-allowed disabled:opacity-45">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 dark:border-red-900/70 bg-red-50 dark:bg-red-950/40 p-3 text-[12px] text-red-700 dark:text-red-300"><CircleAlert size={16} className="shrink-0" />{localError}</div>}
             <NodeProgress run={inspectedRun} nodeId={selected.id} label={title} />
             {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
-            {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Gemini API key is not configured</strong>Add <code>GEMINI_API_KEY</code> to the backend environment, then recreate the backend container. Gemini execution stays disabled until the secret is available.</span></div>}
+            {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Google Gemini credential is not selected</strong>Use Connect or select an existing saved credential in Parameters, then save the workflow. API keys are stored encrypted in MySQL.</span></div>}
             {tab === 'parameters'
               ? <WorkflowNodeParameters key={selected.id} studio={studio} onManageCredentials={onManageCredentials}
                 isManualTrigger={isManualTrigger} hasAgentModel={hasAgentModel} />
