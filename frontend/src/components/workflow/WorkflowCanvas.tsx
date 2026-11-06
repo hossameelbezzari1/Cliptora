@@ -10,6 +10,7 @@ import {
   type FormEvent,
   type MouseEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import {
   Background,
@@ -34,11 +35,13 @@ import {
 
 import {
   Ban,
+  ChevronRight,
   ClipboardPaste,
   MoreHorizontal,
   Paintbrush,
   Scan,
   Sparkles,
+  StickyNote,
   Power,
   PowerOff,
   Copy,
@@ -49,6 +52,7 @@ import {
   MousePointer2,
   PanelBottom,
   PanelBottomClose,
+  PanelRight,
   Pencil,
   Play,
   Plus,
@@ -79,8 +83,21 @@ import {
   type ContextMenuAction,
 } from './WorkflowContextMenu'
 import { clone, uid } from './workflowUtils'
+import { CanvasStickyNotes, type CanvasStickyNotesHandle } from './CanvasStickyNotes'
 
 type Position = { x: number; y: number }
+
+type CanvasSearchTab = 'all' | 'nodes' | 'workflows' | 'actions'
+
+type CanvasSearchEntry = {
+  key: string
+  kind: 'node' | 'action' | 'workflow'
+  label: string
+  detail: string
+  nodeType?: string
+  actionId?: string
+  workflowId?: number
+}
 
 type QuickAddPosition = {
   sourceId: string
@@ -439,11 +456,10 @@ function ActionEdge({
         )}
 
         <div
-          className={`nodrag nopan absolute z-30 flex items-center gap-2 transition-all duration-150 ${
-            visible
+          className={`nodrag nopan absolute z-30 flex items-center gap-2 transition-all duration-150 ${visible
               ? 'pointer-events-auto scale-100 opacity-100'
               : 'pointer-events-none scale-90 opacity-0'
-          }`}
+            }`}
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
           }}
@@ -611,12 +627,11 @@ function StudioNodeWithToolbar(props: NodeProps<StudioFlowNode>) {
         </div>
       </NodeToolbar>
       <div
-  className={`transition-opacity duration-150 ${
-    inactive ? 'opacity-45 grayscale-[.65]' : ''
-  }`}
->
-  <StudioCard {...props} />
-</div>
+        className={`transition-opacity duration-150 ${inactive ? 'opacity-45 grayscale-[.65]' : ''
+          }`}
+      >
+        <StudioCard {...props} />
+      </div>
     </>
   )
 }
@@ -643,11 +658,15 @@ export function WorkflowCanvas({
     nodes,
     catalog,
     addNode,
+    definitions,
+    openDefinition,
     flowNodes,
     flowEdges,
     setJsonEditor,
     removeNode,
     showToolLibrary,
+    libraryOpen,
+    setLibraryOpen,
     testStep,
     openTemplate,
     setCanvasDragging,
@@ -656,6 +675,14 @@ export function WorkflowCanvas({
   } = studio
 
   const [bottomOpen, setBottomOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
+  const [commandTab, setCommandTab] = useState<CanvasSearchTab>('all')
+  const [commandIndex, setCommandIndex] = useState(0)
+  const [sidePanelOpen, setSidePanelOpen] = useState(false)
+  const [sideSettingsDraft, setSideSettingsDraft] = useState('')
+  const [sideSettingsError, setSideSettingsError] = useState('')
+  const noteScope = `cliptora.workflow.sticky-notes:${studio.activeId || `draft:${name}`}`
   const [contextMenu, setContextMenu] = useState<ContextState | null>(null)
   const [renameDraft, setRenameDraft] = useState<{
     id: string
@@ -679,12 +706,154 @@ export function WorkflowCanvas({
   const canvasRef = useRef<HTMLDivElement>(null)
   const draggedAt = useRef(0)
   const nodeDragActive = useRef(false)
+  const stickyNotesRef = useRef<CanvasStickyNotesHandle>(null)
   const canReadClipboard = Boolean(navigator.clipboard?.readText)
 
   const closeContextMenu = useCallback(
     () => setContextMenu(null),
     [],
   )
+
+  const addStickyNote = useCallback(() => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const center = rect ? flow.current?.screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }) : undefined
+
+    stickyNotesRef.current?.addNote({
+      x: (center?.x ?? 180) - 160,
+      y: (center?.y ?? 140) - 100,
+    })
+    setCommandOpen(false)
+  }, [flow])
+
+  const selectedSideNode = nodes.find(node => node.id === selectedId) ?? null
+  const selectedSideMeta = selectedSideNode
+    ? catalog.find(item => item.type === selectedSideNode.type)
+    : undefined
+  const selectedSideStatus = selectedSideNode
+    ? flowNodes.find(node => node.id === selectedSideNode.id)?.data.status
+    : undefined
+
+  useEffect(() => {
+    setSideSettingsDraft(selectedSideNode
+      ? JSON.stringify(selectedSideNode.settings, null, 2)
+      : '')
+    setSideSettingsError('')
+  }, [selectedId, sidePanelOpen])
+
+  const saveSideSettings = () => {
+    if (!selectedSideNode || working) return
+    try {
+      const settings: unknown = JSON.parse(sideSettingsDraft)
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        setSideSettingsError('Settings must be a JSON object.')
+        return
+      }
+      setNodes(previous => previous.map(node =>
+        node.id === selectedSideNode.id
+          ? { ...node, settings: settings as Record<string, unknown> }
+          : node,
+      ))
+      setJsonEditor(JSON.stringify(settings, null, 2))
+      setSideSettingsError('')
+      setMessage('Node settings updated. Save workflow to persist changes.')
+    } catch {
+      setSideSettingsError('Invalid JSON. Please correct the syntax.')
+    }
+  }
+
+  const searchEntries = useMemo<CanvasSearchEntry[]>(() => {
+    const entries: CanvasSearchEntry[] = []
+    for (const item of catalog) {
+      if (item.status !== 'implemented' || !item.backend_executor) continue
+      entries.push({
+        key: `node:${item.type}`,
+        kind: 'node',
+        label: item.label,
+        detail: item.group,
+        nodeType: item.type,
+      })
+      for (const action of item.actions ?? []) {
+        if (!action) continue
+        entries.push({
+          key: `action:${item.type}:${action}`,
+          kind: 'action',
+          label: item.action_capabilities?.[action]?.label || action.replace(/_/g, ' '),
+          detail: item.label,
+          nodeType: item.type,
+          actionId: action,
+        })
+      }
+    }
+    for (const definition of definitions) {
+      entries.push({
+        key: `workflow:${definition.id}`,
+        kind: 'workflow',
+        label: definition.name,
+        detail: `${definition.nodes.length} nodes`,
+        workflowId: definition.id,
+      })
+    }
+
+    const query = commandQuery.trim().toLowerCase()
+    return entries.filter(entry =>
+      (commandTab === 'all' ||
+        (commandTab === 'nodes' && entry.kind === 'node') ||
+        (commandTab === 'workflows' && entry.kind === 'workflow') ||
+        (commandTab === 'actions' && entry.kind === 'action')) &&
+      (!query || `${entry.label} ${entry.detail} ${entry.nodeType ?? ''}`
+        .toLowerCase().includes(query)),
+    ).slice(0, 60)
+  }, [catalog, definitions, commandQuery, commandTab])
+
+  const selectSearchEntry = (entry: CanvasSearchEntry) => {
+    if (entry.kind === 'workflow') {
+      const definition = definitions.find(item => item.id === entry.workflowId)
+      if (!definition || working) return
+      openDefinition(definition)
+    } else {
+      if (!entry.nodeType || working || nodes.length >= 100) return
+      const existingIds = new Set(nodes.map(node => node.id))
+      addNode(entry.nodeType)
+      if (entry.actionId) {
+        const template = catalog.find(item => item.type === entry.nodeType)
+        const field = template && Object.prototype.hasOwnProperty.call(template.settings, 'action')
+          ? 'action'
+          : 'operation'
+        setNodes(previous => previous.map(node =>
+          node.type === entry.nodeType && !existingIds.has(node.id)
+            ? { ...node, settings: { ...node.settings, [field]: entry.actionId } }
+            : node,
+        ))
+      }
+    }
+    setCommandOpen(false)
+    setCommandQuery('')
+  }
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const editing = Boolean(target?.closest('input, textarea, select, [contenteditable="true"]'))
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setCommandOpen(true)
+        setCommandQuery('')
+        setCommandTab('all')
+        setCommandIndex(0)
+      } else if (!editing && event.shiftKey && !event.ctrlKey && !event.metaKey &&
+        event.key.toLowerCase() === 's' && !commandOpen) {
+        event.preventDefault()
+        addStickyNote()
+      } else if (event.key === 'Escape' && commandOpen) {
+        setCommandOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleShortcut, true)
+    return () => window.removeEventListener('keydown', handleShortcut, true)
+  }, [commandOpen, addStickyNote])
 
   const openContextMenu = useCallback((
     kind: ContextState['kind'],
@@ -754,7 +923,7 @@ export function WorkflowCanvas({
           schema: 'cliptora.workflow.nodes.v1',
           nodes: chosen,
         }, null, 2),
-      ).catch(() => {})
+      ).catch(() => { })
     }
 
     setMessage(`${chosen.length} node(s) copied.`)
@@ -781,7 +950,7 @@ export function WorkflowCanvas({
     if (navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(
         JSON.stringify(payload, null, 2),
-      ).catch(() => {})
+      ).catch(() => { })
     }
 
     setMessage('Node settings copied.')
@@ -848,7 +1017,7 @@ export function WorkflowCanvas({
     if (navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(
         JSON.stringify(payload, null, 2),
-      ).catch(() => {})
+      ).catch(() => { })
     }
 
     setMessage('Workflow copied.')
@@ -1001,9 +1170,9 @@ export function WorkflowCanvas({
       previous.map(node =>
         node.id === renameDraft.id
           ? {
-              ...node,
-              settings: { ...node.settings, [labelKey]: value },
-            }
+            ...node,
+            settings: { ...node.settings, [labelKey]: value },
+          }
           : node,
       ),
     )
@@ -1111,7 +1280,7 @@ export function WorkflowCanvas({
             ),
             when:
               removedBranch &&
-              /^condition_(true|false)$/.test(node.when)
+                /^condition_(true|false)$/.test(node.when)
                 ? 'always'
                 : node.when,
             settings: {
@@ -1284,11 +1453,11 @@ export function WorkflowCanvas({
 
       const color =
         selected ? '#7c3aed'
-        : moving ? '#8b5cf6'
-        : state === 'failed' ? '#e05252'
-        : state === 'running' ? '#3b82f6'
-        : state === 'done' ? '#13a565'
-        : '#646970'
+          : moving ? '#8b5cf6'
+            : state === 'failed' ? '#e05252'
+              : state === 'running' ? '#3b82f6'
+                : state === 'done' ? '#13a565'
+                  : '#646970'
 
       const itemText = sourceUI?.data.meta ?? ''
       const count = /^\d+ items?$/.test(itemText)
@@ -1335,16 +1504,16 @@ export function WorkflowCanvas({
         } satisfies ActionEdgeData,
       }
     }),
-  [
-    flowEdges,
-    flowNodes,
-    nodes,
-    selectedEdges,
-    draggingNodeId,
-    openInsertOnEdge,
-    deleteEdge,
-    renameEdge,
-  ])
+    [
+      flowEdges,
+      flowNodes,
+      nodes,
+      selectedEdges,
+      draggingNodeId,
+      openInsertOnEdge,
+      deleteEdge,
+      renameEdge,
+    ])
 
   const onConnect = useCallback((connection: Connection) => {
     const { source, target, sourceHandle } = connection
@@ -1360,9 +1529,9 @@ export function WorkflowCanvas({
 
         const sourceHandles = isBranch
           ? {
-              ...handlesFor(node),
-              [source]: sourceHandle === 'false' ? 'false' : 'true',
-            }
+            ...handlesFor(node),
+            [source]: sourceHandle === 'false' ? 'false' : 'true',
+          }
           : handlesFor(node)
 
         return {
@@ -1454,17 +1623,17 @@ export function WorkflowCanvas({
           ...structuredClone(template.settings),
           ...(branch
             ? {
-                [connectionKey]: {
-                  [source.id]: quickAdd.sourceHandle,
-                },
-              }
+              [connectionKey]: {
+                [source.id]: quickAdd.sourceHandle,
+              },
+            }
             : {}),
           ...(inheritedLabel
             ? {
-                [edgeLabelKey]: {
-                  [source.id]: inheritedLabel,
-                },
-              }
+              [edgeLabelKey]: {
+                [source.id]: inheritedLabel,
+              },
+            }
             : {}),
         },
         position: quickAdd.dropPosition ?? {
@@ -1576,8 +1745,8 @@ export function WorkflowCanvas({
     const id = uid(type, nodes.map(node => node.id))
     const siblingOffset =
       quickAdd.sourceHandle === 'false' ? 140
-      : quickAdd.sourceHandle === 'true' ? -50
-      : 0
+        : quickAdd.sourceHandle === 'true' ? -50
+          : 0
 
     const next: WorkflowNode = {
       id,
@@ -1595,12 +1764,12 @@ export function WorkflowCanvas({
         ...structuredClone(template.settings),
         ...(
           quickAdd.sourceHandle === 'true' ||
-          quickAdd.sourceHandle === 'false'
+            quickAdd.sourceHandle === 'false'
             ? {
-                [connectionKey]: {
-                  [source.id]: quickAdd.sourceHandle,
-                },
-              }
+              [connectionKey]: {
+                [source.id]: quickAdd.sourceHandle,
+              },
+            }
             : {}
         ),
       },
@@ -1663,9 +1832,9 @@ export function WorkflowCanvas({
         depends_on: node.depends_on.map(id => idMap.get(id) ?? id),
         settings: Object.keys(sourceHandles).length
           ? {
-              ...copy.settings,
-              [connectionKey]: sourceHandles,
-            }
+            ...copy.settings,
+            [connectionKey]: sourceHandles,
+          }
           : copy.settings,
         position: {
           x: (node.position?.x ?? 0) + 42,
@@ -2044,184 +2213,184 @@ export function WorkflowCanvas({
 
     const nodeActions: ContextMenuAction[] = activeNode
       ? [
-          {
-            id: 'open',
-            label: 'Open...',
-            icon: ExternalLink,
-            shortcut: ['Enter'],
-            disabled: !onOpenNode,
-            run: () => onOpenNode?.(activeNode.id),
-          },
-          {
-            id: 'execute',
-            label: 'Execute step',
-            icon: Play,
-            disabled: working,
-            shortcut: ['Ctrl', 'Enter'],
-            run: () => void testStep(activeNode.id),
-          },
-          {
-            id: 'rename',
-            label: 'Rename',
-            icon: Pencil,
-            shortcut: ['F2'],
-            run: () => setRenameDraft({
-              id: activeNode.id,
-              value: String(
-                activeNode.settings[labelKey] ??
-                catalog.find(item => item.type === activeNode.type)?.label ??
-                activeNode.type,
-              ),
-            }),
-          },
-          {
-            id: 'replace',
-            label: 'Replace',
-            icon: Replace,
-            disabled: activeNode.type === 'core.video_source',
-            run: () => {
-              const rect = canvasRef.current?.getBoundingClientRect()
-              if (!rect) return
+        {
+          id: 'open',
+          label: 'Open...',
+          icon: ExternalLink,
+          shortcut: ['Enter'],
+          disabled: !onOpenNode,
+          run: () => onOpenNode?.(activeNode.id),
+        },
+        {
+          id: 'execute',
+          label: 'Execute step',
+          icon: Play,
+          disabled: working,
+          shortcut: ['Ctrl', 'Enter'],
+          run: () => void testStep(activeNode.id),
+        },
+        {
+          id: 'rename',
+          label: 'Rename',
+          icon: Pencil,
+          shortcut: ['F2'],
+          run: () => setRenameDraft({
+            id: activeNode.id,
+            value: String(
+              activeNode.settings[labelKey] ??
+              catalog.find(item => item.type === activeNode.type)?.label ??
+              activeNode.type,
+            ),
+          }),
+        },
+        {
+          id: 'replace',
+          label: 'Replace',
+          icon: Replace,
+          disabled: activeNode.type === 'core.video_source',
+          run: () => {
+            const rect = canvasRef.current?.getBoundingClientRect()
+            if (!rect) return
 
-              setQuickSearch('')
-              setQuickAdd({
-                mode: 'replace',
-                sourceId: activeNode.id,
-                sourceHandle: 'main',
-                left: Math.max(
-                  12,
-                  Math.min(contextMenu.clientX - rect.left, rect.width - 302),
-                ),
-                top: Math.max(
-                  12,
-                  Math.min(contextMenu.clientY - rect.top, rect.height - 330),
-                ),
-              })
-            },
+            setQuickSearch('')
+            setQuickAdd({
+              mode: 'replace',
+              sourceId: activeNode.id,
+              sourceHandle: 'main',
+              left: Math.max(
+                12,
+                Math.min(contextMenu.clientX - rect.left, rect.width - 302),
+              ),
+              top: Math.max(
+                12,
+                Math.min(contextMenu.clientY - rect.top, rect.height - 330),
+              ),
+            })
           },
-          {
-            id: 'deactivate',
-            label: activeNode.settings.__cliptora_ui_deactivated === true ? 'Reactivate node' : 'Deactivate node',
-            icon: Ban,
-            disabled: working,
-            run: () => toggleNodeDeactivated(activeNode.id),
+        },
+        {
+          id: 'deactivate',
+          label: activeNode.settings.__cliptora_ui_deactivated === true ? 'Reactivate node' : 'Deactivate node',
+          icon: Ban,
+          disabled: working,
+          run: () => toggleNodeDeactivated(activeNode.id),
+        },
+        {
+          id: 'pin',
+          label: activeNode.settings[pinKey] === true ? 'Unpin' : 'Pin',
+          icon: activeNode.settings[pinKey] === true
+            ? LockKeyholeOpen
+            : LockKeyhole,
+          shortcut: ['P'],
+          run: () => toggleNodePin(activeNode.id),
+        },
+        {
+          id: 'copy',
+          label: 'Copy Node(s)',
+          icon: Copy,
+          shortcut: ['Ctrl', 'C'],
+          run: () => copySelection(selection),
+        },
+        {
+          id: 'paste',
+          label: 'Paste Node(s)',
+          icon: ClipboardPaste,
+          shortcut: ['Ctrl', 'V'],
+          disabled: !clipboardRef.current.length,
+          run: () => pasteSelection(contextMenu.flowPosition),
+        },
+        {
+          id: 'copy-config',
+          label: 'Copy Node Settings',
+          icon: Settings2,
+          dividerBefore: true,
+          run: () => copyNodeConfig(activeNode),
+        },
+        {
+          id: 'paste-config',
+          label: 'Paste Node Settings',
+          icon: ClipboardPaste,
+          disabled: !configClipboardRef.current && !canReadClipboard,
+          run: () => void pasteNodeConfig(activeNode),
+        },
+        {
+          id: 'duplicate',
+          label: 'Duplicate',
+          icon: Copy,
+          shortcut: ['Ctrl', 'D'],
+          disabled:
+            !selection.some(id =>
+              nodes.some(node =>
+                node.id === id && node.type !== 'core.video_source',
+              ),
+            ) ||
+            nodes.length + selection.length > 100,
+          run: () => {
+            const chosen = nodes.filter(node =>
+              selection.includes(node.id) &&
+              node.type !== 'core.video_source',
+            )
+            if (!chosen.length) return
+            clipboardRef.current = clone(chosen)
+            pasteSelection()
           },
-          {
-            id: 'pin',
-            label: activeNode.settings[pinKey] === true ? 'Unpin' : 'Pin',
-            icon: activeNode.settings[pinKey] === true
-              ? LockKeyholeOpen
-              : LockKeyhole,
-            shortcut: ['P'],
-            run: () => toggleNodePin(activeNode.id),
-          },
-          {
-            id: 'copy',
-            label: 'Copy Node(s)',
-            icon: Copy,
-            shortcut: ['Ctrl', 'C'],
-            run: () => copySelection(selection),
-          },
-          {
-            id: 'paste',
-            label: 'Paste Node(s)',
-            icon: ClipboardPaste,
-            shortcut: ['Ctrl', 'V'],
-            disabled: !clipboardRef.current.length,
-            run: () => pasteSelection(contextMenu.flowPosition),
-          },
-          {
-            id: 'copy-config',
-            label: 'Copy Node Settings',
-            icon: Settings2,
-            dividerBefore: true,
-            run: () => copyNodeConfig(activeNode),
-          },
-          {
-            id: 'paste-config',
-            label: 'Paste Node Settings',
-            icon: ClipboardPaste,
-            disabled: !configClipboardRef.current && !canReadClipboard,
-            run: () => void pasteNodeConfig(activeNode),
-          },
-          {
-            id: 'duplicate',
-            label: 'Duplicate',
-            icon: Copy,
-            shortcut: ['Ctrl', 'D'],
-            disabled:
-              !selection.some(id =>
-                nodes.some(node =>
-                  node.id === id && node.type !== 'core.video_source',
-                ),
-              ) ||
-              nodes.length + selection.length > 100,
-            run: () => {
-              const chosen = nodes.filter(node =>
-                selection.includes(node.id) &&
-                node.type !== 'core.video_source',
-              )
-              if (!chosen.length) return
-              clipboardRef.current = clone(chosen)
-              pasteSelection()
-            },
-          },
-          {
-            id: 'tidy',
-            label: 'Tidy Up',
-            icon: LayoutGrid,
-            dividerBefore: true,
-            run: tidyWorkflow,
-          },
-          {
-            id: 'delete',
-            label: 'Delete Node(s)',
-            icon: Trash2,
-            shortcut: ['Del'],
-            destructive: true,
-            dividerBefore: true,
-            run: () => deleteNodes(selection),
-          },
-        ]
+        },
+        {
+          id: 'tidy',
+          label: 'Tidy Up',
+          icon: LayoutGrid,
+          dividerBefore: true,
+          run: tidyWorkflow,
+        },
+        {
+          id: 'delete',
+          label: 'Delete Node(s)',
+          icon: Trash2,
+          shortcut: ['Del'],
+          destructive: true,
+          dividerBefore: true,
+          run: () => deleteNodes(selection),
+        },
+      ]
       : [
-          {
-            id: 'add',
-            label: 'Add node',
-            icon: Plus,
-            run: showToolLibrary,
-          },
-          {
-            id: 'paste',
-            label: 'Paste Node(s)',
-            icon: ClipboardPaste,
-            shortcut: ['Ctrl', 'V'],
-            disabled: !clipboardRef.current.length,
-            run: () => pasteSelection(contextMenu.flowPosition),
-          },
-          {
-            id: 'copy-workflow',
-            label: 'Copy Workflow',
-            icon: WorkflowIcon,
-            dividerBefore: true,
-            disabled: !nodes.length,
-            run: copyWorkflow,
-          },
-          {
-            id: 'paste-workflow',
-            label: 'Paste Workflow',
-            icon: ClipboardPaste,
-            disabled: !flowClipboardRef.current && !canReadClipboard,
-            run: () => void pasteWorkflow(),
-          },
-          {
-            id: 'tidy',
-            label: 'Tidy Up',
-            icon: LayoutGrid,
-            shortcut: ['Alt', 'T'],
-            disabled: !nodes.length,
-            run: tidyWorkflow,
-          },
-        ]
+        {
+          id: 'add',
+          label: 'Add node',
+          icon: Plus,
+          run: showToolLibrary,
+        },
+        {
+          id: 'paste',
+          label: 'Paste Node(s)',
+          icon: ClipboardPaste,
+          shortcut: ['Ctrl', 'V'],
+          disabled: !clipboardRef.current.length,
+          run: () => pasteSelection(contextMenu.flowPosition),
+        },
+        {
+          id: 'copy-workflow',
+          label: 'Copy Workflow',
+          icon: WorkflowIcon,
+          dividerBefore: true,
+          disabled: !nodes.length,
+          run: copyWorkflow,
+        },
+        {
+          id: 'paste-workflow',
+          label: 'Paste Workflow',
+          icon: ClipboardPaste,
+          disabled: !flowClipboardRef.current && !canReadClipboard,
+          run: () => void pasteWorkflow(),
+        },
+        {
+          id: 'tidy',
+          label: 'Tidy Up',
+          icon: LayoutGrid,
+          shortcut: ['Alt', 'T'],
+          disabled: !nodes.length,
+          run: tidyWorkflow,
+        },
+      ]
 
     return [
       ...nodeActions,
@@ -2379,9 +2548,9 @@ export function WorkflowCanvas({
                     ),
                     dropPosition: position
                       ? {
-                          x: position.x - 80,
-                          y: position.y - 50,
-                        }
+                        x: position.x - 80,
+                        y: position.y - 50,
+                      }
                       : undefined,
                   })
                 }}
@@ -2446,13 +2615,16 @@ export function WorkflowCanvas({
                 }}
                 onPaneClick={() => {
                   closeContextMenu()
+                  stickyNotesRef.current?.clearSelection()
                   setQuickAdd(null)
+                  setActiveNoteId(null)
                   setSelectedId(null)
                   setSelectedNodeIds([])
                   setSelectedEdges([])
                 }}
                 onNodeClick={(_, node) => {
                   closeContextMenu()
+                  stickyNotesRef.current?.clearSelection()
                   setSelectedEdges([])
                   setSelectedId(node.id)
                   setJsonEditor(
@@ -2551,7 +2723,7 @@ export function WorkflowCanvas({
                         ),
                         when:
                           removedBranch &&
-                          /^condition_(true|false)$/.test(node.when)
+                            /^condition_(true|false)$/.test(node.when)
                             ? 'always'
                             : node.when,
                         settings: {
@@ -2576,6 +2748,12 @@ export function WorkflowCanvas({
                   gap={24}
                   size={1.3}
                 />
+                <CanvasStickyNotes
+                  ref={stickyNotesRef}
+                  scope={noteScope}
+                  zoom={viewport.zoom}
+                  searchOpen={commandOpen}
+                />
                 <MiniMap
                   zoomable
                   pannable
@@ -2586,6 +2764,282 @@ export function WorkflowCanvas({
             </WorkflowNodeToolbarContext.Provider>
           </WorkflowQuickAddContext.Provider>
         </WorkflowManualTriggerExecuteContext.Provider>
+
+        <div
+          role="toolbar"
+          aria-label="Canvas quick actions"
+          className={`nodrag nopan absolute top-1/2 z-[80] -translate-y-1/2 rounded-full border border-[#e3e4e6] bg-white p-2 shadow-[0_5px_22px_#00000012] transition-[right] ${sidePanelOpen ? 'right-[412px]' : 'right-5'}`}
+          onPointerDown={event => event.stopPropagation()}
+          onDoubleClick={event => event.stopPropagation()}
+        >
+
+          <div className="flex flex-col items-center gap-0.5">
+            <button
+              type="button"
+              title={libraryOpen ? 'Close Add Node' : 'Add Node'}
+              aria-label={libraryOpen ? 'Close Add Node' : 'Add Node'}
+              aria-pressed={libraryOpen}
+              onClick={() => {
+                if (libraryOpen) setLibraryOpen(false)
+                else showToolLibrary()
+              }}
+              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] ${libraryOpen ? 'text-violet-600' : 'text-[#202020]'
+                }`}
+            >
+              <Plus size={22} strokeWidth={2} />
+            </button>
+
+            <button
+              type="button"
+              title="Search canvas (Ctrl+K)"
+              aria-label="Search canvas"
+              onClick={() => {
+                setCommandOpen(true)
+                setCommandQuery('')
+                setCommandTab('all')
+                setCommandIndex(0)
+              }}
+              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5]"
+            >
+              <Search size={20} strokeWidth={2} />
+            </button>
+
+            <button
+              type="button"
+              title="Add sticky note (Shift+S)"
+              aria-label="Add sticky note"
+              onClick={addStickyNote}
+              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5]"
+            >
+              <StickyNote size={20} strokeWidth={2} />
+            </button>
+
+            <button
+              type="button"
+              title={sidePanelOpen ? 'Close side panel' : 'Open side panel'}
+              aria-label={sidePanelOpen ? 'Close side panel' : 'Open side panel'}
+              aria-pressed={sidePanelOpen}
+              onClick={() => setSidePanelOpen(value => !value)}
+              className={`grid size-9 place-items-center rounded-full hover:bg-[#f4f4f5] ${sidePanelOpen ? 'text-violet-600' : 'text-[#202020]'
+                }`}
+            >
+              <PanelRight size={20} strokeWidth={2} />
+            </button>
+
+            <button
+              type="button"
+              title="Tidy up workflow"
+              aria-label="Tidy up workflow"
+              disabled={!nodes.length || working}
+              onClick={tidyWorkflow}
+              className="grid size-9 place-items-center rounded-full text-[#202020] hover:bg-[#f4f4f5] disabled:opacity-35"
+            >
+              <Sparkles size={20} strokeWidth={2} />
+            </button>
+          </div>
+
+        </div>
+
+        {sidePanelOpen && (
+          <aside
+            aria-label="Node side panel"
+            className="nodrag nopan absolute inset-y-0 right-0 z-[75] flex w-[392px] max-w-[calc(100%-90px)] flex-col border-l border-[#e5e5e7] bg-white shadow-[-8px_0_28px_rgba(0,0,0,0.06)]"
+            onPointerDown={event => event.stopPropagation()}
+          >
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#eeeeef] px-5">
+              <h2 className="text-[17px] font-semibold text-[#252525]">Node details</h2>
+              <button
+                type="button"
+                title="Close side panel"
+                aria-label="Close side panel"
+                className="grid size-8 place-items-center rounded-lg text-[#666] hover:bg-[#f5f5f5]"
+                onClick={() => setSidePanelOpen(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {selectedSideNode ? (
+              <>
+                <div className="flex items-center gap-3 border-b border-[#efeff0] px-5 py-4">
+                  <span className="grid size-10 shrink-0 place-items-center">
+                    <WorkflowToolIcon type={selectedSideNode.type} size={32} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-[#252525]">
+                      {selectedSideMeta?.label ?? selectedSideNode.type}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-[#999]">
+                      {selectedSideStatus || 'Not executed'} · {selectedSideNode.type}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 border-b border-[#efeff0] px-5 py-3">
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => void testStep(selectedSideNode.id)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#242424] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    <Play size={14} /> Execute step
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!onOpenNode}
+                    onClick={() => onOpenNode?.(selectedSideNode.id)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#dedee2] px-3 py-2 text-xs font-semibold text-[#333] hover:bg-[#f7f7f7] disabled:opacity-40"
+                  >
+                    <ExternalLink size={14} /> Open editor
+                  </button>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
+                  <label htmlFor="ws-side-settings" className="text-sm font-semibold text-[#27272a]">
+                    Settings (JSON)
+                  </label>
+                  <p className="text-xs leading-5 text-[#85858d]">
+                    Edit this node's saved settings. Credentials and other settings remain linked to the node.
+                  </p>
+                  <textarea
+                    id="ws-side-settings"
+                    spellCheck={false}
+                    value={sideSettingsDraft}
+                    onChange={event => {
+                      setSideSettingsDraft(event.target.value)
+                      setSideSettingsError('')
+                    }}
+                    className="min-h-40 flex-1 resize-none rounded-xl border border-[#dfdfe4] bg-[#fafafa] p-3 font-mono text-[12px] leading-5 text-[#222] outline-none focus:border-violet-400"
+                  />
+                  {sideSettingsError && <p role="alert" className="text-xs text-red-600">{sideSettingsError}</p>}
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={saveSideSettings}
+                    className="self-end rounded-lg bg-[#252525] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    Apply settings
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-[#888]">
+                <PanelRight size={35} strokeWidth={1.5} />
+                <p className="text-sm font-medium text-[#454545]">Select a node to inspect it</p>
+                <p className="text-xs leading-5">Click a node on the canvas to see its settings here.</p>
+              </div>
+            )}
+          </aside>
+        )}
+
+        {commandOpen && createPortal(
+          <div
+            className="nodrag nopan fixed inset-0 z-[9999] flex items-center justify-center bg-[#171717]/35 px-4 py-6 backdrop-blur-[3px]"
+            onPointerDown={event => event.stopPropagation()}
+            onClick={() => setCommandOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Search CLIPTORA"
+              className="flex max-h-[min(690px,calc(100dvh-36px))] w-full max-w-[850px] flex-col overflow-hidden rounded-[20px] border border-[#e8e8e8] bg-white shadow-[0_18px_65px_rgba(0,0,0,0.22)]"
+              onClick={event => event.stopPropagation()}
+              onPointerDown={event => event.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 px-5 py-4">
+                <Search size={22} className="shrink-0 text-[#999]" />
+                <input
+                  autoFocus
+                  type="search"
+                  value={commandQuery}
+                  onChange={event => {
+                    setCommandQuery(event.target.value)
+                    setCommandIndex(0)
+                  }}
+                  placeholder="Type a command or search..."
+                  className="min-w-0 flex-1 text-[17px] text-[#242424] outline-none placeholder:text-[#999]"
+                  onKeyDown={event => {
+                    if (event.key === 'Escape') setCommandOpen(false)
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault()
+                      setCommandIndex(value => Math.min(searchEntries.length - 1, value + 1))
+                    }
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      setCommandIndex(value => Math.max(0, value - 1))
+                    }
+                    if (event.key === 'Enter' && searchEntries[commandIndex]) {
+                      event.preventDefault()
+                      selectSearchEntry(searchEntries[commandIndex])
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  title="Close search"
+                  aria-label="Close search"
+                  className="rounded-lg p-1 text-[#777] hover:bg-[#f5f5f5]"
+                  onClick={() => setCommandOpen(false)}
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <div className="flex shrink-0 gap-1 border-b border-[#ebebec] px-4 pb-2">
+                {(['all', 'nodes', 'workflows', 'actions'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      setCommandTab(tab)
+                      setCommandIndex(0)
+                    }}
+                    className={`rounded-lg px-3 py-2 text-[13px] capitalize ${commandTab === tab
+                      ? 'bg-[#ececed] font-semibold text-[#222]'
+                      : 'text-[#555] hover:bg-[#f7f7f7]'}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin]">
+                <p className="px-3 pb-2 pt-1 text-[12px] text-[#999]">
+                  {commandQuery.trim() ? `${searchEntries.length} matching results` : 'Suggestions'}
+                </p>
+                {searchEntries.map((entry, index) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    disabled={working || (entry.kind !== 'workflow' && nodes.length >= 100)}
+                    onMouseEnter={() => setCommandIndex(index)}
+                    onClick={() => selectSearchEntry(entry)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left disabled:opacity-40 ${commandIndex === index ? 'bg-[#f2f2f2]' : 'hover:bg-[#f7f7f7]'}`}
+                  >
+                    <span className="grid size-7 shrink-0 place-items-center text-[#777]">
+                      {entry.kind === 'workflow'
+                        ? <WorkflowIcon size={20} />
+                        : entry.nodeType
+                          ? <WorkflowToolIcon type={entry.nodeType} actionId={entry.actionId} size={22} />
+                          : <Search size={19} />}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#282828]">
+                      {entry.label}
+                    </span>
+                    <span className="max-w-[38%] truncate text-xs text-[#888]">
+                      {entry.detail}
+                    </span>
+                    <ChevronRight size={16} className="text-[#bbb]" />
+                  </button>
+                ))}
+                {!searchEntries.length && (
+                  <p className="px-4 py-10 text-center text-sm text-[#999]">No matching results.</p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-4 border-t border-[#ededed] px-5 py-3 text-xs text-[#888]">
+                <span>Close <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">Esc</kbd></span>
+                <span>Navigate <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">↑ ↓</kbd></span>
+                <span>Open <kbd className="rounded bg-[#f3f3f3] px-1.5 py-1">Enter</kbd></span>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
         <div className="nodrag nopan absolute bottom-5 left-4 z-[70] flex items-center gap-2">
           <div
@@ -2795,11 +3249,11 @@ export function WorkflowCanvas({
           <div
             role="dialog"
             aria-label="Add next node"
-            className="absolute z-[60] flex w-[290px] flex-col overflow-hidden rounded-xl border border-[#dddddf] bg-white shadow-xl"
+            className="absolute z-[60] w-[560px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[#dddddf] bg-white shadow-[0_14px_44px_rgba(0,0,0,0.12)]"
             style={{
               left: quickAdd.left,
               top: quickAdd.top,
-              maxHeight: 'min(420px, 78%)',
+              maxHeight: 'min(calc(100vh - 32px), calc(100dvh - 32px))',
             }}
             onPointerDown={event => event.stopPropagation()}
           >
@@ -2834,7 +3288,7 @@ export function WorkflowCanvas({
               />
             </label>
 
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-2">
+            <div className="mt-2 overflow-y-auto pb-2">
               {quickItems.length ? (
                 quickItems.map(item => (
                   <button

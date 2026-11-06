@@ -24,6 +24,7 @@ export function WorkflowToolIcon({
       icon={icon}
       size={size}
       color={getNodeIconColor(type)}
+      color={getNodeIconColor(type)}
     />
   )
 }
