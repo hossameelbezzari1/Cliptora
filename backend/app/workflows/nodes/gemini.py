@@ -60,7 +60,7 @@ class GeminiNode(Node):
     family = 'gemini'
     group = 'AI'
     icon = 'brand:gemini'
-    operations = {'ai.gemini': {'icon': 'brand:gemini', 'label': 'Google Gemini', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gemini-2.5-flash', 'prompt': ''}, 'credentials': ['gemini'], 'actions': [{'id': 'message_model', 'label': 'Message a Model', 'icon': 'lucide:message-square-text'}, {'id': 'analyze_audio', 'label': 'Analyze Audio', 'icon': 'lucide:audio-lines'}, {'id': 'transcribe_recording', 'label': 'Transcribe Recording', 'icon': 'lucide:mic'}, {'id': 'analyze_video', 'label': 'Analyze Video', 'icon': 'lucide:video'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'analyze_document', 'label': 'Analyze Document', 'icon': 'lucide:file-text'}, {'id': 'upload_media_file', 'label': 'Upload Media', 'icon': 'lucide:file-up'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}, {'id': 'generate_video', 'label': 'Generate Video', 'icon': 'lucide:clapperboard'}, {'id': 'download_video', 'label': 'Download Video', 'icon': 'lucide:download'}, {'id': 'create_file_search_store', 'label': 'Create File Search Store', 'icon': 'lucide:folder-plus'}, {'id': 'list_file_search_stores', 'label': 'List File Search Stores', 'icon': 'lucide:folder-search'}, {'id': 'upload_file_to_search_store', 'label': 'Upload File to Search Store', 'icon': 'lucide:file-up'}, {'id': 'delete_file_search_store', 'label': 'Delete File Search Store', 'icon': 'lucide:folder-x'}]}}
+    operations = {'ai.gemini': {'icon': 'brand:gemini', 'label': 'Google Gemini', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gemini-3.8-flash', 'prompt': ''}, 'credentials': ['gemini'], 'actions': [{'id': 'message_model', 'label': 'Message a Model', 'icon': 'lucide:message-square-text'}, {'id': 'analyze_audio', 'label': 'Analyze Audio', 'icon': 'lucide:audio-lines'}, {'id': 'transcribe_recording', 'label': 'Transcribe Recording', 'icon': 'lucide:mic'}, {'id': 'analyze_video', 'label': 'Analyze Video', 'icon': 'lucide:video'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'analyze_document', 'label': 'Analyze Document', 'icon': 'lucide:file-text'}, {'id': 'upload_media_file', 'label': 'Upload Media', 'icon': 'lucide:file-up'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}, {'id': 'generate_video', 'label': 'Generate Video', 'icon': 'lucide:clapperboard'}, {'id': 'download_video', 'label': 'Download Video', 'icon': 'lucide:download'}, {'id': 'create_file_search_store', 'label': 'Create File Search Store', 'icon': 'lucide:folder-plus'}, {'id': 'list_file_search_stores', 'label': 'List File Search Stores', 'icon': 'lucide:folder-search'}, {'id': 'upload_file_to_search_store', 'label': 'Upload File to Search Store', 'icon': 'lucide:file-up'}, {'id': 'delete_file_search_store', 'label': 'Delete File Search Store', 'icon': 'lucide:folder-x'}]}}
 
     def execute_operation(self, operation, node, outputs, source, workdir):
         cfg = node.get('settings') or {}
@@ -693,7 +693,7 @@ class GeminiNode(Node):
 
     @staticmethod
     def _model_name(cfg: dict[str, Any]) -> str:
-        selected = str(cfg.get('model_by_id') or cfg.get('model') or 'gemini-2.5-flash').strip()
+        selected = str(cfg.get('model_by_id') or cfg.get('model') or 'gemini-3.8-flash').strip()
         match = MODEL_PATTERN.fullmatch(selected)
         if not match:
             raise ValueError('Invalid Gemini model ID')
@@ -841,7 +841,9 @@ class GeminiNode(Node):
         body: dict[str, Any] = {'contents': contents}
         if system_prompt:
             body['systemInstruction'] = {'parts': [{'text': system_prompt}]}
-        generation: dict[str, Any] = {'maxOutputTokens': GeminiNode._int_setting(cfg, 'max_output_tokens', 2048, 128, 32768), 'temperature': GeminiNode._float_setting(cfg, 'temperature', 0.2, 0, 2)}
+        generation: dict[str, Any] = {'maxOutputTokens': GeminiNode._int_setting(cfg, 'max_output_tokens', 2048, 128, 32768)}
+        if not model.startswith('gemini-3.'):
+            generation['temperature'] = GeminiNode._float_setting(cfg, 'temperature', 0.2, 0, 2)
         if json_schema is not None or bool(cfg.get('output_content_as_json')):
             generation['responseMimeType'] = 'application/json'
             if json_schema is not None:

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, CircleHelp, KeyRound, LoaderCircle, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { api } from '../../../lib/api'
 import type { WorkflowNodeParametersProps } from '../nodeTypes'
+import { GEMINI_TEXT_MODELS } from '../geminiModels'
 
 type Props = WorkflowNodeParametersProps & {
   onManageCredentials?: () => void
@@ -29,11 +30,7 @@ const ACTIONS: Action[] = [
 ]
 
 const RESOURCES = ['Audio', 'Document', 'File Search', 'Image', 'Media File', 'Text', 'Video'] as const
-const TEXT_MODELS = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite' },
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite (if available)' },
-]
+const TEXT_MODELS = GEMINI_TEXT_MODELS
 const FIELD = 'block w-full rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-3 py-2.5 text-[12px] text-[#303030] dark:text-[#f3f4f6] outline-none transition-colors focus:border-[#e5dbfd] dark:focus:border-[#8a5cf4] focus:ring-2 focus:ring-violet-100 dark:focus:ring-violet-900/70 disabled:bg-[#f2f2f2] dark:disabled:bg-[#1f2937] disabled:text-[#4b5563] dark:disabled:text-[#999]'
 const LABEL = 'mb-1.5 block text-[12px] font-medium text-[#3c3c3c] dark:text-[#f3f4f6]'
 
@@ -181,7 +178,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
           }}>
           <option value="">Select a credential...</option>
           {credentialId !== null && !credentials.some(item => item.id === credentialId) &&
-            <option value={credentialId}>Credential #{credentialId} (not loaded)</option>}
+            <option value={credentialId}>Credential #{credentialId} ({credentialError ? 'connection unavailable' : 'not found'})</option>}
           {credentials.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
         <button type="button" title="Refresh credentials" aria-label="Refresh credentials"
@@ -250,17 +247,19 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
       <section>
         <span className={LABEL}>Model</span>
         <div className="flex items-center gap-2">
-          <select value={stringSetting(cfg.model_by_id).trim() ? 'id' : 'list'} onChange={e => onChange('model_by_id', e.target.value === 'id' ? stringSetting(cfg.model, 'gemini-2.5-flash') : '')} className="min-w-[112px] rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2 py-2.5 text-[12px] text-[#333] dark:text-[#f3f4f6]">
+          <select value={stringSetting(cfg.model_by_id).trim() ? 'id' : 'list'} onChange={e => onChange('model_by_id', e.target.value === 'id' ? stringSetting(cfg.model, 'gemini-3.8-flash') : '')} className="min-w-[112px] rounded-lg border border-[#dedee3] dark:border-[#374151] bg-white dark:bg-cl-dark-panel px-2 py-2.5 text-[12px] text-[#333] dark:text-[#f3f4f6]">
             <option value="list">From list</option>
             <option value="id">By ID</option>
           </select>
           {stringSetting(cfg.model_by_id).trim()
-            ? <input value={stringSetting(cfg.model_by_id)} onChange={e => onChange('model_by_id', e.target.value)} placeholder="gemini-2.5-flash" aria-label="Gemini model ID" className={`${FIELD} min-w-0 flex-1`} />
-            : <select value={stringSetting(cfg.model, 'gemini-2.5-flash')} onChange={e => onChange('model', e.target.value)} aria-label="Gemini model" className={`${FIELD} min-w-0 flex-1`}>
+            ? <input value={stringSetting(cfg.model_by_id)} onChange={e => onChange('model_by_id', e.target.value)} placeholder="gemini-3.8-flash" aria-label="Gemini model ID" className={`${FIELD} min-w-0 flex-1`} />
+            : <select value={stringSetting(cfg.model, 'gemini-3.8-flash')} onChange={e => onChange('model', e.target.value)} aria-label="Gemini model" className={`${FIELD} min-w-0 flex-1`}>
+              {stringSetting(cfg.model) && !TEXT_MODELS.some(item => item.id === stringSetting(cfg.model)) &&
+                <option value={stringSetting(cfg.model)}>{stringSetting(cfg.model)} (legacy / unavailable)</option>}
               {TEXT_MODELS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>}
         </div>
-        <p className="mt-1 text-[11px] leading-4 text-[#858585] dark:text-[#b8bec7]">Free-tier candidate list, not a billing guarantee. Availability depends on your Google project.</p>
+        <p className="mt-1 text-[11px] leading-4 text-[#858585] dark:text-[#b8bec7]">Availability and charges depend on your Google project. Verify model access before running.</p>
       </section>
 
       <section>
@@ -368,7 +367,7 @@ export function GeminiParameters({ node, catalog, onChange, onManageCredentials 
 
     {(['analyze_audio', 'transcribe_recording', 'analyze_document', 'analyze_image', 'analyze_video'] as string[]).includes(actionId) && <>
       <label className="block"><span className={LABEL}>Model</span>
-        <input className={FIELD} value={stringSetting(cfg.model, 'gemini-2.5-flash')} onChange={e => onChange('model', e.target.value)} placeholder="gemini-2.5-flash" />
+        <input className={FIELD} value={stringSetting(cfg.model, 'gemini-3.8-flash')} onChange={e => onChange('model', e.target.value)} placeholder="gemini-3.8-flash" />
       </label>
       <label className="block"><span className={LABEL}>{actionId === 'transcribe_recording' ? 'Transcription instructions (optional)' : 'Prompt (optional)'}</span>
         <textarea rows={4} className={`${FIELD} resize-y`} value={stringSetting(cfg.prompt)} onChange={e => onChange('prompt', e.target.value)} placeholder={actionId === 'transcribe_recording' ? 'Transcribe all the words in their original language...' : 'Describe and analyze this file...'} />

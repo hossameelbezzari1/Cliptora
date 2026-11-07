@@ -32,6 +32,7 @@ def run_graph(
     workspace: Path,
     update: Callable[[int, str, dict], None],
     cancelled: Callable[[], bool] = lambda: False,
+    reused: dict[str, dict] | None = None,
 ) -> dict:
 
     # Ensure that scheduled and independent workers also
@@ -165,7 +166,39 @@ def run_graph(
         result = None
         cached = False
 
+        reused_node = (
+            (reused or {}).get(node_id)
+            if node.get("cache", True)
+            else None
+        )
+
+        if reused_node is not None:
+            result = reused_node["result"]
+            cached = True
+
+            artifact.write_text(
+                json.dumps(
+                    result,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                ),
+                encoding="utf-8",
+            )
+
+            checkpoint.write_text(
+                fingerprint,
+                encoding="ascii",
+            )
+
+            logger.info(
+                "Reused completed upstream output | "
+                "node_id=%s | previous_run_id=%s",
+                node_id,
+                reused_node["run_id"],
+            )
+
         if (
+            result is None and
             node.get("cache", True)
             and artifact.is_file()
             and checkpoint.is_file()
@@ -493,6 +526,9 @@ def run_graph(
             "cached": cached,
             "attempts": attempts,
         }
+
+        if reused_node is not None:
+            public["reused_from_run_id"] = reused_node["run_id"]
 
         for metric in (
             "processed",

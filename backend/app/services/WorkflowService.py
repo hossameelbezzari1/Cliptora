@@ -52,6 +52,7 @@ from app.workflows.Validation import execution_nodes, validate_workflow
 from app.workflows.Catalog import preset_templates, tool_catalog
 from app.helpers.Media import probe
 from app.workflows.Engine import run_graph
+from app.workflows.Reuse import collect_reusable_outputs
 from app.workflows.Credentials import execution_owner
 
 _schema_lock = Lock()
@@ -139,6 +140,28 @@ def process_run(run_id: int) -> None:
                 raise RuntimeError("Source video disappeared from storage")
         workspace = project_dir(row.user_id, row.project_id) / "runs" / str(run_id)
 
+        previous_runs = session.scalars(
+            select(WorkflowRun).where(
+                WorkflowRun.user_id == row.user_id,
+                WorkflowRun.project_id == row.project_id,
+                WorkflowRun.workflow_id == row.workflow_id,
+                WorkflowRun.source_id == row.source_id,
+                WorkflowRun.id < row.id,
+                WorkflowRun.state.in_((
+                    "completed", "failed", "cancelled"
+                )),
+            ).order_by(
+                WorkflowRun.id.desc()
+            ).limit(50)
+        ).all()
+
+        reusable = collect_reusable_outputs(
+            json.loads(row.workflow_json),
+            previous_runs,
+            workspace,
+            row.source_id,
+        )
+
         def update(progress: int, current: str, results: dict) -> None:
             session.refresh(row)
             if row.state == "cancelling":
@@ -153,7 +176,7 @@ def process_run(run_id: int) -> None:
             return row.state == "cancelling"
 
         with execution_owner(row.user_id):
-            output = run_graph(json.loads(row.workflow_json), source, workspace, update, cancelled)
+            output = run_graph(json.loads(row.workflow_json), source, workspace, update, cancelled, reusable)
         session.refresh(row)
         row.state = output["status"]
         row.progress = 100 if row.state == "completed" else row.progress

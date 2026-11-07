@@ -124,7 +124,7 @@ LIST_NODES: list[dict[str, Any]] = [
         "settings": {
             "action": "message_model",
             "credential_id": None,
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3.8-flash",
             "prompt": "",
         },
         "credentials": ["gemini"],

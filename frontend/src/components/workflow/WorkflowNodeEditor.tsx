@@ -231,7 +231,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     setGeminiConfigured(null)
     api<Array<{ id: number; provider: string }>>('/credentials')
       .then(rows => { if (active) setGeminiConfigured(rows.some(item => item.id === selectedCredentialId && item.provider === 'gemini')) })
-      .catch(() => { if (active) setGeminiConfigured(false) })
+      .catch(() => { if (active) setGeminiConfigured(null) })
     return () => { active = false }
   }, [requiresGemini, selectedCredentialId])
   const loadData = useCallback(async () => {
