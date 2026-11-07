@@ -14,6 +14,18 @@ class AudioNode(Node):
     operations = {
         'audio.extract': {'icon':'lucide:audio-lines', 'label': 'Extract Audio', 'settings': {'audio_track':'0','output_format':'wav','sample_rate':16000,'channels':'mono','trim_enabled':False}},
     }
+    operations['audio.extract']['source_picker'] = True
+    parameter_fields = {'audio.extract': {
+        'audio_track': {'type':'string','default':'0','options':[{'value':'all','label':'All tracks'}] + [{'value':str(i),'label':f'Track {i}'} for i in range(8)]},
+        'output_format': {'type':'string','enum':['wav','mp3','flac','m4a','copy']},
+        'sample_rate': {'type':'integer','default':16000},
+        'channels': {'type':'string','enum':['mono','stereo','original']},
+        'trim_enabled': {'type':'boolean'},
+        'start_seconds': {'type':'number','default':0},
+        'end_seconds': {'type':'number','default':0},
+        'output_filename': {'type':'string','group':'Advanced'},
+    }}
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         if source is None or not source.is_file():
             raise ValueError('Extract Audio requires a selected source video')

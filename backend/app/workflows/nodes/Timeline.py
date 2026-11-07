@@ -14,6 +14,12 @@ class TimelineNode(Node):
         'ai.summary':{'icon':'lucide:file-text', 'label':'Recap Script','settings':{'mode':'offline','language':'auto','prompt':''}},
         'timeline.cut_plan':{'icon':'lucide:scissors', 'label':'Cut Plan','settings':{'padding':0.16}},
     }
+    parameter_fields = {
+        'ai.highlights': {'mode': {'type':'string','enum':['offline','manual','openai','gemini']}, 'strategy': {'type':'string','enum':['story_recap','shorts_hook','podcast_clips']}, 'target_duration': {'type':'integer','default':120}, 'highlights': {'type':'array','widget':'json'}},
+        'ai.summary': {'mode': {'type':'string','enum':['offline','openai']}, 'prompt': {'type':'string','widget':'textarea'}, 'language': {'type':'string'}},
+        'timeline.cut_plan': {'padding': {'type':'number','default':0.16,'minimum':0,'maximum':30}},
+    }
+
     def execute_operation(self,operation,node,outputs,source,workdir):
         cfg=node.get('settings') or {}
         if operation=='ai.summary':

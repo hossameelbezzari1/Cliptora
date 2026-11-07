@@ -14,6 +14,19 @@ class LogicNode(Node):
         'flow.merge':{'icon':'lucide:git-merge', 'label':'Merge', 'settings':{'mode':'append'}},
         'flow.switch':{'icon':'lucide:split', 'label':'Switch', 'settings':{'path':'','cases':[],'fallback':True}},
     }
+    parameter_fields = {
+        'flow.if': {
+            'path': {'type':'string','widget':'upstream','accepts':['text','json']},
+            'operator': {'type':'string','enum':['truthy','equals','not_equals','contains','greater_than','less_than']},
+            'conditions': {'type':'array','widget':'json','default':[]},
+            'combine': {'type':'string','enum':['all','any'],'default':'all'},
+            'convert_types': {'type':'boolean','default':False},
+            'ignore_case': {'type':'boolean','default':False},
+        },
+        'flow.merge': {'mode': {'type':'string','enum':['append','combine']}},
+        'flow.switch': {'path': {'type':'string','widget':'upstream','accepts':['text','json']}, 'cases': {'type':'array','widget':'json','default':[]}},
+    }
+
     def execute_operation(self,operation,node,outputs,source,workdir):
         cfg=node.get('settings') or {}
         if operation=='flow.merge':

@@ -13,6 +13,12 @@ class TriggersNode(Node):
         'core.schedule_trigger': {'icon':'lucide:calendar-clock', 'label': 'Schedule Trigger', 'settings': {'timezone':'UTC', 'enabled':True}},
     }
 
+    parameter_fields = {'core.schedule_trigger': {
+        'timezone': {'type':'string','default':'UTC'},
+        'enabled': {'type':'boolean','default':True},
+        'rule': {'type':'object','widget':'json','group':'Advanced','description':'Schedule rules are persisted; automatic scheduling requires an enabled scheduler.'},
+    }}
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         if operation == 'core.manual_trigger':
             return {'trigger': {'status': 'received', 'type': 'manual'}}

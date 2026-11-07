@@ -780,10 +780,10 @@ export function WorkflowCanvas({
         entries.push({
           key: `action:${item.type}:${action}`,
           kind: 'action',
-          label: item.action_capabilities?.[action]?.label || action.replace(/_/g, ' '),
+          label: item.action_capabilities?.[typeof action === 'string' ? action : action.id]?.label || (typeof action === 'string' ? action.replace(/_/g, ' ') : action.label),
           detail: item.label,
           nodeType: item.type,
-          actionId: action,
+          actionId: typeof action === 'string' ? action : action.id,
         })
       }
     }

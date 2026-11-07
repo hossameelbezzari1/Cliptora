@@ -11,6 +11,8 @@ class AnimationNode(Node):
         'animation.storyboard':{'icon':'lucide:book-open', 'label':'Storyboard','settings':{'script':'','scene_seconds':4}},
         'animation.keyframes':{'icon':'lucide:wand-sparkles', 'label':'Keyframes','settings':{'preset':'fade-pop'}},
     }
+    parameter_fields = {'animation.storyboard': {'script': {'type':'string','widget':'textarea'}, 'scene_seconds': {'type':'integer','minimum':1,'maximum':600}}}
+
     def execute_operation(self,operation,node,outputs,source,workdir):
         cfg=node.get('settings') or {}
         if operation=='animation.storyboard':

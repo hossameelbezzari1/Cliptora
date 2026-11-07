@@ -27,6 +27,19 @@ class TranscriptionNode(Node):
         },
     }
 
+    parameter_fields = {'audio.transcribe': {
+        'model': {'type':'string','title':'Whisper Model','options':[{'value':v,'label':v} for v in ('tiny','base','small','medium','large-v3','turbo')]},
+        'language': {'type':'string','title':'Language','options':[{'value':v,'label':v} for v in ('auto','en','fr','ar','es','de','pt','it','tr','hi','ru','zh','ja','ko')]},
+        'audio_track': {'type':'string','default':'auto'},
+        'vad_min_silence_ms': {'type':'integer','default':500,'minimum':100,'maximum':5000},
+        'vad_filter': {'type':'boolean','default':True},
+        'include_confidence': {'type':'boolean','default':True},
+        'beam_size': {'type':'integer','default':5,'minimum':1,'maximum':10,'group':'Advanced'},
+        'device': {'type':'string','enum':['cpu','auto','cuda'],'group':'Advanced'},
+        'compute_type': {'type':'string','enum':['int8','auto','float32','float16'],'group':'Advanced'},
+        'initial_prompt': {'type':'string','widget':'textarea','group':'Advanced'},
+    }}
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         cfg = node.get('settings') or {}
         callback = node.get('_progress_callback')

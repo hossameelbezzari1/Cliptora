@@ -15,6 +15,11 @@ class OutputNode(Node):
         'caption.generate':{'icon':'lucide:captions', 'label':'Generate Captions','settings':{'max_words':6,'style':'karaoke'}},
         'video.render':{'icon':'lucide:film', 'label':'Render Video','settings':{'enabled':False,'aspect_ratio':'original'}},
     }
+    parameter_fields = {
+        'video.render': {'enabled': {'type':'boolean'}, 'aspect_ratio': {'type':'string','enum':['original','16:9','9:16','1:1']}},
+        'caption.generate': {'style': {'type':'string','enum':['karaoke','word-pop','classic']}, 'max_words': {'type':'integer','minimum':1,'maximum':30}},
+    }
+
     def execute_operation(self,operation,node,outputs,source,workdir):
         cfg=node.get('settings') or {}
         if operation=='caption.generate':

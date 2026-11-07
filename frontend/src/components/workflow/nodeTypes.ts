@@ -12,6 +12,8 @@ export type WorkflowNodeParametersProps = {
   catalog?: WorkflowCatalogItem
   onChange: (key: string, value: unknown) => void
   studio?: WorkflowStudioState
+  /** Real upstream artifacts, keyed by connected node ID. */
+  inputValue?: unknown
   onManageCredentials?: () => void
   hasAgentModel?: boolean
 }

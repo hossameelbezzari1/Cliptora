@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Callable
 from app.workflows.ModelConstants import OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS, OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS
 from app.helpers.Transcript import input_path
+from app.workflows.InputResolver import resolve_input_path, infer_text_input
 from app.workflows.Credentials import api_key, credential_field
 import http.client
 import mimetypes
@@ -61,6 +62,75 @@ class GeminiNode(Node):
     group = 'AI'
     icon = 'brand:gemini'
     operations = {'ai.gemini': {'icon': 'brand:gemini', 'label': 'Google Gemini', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gemini-3.8-flash', 'prompt': ''}, 'credentials': ['gemini'], 'actions': [{'id': 'message_model', 'label': 'Message a Model', 'icon': 'lucide:message-square-text'}, {'id': 'analyze_audio', 'label': 'Analyze Audio', 'icon': 'lucide:audio-lines'}, {'id': 'transcribe_recording', 'label': 'Transcribe Recording', 'icon': 'lucide:mic'}, {'id': 'analyze_video', 'label': 'Analyze Video', 'icon': 'lucide:video'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'analyze_document', 'label': 'Analyze Document', 'icon': 'lucide:file-text'}, {'id': 'upload_media_file', 'label': 'Upload Media', 'icon': 'lucide:file-up'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}, {'id': 'generate_video', 'label': 'Generate Video', 'icon': 'lucide:clapperboard'}, {'id': 'download_video', 'label': 'Download Video', 'icon': 'lucide:download'}, {'id': 'create_file_search_store', 'label': 'Create File Search Store', 'icon': 'lucide:folder-plus'}, {'id': 'list_file_search_stores', 'label': 'List File Search Stores', 'icon': 'lucide:folder-search'}, {'id': 'upload_file_to_search_store', 'label': 'Upload File to Search Store', 'icon': 'lucide:file-up'}, {'id': 'delete_file_search_store', 'label': 'Delete File Search Store', 'icon': 'lucide:folder-x'}]}}
+
+    parameter_fields = {
+        'ai.gemini': {
+            'model': {'type': 'string', 'widget': 'model', 'title': 'Model'},
+        },
+    }
+    action_fields = {'ai.gemini': {
+        'message_model': {
+            'prompt': {'type': 'string', 'widget': 'textarea', 'title': 'Prompt'},
+            'input_path': {'type': 'string', 'widget': 'upstream', 'accepts': ['text', 'json'], 'title': 'Input data'},
+            'output_mode': {'type': 'string', 'title': 'Output Mode', 'options': [{'value': 'text', 'label': 'Text'}, {'value': 'json', 'label': 'JSON'}, {'value': 'highlights', 'label': 'Highlights (word-timed clips)'}], 'default': 'text'},
+            'messages': {'type': 'array', 'widget': 'messages', 'default': []},
+            'output_content_as_json': {'type': 'boolean', 'default': False},
+            'target_duration': {'type': 'integer', 'default': 120, 'minimum': 10, 'maximum': 7200, 'visible_if': {'output_mode': 'highlights'}},
+            'max_highlights': {'type': 'integer', 'default': 12, 'minimum': 1, 'maximum': 100, 'visible_if': {'output_mode': 'highlights'}},
+            'min_clip_seconds': {'type': 'number', 'default': 3, 'visible_if': {'output_mode': 'highlights'}},
+            'max_clip_seconds': {'type': 'number', 'default': 35, 'visible_if': {'output_mode': 'highlights'}},
+            'chunk_chars': {'type': 'integer', 'default': 14000, 'visible_if': {'output_mode': 'highlights'}},
+            'system_prompt': {'type': 'string', 'widget': 'textarea', 'group': 'Advanced', 'title': 'System instruction'},
+            'max_output_tokens': {'type': 'integer', 'default': 2048, 'minimum': 128, 'maximum': 32768, 'group': 'Advanced'},
+            'temperature': {'type': 'number', 'default': 0.2, 'minimum': 0, 'maximum': 2, 'group': 'Advanced'},
+            'timeout_seconds': {'type': 'integer', 'default': 120, 'minimum': 15, 'maximum': 300, 'group': 'Advanced'},
+        },
+        'analyze_audio': {}, 'transcribe_recording': {}, 'analyze_document': {}, 'analyze_image': {}, 'analyze_video': {},
+        'upload_media_file': {}, 'upload_file_to_search_store': {}, 'edit_image': {},
+        'generate_image': {
+            'prompt': {'type': 'string', 'widget': 'textarea'},
+            'image_aspect_ratio': {'type': 'string', 'default': '1:1', 'options': [{'value': v, 'label': v} for v in ('1:1','3:2','2:3','4:3','3:4','16:9','9:16')]},
+        },
+        'create_file_search_store': {'display_name': {'type': 'string'}},
+        'delete_file_search_store': {'store_name': {'type': 'string'}},
+        'list_file_search_stores': {},
+        'generate_video': {
+            'video_model': {'type': 'string', 'default': 'gemini-omni-1.1-flash'},
+            'prompt': {'type': 'string', 'widget': 'textarea'},
+            'video_aspect_ratio': {'type': 'string', 'default': '16:9', 'options': [{'value':'16:9','label':'16:9'}, {'value':'9:16','label':'9:16'}]},
+            'previous_interaction_id': {'type': 'string'},
+        },
+        'download_video': {
+            'interaction_id': {'type': 'string'},
+            'generated_video_uri': {'type': 'string'},
+        },
+    }}
+    for _action in operations['ai.gemini']['actions']:
+        _id = _action['id']
+        _action['resource'] = ('File Search' if 'file_search' in _id or 'search_store' in _id else
+            'Audio' if 'audio' in _id or 'recording' in _id else
+            'Video' if 'video' in _id else 'Image' if 'image' in _id else
+            'Document' if 'document' in _id else 'Media File' if 'media_file' in _id else 'Text')
+    _media_fields = {
+        'media_input_path': {'type':'string','widget':'upstream','accepts':['media'], 'title':'Media Input'},
+        'file_path': {'type':'string', 'group':'Advanced'},
+        'file_uri': {'type':'string', 'group':'Advanced'},
+        'mime_type': {'type':'string','group':'Advanced'},
+        'file_display_name': {'type':'string','group':'Advanced'},
+        'timeout_seconds': {'type':'integer','default':120,'group':'Advanced'},
+        'poll_seconds': {'type':'integer','default':180,'group':'Advanced'},
+    }
+    for _id in ('analyze_audio','transcribe_recording','analyze_document','analyze_image','analyze_video','upload_media_file','upload_file_to_search_store','edit_image'):
+        action_fields['ai.gemini'][_id].update(_media_fields)
+        if _id.startswith(('analyze_', 'transcribe_', 'edit_')):
+            action_fields['ai.gemini'][_id]['prompt'] = {'type':'string','widget':'textarea'}
+    for _id in ('upload_file_to_search_store','generate_video','edit_image'):
+        action_fields['ai.gemini'][_id]['allow_paid_action'] = {'type':'boolean','default':False}
+    action_fields['ai.gemini']['upload_file_to_search_store']['store_name'] = {'type':'string'}
+    action_fields['ai.gemini']['edit_image'].update({
+        'image_model': {'type':'string','default':'gemini-3.1-flash-image-preview'},
+        'image_aspect_ratio': {'type':'string','default':'1:1'},
+    })
 
     def execute_operation(self, operation, node, outputs, source, workdir):
         cfg = node.get('settings') or {}
@@ -201,7 +271,7 @@ class GeminiNode(Node):
 
     @staticmethod
     def _model(cfg: dict, *, video: bool=False) -> str:
-        name = str((cfg.get('video_model') if video else cfg.get('model_by_id') or cfg.get('model')) or ('gemini-omni-1.1-flash' if video else 'gemini-2.5-flash')).strip()
+        name = str((cfg.get('video_model') if video else cfg.get('model_by_id') or cfg.get('model')) or ('gemini-omni-1.1-flash' if video else 'gemini-3.8-flash')).strip()
         if not MODEL_RE.fullmatch(name):
             raise ValueError('Invalid Gemini model ID')
         name = name.removeprefix('models/')
@@ -730,28 +800,8 @@ class GeminiNode(Node):
 
     @staticmethod
     def _extract_input(outputs: dict[str, Any], path: str) -> Any:
-        """Read an upstream value. Accept `nodeId.words` or a field in one upstream node.
-
-    No eval, Python expressions, attribute access or external network reads.
-    """
-        if not path:
-            return None
-        parts = path.strip().split('.')
-        if any((not re.fullmatch('[a-zA-Z0-9_-]{1,64}', part) for part in parts)):
-            raise ValueError('input_path must be a dot-separated upstream JSON field')
-        if parts[0] in outputs:
-            value: Any = outputs[parts[0]]
-            parts = parts[1:]
-        else:
-            matches = [data for data in outputs.values() if isinstance(data, dict) and parts[0] in data]
-            if len(matches) != 1:
-                raise ValueError('input_path must identify an existing, unambiguous upstream field')
-            value = matches[0]
-        for part in parts:
-            if not isinstance(value, dict) or part not in value:
-                raise ValueError(f'Input path field not found: {path}')
-            value = value[part]
-        return value
+        """Shared, validated upstream field resolver."""
+        return resolve_input_path(outputs, path)
 
     @staticmethod
     def _upstream_words(outputs: dict[str, Any]) -> list[dict[str, Any]]:
@@ -970,12 +1020,20 @@ class GeminiNode(Node):
             raise ValueError('output_mode must be text, json, or highlights')
         prompt = str(cfg.get('prompt') or '')
         system = str(cfg.get('system_prompt') or '')
-        chosen_path = str(cfg.get('input_path') or '')
+        chosen_path = str(cfg.get('input_path') or '').strip()
+        # Auto mode uses one unambiguous connected text output.
+        # An explicit path always takes precedence.
         if chosen_path:
-            value = GeminiNode._extract_input(outputs, chosen_path)
-            prompt = f'{prompt}\n\nUPSTREAM DATA:\n{json.dumps(value, ensure_ascii=False)}'.strip()
-        if not prompt.strip() and (not cfg.get('messages')):
-            raise ValueError('Gemini Message a model requires a prompt, messages, or an input_path')
+            upstream_value = resolve_input_path(outputs, chosen_path)
+        else:
+            inferred = infer_text_input(outputs)
+            upstream_value = inferred[1] if inferred else None
+        if upstream_value is not None and upstream_value != '':
+            payload_text = (upstream_value if isinstance(upstream_value, str)
+                            else json.dumps(upstream_value, ensure_ascii=False))
+            prompt = f'{prompt}\n\nUPSTREAM DATA:\n{payload_text}'.strip()
+        if not prompt.strip() and not cfg.get('messages'):
+            raise ValueError('Gemini Message a model needs a prompt or a connected text output')
         if len(prompt) > 900000:
             raise ValueError('Gemini prompt exceeds 900K characters; use Highlights mode for automatic chunking')
         GeminiNode._notify(node, stage='requesting', message='Waiting for Gemini API response')

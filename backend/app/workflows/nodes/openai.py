@@ -30,6 +30,37 @@ class OpenAINode(Node):
     icon = 'brand:openai'
     operations = {'ai.openai': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'classify_violations', 'label': 'Classify Violations', 'icon': 'lucide:shield-alert'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}], 'icon': 'brand:openai', 'label': 'OpenAI', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gpt-5.5', 'prompt': ''}, 'credentials': ['openai']}, 'ai.chat_model': {'icon': 'lucide:brain-circuit', 'label': 'Chat Model', 'settings': {'provider': 'openai', 'model': 'gpt-5.5', 'reasoning_effort': 'medium', 'credential_id': None}, 'credentials': ['openai']}, 'ai.agent': {'icon': 'lucide:bot', 'label': 'AI Agent', 'settings': {'prompt_source': 'define_below', 'prompt': '', 'credential_id': None}, 'credentials': ['openai']}}
 
+    parameter_fields = {
+        'ai.openai': {'model': {'type':'string','widget':'model'}},
+        'ai.chat_model': {
+            'model': {'type':'string','widget':'model'},
+            'reasoning_effort': {'type':'string','enum':['none','low','medium','high','xhigh','max']},
+        },
+        'ai.agent': {
+            'prompt_source': {'type':'string','enum':['define_below','connected_chat_trigger']},
+            'prompt': {'type':'string','widget':'textarea'},
+            'require_specific_output': {'type':'boolean','default':False},
+            'enable_fallback_model': {'type':'boolean','default':False},
+            'system_message': {'type':'string','widget':'textarea','group':'Advanced'},
+            'fallback_model': {'type':'string','group':'Advanced'},
+        },
+    }
+    action_fields = {'ai.openai': {
+        'message_model': {
+            'prompt': {'type':'string','widget':'textarea'},
+            'input_path': {'type':'string','widget':'upstream','accepts':['text','json']},
+            'system_prompt': {'type':'string','widget':'textarea','group':'Advanced'},
+            'reasoning_effort': {'type':'string','enum':['none','low','medium','high','xhigh','max'],'group':'Advanced'},
+            'max_output_tokens': {'type':'integer','default':1000,'minimum':1,'maximum':16000,'group':'Advanced'},
+        },
+        'classify_violations': {'prompt': {'type':'string','widget':'textarea'}, 'input_path': {'type':'string','widget':'upstream','accepts':['text','json']}, 'simplify_output': {'type':'boolean','default':True}},
+        'analyze_image': {'prompt': {'type':'string','widget':'textarea'}, 'image_urls': {'type':'string','widget':'textarea'}},
+        'generate_image': {'prompt': {'type':'string','widget':'textarea'}, 'image_size': {'type':'string'}},
+        'edit_image': {'prompt': {'type':'string','widget':'textarea'}, 'image_urls': {'type':'string','widget':'textarea'}},
+    }}
+    for _action in operations['ai.openai']['actions']:
+        _action['resource'] = 'Image' if 'image' in _action['id'] else 'Text'
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         cfg = node.get('settings') or {}
         if operation == 'ai.chat_model':

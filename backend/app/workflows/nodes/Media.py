@@ -10,6 +10,19 @@ class MediaNode(Node):
         'core.video_source': {'icon':'lucide:video', 'label':'Video Source','settings':{'source_id':None}},
         'media.probe': {'icon':'lucide:scan-search', 'label': 'Inspect Video', 'settings': {'mode':'standard', 'sections':['general','video','audio','subtitles','chapters'], 'include_tags':False,'include_raw':False}},
     }
+    operations['core.video_source']['source_picker'] = True
+    operations['media.probe']['source_picker'] = True
+    parameter_fields = {'media.probe': {
+        'mode': {'type':'string','enum':['standard','detailed']},
+        'sections': {'type':'array'},
+        'include_tags': {'type':'boolean'},
+        'include_raw': {'type':'boolean'},
+        'include_empty': {'type':'boolean','default':False},
+        'video_stream_index': {'type':'integer','default':0,'group':'Advanced'},
+        'audio_stream_index': {'type':'integer','default':0,'group':'Advanced'},
+        'timeout': {'type':'integer','default':120,'group':'Advanced'},
+    }}
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         if operation=='core.video_source':return self.video_source(source)
         return self.inspect_video(node, source)

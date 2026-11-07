@@ -375,7 +375,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
             {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
             {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Google Gemini credential is not selected</strong>Use Connect or select an existing saved credential in Parameters, then save the workflow. API keys are stored encrypted in MySQL.</span></div>}
             {tab === 'parameters'
-              ? <WorkflowNodeParameters key={selected.id} studio={studio} onManageCredentials={onManageCredentials}
+              ? <WorkflowNodeParameters key={selected.id} studio={studio} inputValue={inputValue} onManageCredentials={onManageCredentials}
                 isManualTrigger={isManualTrigger} hasAgentModel={hasAgentModel} />
               : <WorkflowNodeSettings key={selected.id} studio={studio} />}
           </div>

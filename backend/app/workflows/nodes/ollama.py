@@ -30,6 +30,14 @@ class OllamaNode(Node):
     icon = 'brand:ollama'
     operations = {'ai.ollama': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}], 'icon': 'brand:ollama', 'label': 'Ollama', 'settings': {'action': 'message_model', 'model': 'gemma3', 'credential_id': None, 'prompt': ''}, 'credentials': ['ollama']}}
 
+    parameter_fields = {'ai.ollama': {'model': {'type':'string','widget':'model'}}}
+    action_fields = {'ai.ollama': {
+        'message_model': {'prompt': {'type':'string','widget':'textarea'}, 'input_path': {'type':'string','widget':'upstream','accepts':['text','json']}},
+        'analyze_image': {'prompt': {'type':'string','widget':'textarea'}, 'image_path': {'type':'string','widget':'upstream','accepts':['media']}},
+    }}
+    for _action in operations['ai.ollama']['actions']:
+        _action['resource'] = 'Image' if 'image' in _action['id'] else 'Text'
+
     def execute_operation(self, operation, node, outputs, source, workdir):
         return self.ollama_action(node.get('settings') or {}, outputs)
 
