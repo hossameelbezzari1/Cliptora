@@ -30,7 +30,6 @@ import type { WorkflowStudioState } from './useWorkflowStudio'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
 
 type View = 'nodes' | 'templates' | 'discover'
-type NodeFilter = 'all' | 'actions' | 'triggers'
 
 type SubNode = {
   id: string
@@ -49,15 +48,16 @@ type Provider = {
 type FlyoutPosition = {
   left: number
   top: number
+  maxHeight: number
 }
 
 const WIDTH_KEY = 'cliptora.workflow.libraryWidth'
 const FAVORITES_KEY = 'cliptora.workflow.favoriteProviders'
 const SAVED_TEMPLATES_KEY = 'cliptora.workflow.savedTemplateIds'
 
-const MIN_WIDTH = 350
-const MAX_WIDTH = 600
-const DEFAULT_WIDTH = 520
+const MIN_WIDTH = 320
+const MAX_WIDTH = 540
+const DEFAULT_WIDTH = 440
 
 const clamp = (n: number) =>
   Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, n))
@@ -248,8 +248,6 @@ export function ToolLibrary({
 
   const [view, setView] = useState<View>('nodes')
 
-  const [nodeFilter, setNodeFilter] =
-    useState<NodeFilter>('all')
 
   const [filterOpen, setFilterOpen] = useState(false)
 
@@ -374,29 +372,43 @@ export function ToolLibrary({
   const setPosition = useCallback(
     (anchor: HTMLButtonElement) => {
       const rect = anchor.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const panelWidth = Math.min(400, viewportWidth - 32)
 
-      const panelWidth = Math.min(
-        480,
-        window.innerWidth - 24,
-      )
-
-      const rightSpace =
-        window.innerWidth - rect.right
+      const spaceRight = viewportWidth - rect.right
+      const spaceLeft = rect.left
 
       const left =
-        rightSpace >= panelWidth + 12
+        spaceRight >= panelWidth + 12
           ? rect.right + 8
-          : Math.max(
-              12,
-              window.innerWidth - panelWidth - 12,
-            )
+          : spaceLeft >= panelWidth + 12
+            ? rect.left - panelWidth - 8
+            : Math.max(16, viewportWidth - panelWidth - 16)
 
-      const top = Math.min(
-        Math.max(12, rect.top - 5),
-        Math.max(12, window.innerHeight - 340),
+      const desiredHeight = Math.min(
+        490,
+        viewportHeight - 32,
       )
 
-      setFlyoutPosition({ left, top })
+      const top = Math.max(
+        16,
+        Math.min(
+          rect.top - 8,
+          viewportHeight - desiredHeight - 16,
+        ),
+      )
+
+      const maxHeight = Math.max(
+        150,
+        Math.min(490, viewportHeight - top - 16),
+      )
+
+      setFlyoutPosition({
+        left,
+        top,
+        maxHeight,
+      })
     },
     [],
   )
@@ -521,21 +533,7 @@ export function ToolLibrary({
 
     return makeProviders(
       available.filter(item => {
-        const isTrigger = triggerNode(item)
 
-        if (
-          nodeFilter === 'triggers' &&
-          !isTrigger
-        ) {
-          return false
-        }
-
-        if (
-          nodeFilter === 'actions' &&
-          isTrigger
-        ) {
-          return false
-        }
 
         if (
           nodeGroup !== 'All' &&
@@ -560,7 +558,7 @@ export function ToolLibrary({
         )
       }),
     )
-  }, [available, nodeFilter, nodeGroup, nodeSearch])
+  }, [available, nodeGroup, nodeSearch])
 
   const favoriteProviders = providers.filter(
     provider => favorites.includes(provider.key),
@@ -805,16 +803,16 @@ export function ToolLibrary({
               event.dataTransfer.effectAllowed = 'copy'
             }
           }}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2.5 pl-4 pr-14 text-left disabled:opacity-45"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pl-3 pr-12 text-left disabled:opacity-45"
         >
-          <span className="grid size-9 shrink-0 place-items-center">
+          <span className="grid size-8 shrink-0 place-items-center">
             <WorkflowToolIcon
               type={provider.items[0].type}
-              size={27}
+              size={24}
             />
           </span>
 
-          <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#222] dark:text-[#f3f4f6]">
+          <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#222] dark:text-[#f3f4f6]">
             {provider.label}
           </span>
 
@@ -885,86 +883,69 @@ export function ToolLibrary({
         : 'text-[#7d8491] hover:text-[#292d36] dark:text-[#aab0be] dark:hover:text-white'
     }`
 
-  return (
+  return createPortal(
     <>
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-[9990] bg-white/25 backdrop-blur-[5px] dark:bg-[#060914]/40"
+        onPointerDown={() => {
+          if (selectedProvider) {
+            setSelectedProvider(null)
+            setActionSearch('')
+          } else {
+            setLibraryOpen(false)
+          }
+        }}
+      />
+
       <aside
         id="ws-tool-library"
         aria-label="Add to workflow"
-        className="absolute left-4 top-4 z-[90] flex h-fit min-h-0 flex-col overflow-visible rounded-[24px] border border-[#e2e2e2] bg-white text-[#242424] shadow-[0_9px_30px_rgba(0,0,0,0.09)] dark:border-[#374151] dark:bg-cl-dark-panel dark:text-[#f3f4f6]"
+        className="fixed left-4 top-4 z-[9991] flex h-fit min-h-0 flex-col overflow-visible rounded-[24px] border border-[#e2e2e2] bg-white text-[#242424] shadow-[0_9px_30px_rgba(0,0,0,0.09)] dark:border-[#374151] dark:bg-cl-dark-panel dark:text-[#f3f4f6]"
         style={{
           width,
-          maxWidth: 'calc(100% - 96px)',
-          maxHeight: 'calc(100% - 32px)',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100dvh - 32px)',
         }}
       >
-        <header className="flex shrink-0 items-center justify-between gap-3 px-5 pb-2 pt-5">
-          <div className="min-w-0">
-            <h2 className="truncate text-[23px] font-semibold tracking-[-0.035em]">
-              Add to workflow
-            </h2>
-
-            <p className="mt-0.5 text-[12px] text-[#89909b] dark:text-[#a5adbb]">
-              Nodes, reusable templates and ideas
-            </p>
-          </div>
+        <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3">
+          <nav
+            aria-label="Library tabs"
+            className="flex min-w-0 flex-1 rounded-xl border border-[#dedede] bg-[#f7f7f7] p-0.5 dark:border-[#374151] dark:bg-[#1f2937]"
+          >
+            {([
+              ['nodes', 'Nodes'],
+              ['templates', 'My Templates'],
+              ['discover', 'Discover'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={view === key}
+                onClick={() => changeView(key)}
+                className={`min-w-0 flex-1 rounded-[10px] px-2 py-2 text-[12px] font-medium transition-colors ${
+                  view === key
+                    ? 'bg-white text-[#202020] shadow-[0_1px_4px_#00000014] dark:bg-cl-dark-panel dark:text-[#f3f4f6]'
+                    : 'text-[#444] hover:text-gray-900 dark:text-[#b8bec7] dark:hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
 
           <button
             type="button"
             onClick={() => setLibraryOpen(false)}
             title="Close"
-            aria-label="Close Add to workflow"
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-[#4b5563] hover:bg-[#f5f5f5] dark:text-[#999] dark:hover:bg-[#1f2937]"
+            aria-label="Close Add Node"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937]"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </header>
 
-        <nav
-          aria-label="Library tabs"
-          className="mx-4 mb-3 flex shrink-0 border-b border-[#eaecef] dark:border-[#374151]"
-        >
-          <button
-            type="button"
-            aria-current={
-              view === 'nodes' ? 'page' : undefined
-            }
-            onClick={() => changeView('nodes')}
-            className={tabClass(view === 'nodes')}
-          >
-            <Layers3 size={16} />
-            Nodes
-          </button>
-
-          <button
-            type="button"
-            aria-current={
-              view === 'templates'
-                ? 'page'
-                : undefined
-            }
-            onClick={() => changeView('templates')}
-            className={tabClass(view === 'templates')}
-          >
-            <Star size={16} />
-            My Templates
-          </button>
-
-          <button
-            type="button"
-            aria-current={
-              view === 'discover'
-                ? 'page'
-                : undefined
-            }
-            onClick={() => changeView('discover')}
-            className={tabClass(view === 'discover')}
-          >
-            <Zap size={16} />
-            Discover
-          </button>
-        </nav>
-
-        <div className="relative mx-3 mb-3 flex shrink-0 items-center gap-2 rounded-2xl bg-[#f6f6f6] px-4 py-3 dark:bg-[#1f2937]">
+        <div className="relative mx-3 mb-3 flex shrink-0 items-center gap-2 rounded-xl bg-[#f6f6f6] px-3 py-2.5 dark:bg-[#1f2937]">
           <Search
             size={20}
             className="shrink-0 text-[#647080] dark:text-[#a0a8b5]"
@@ -1005,38 +986,6 @@ export function ToolLibrary({
           )}
         </div>
 
-        {view === 'nodes' && (
-          <div className="mx-4 mb-2 flex shrink-0 gap-1 rounded-xl bg-[#f7f7f8] p-1 dark:bg-[#1f2937]">
-            {(
-              [
-                'all',
-                'actions',
-                'triggers',
-              ] as const
-            ).map(option => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={
-                  nodeFilter === option
-                }
-                onClick={() => {
-                  setNodeFilter(option)
-                  setSelectedProvider(null)
-                }}
-                className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-semibold capitalize transition-colors ${
-                  nodeFilter === option
-                    ? 'bg-white text-[#333] shadow-sm dark:bg-[#303b4b] dark:text-white'
-                    : 'text-[#777] hover:text-[#333] dark:text-[#aeb8c6] dark:hover:text-white'
-                }`}
-              >
-                {option === 'all'
-                  ? 'All nodes'
-                  : option}
-              </button>
-            ))}
-          </div>
-        )}
 
         {view === 'nodes' && filterOpen && (
           <div className="mx-4 mb-2 max-h-36 shrink-0 overflow-y-auto rounded-xl border border-[#eee] p-1.5 dark:border-[#374151]">
@@ -1273,7 +1222,7 @@ export function ToolLibrary({
                 }}
                 className="mb-2 flex w-full items-start gap-3 rounded-2xl border border-[#eceef2] px-4 py-3 text-left transition hover:border-violet-200 hover:bg-violet-50/50 disabled:opacity-40 dark:border-[#374151] dark:hover:bg-[#1f2937]"
               >
-                <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
                   <Zap size={18} />
                 </span>
 
@@ -1307,32 +1256,6 @@ export function ToolLibrary({
           </div>
         )}
 
-        <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f1f1] px-5 py-3 text-[11px] text-[#777] dark:border-[#374151] dark:text-[#aab2c0]">
-          <span className="flex items-center gap-1.5">
-            {view === 'nodes' ? (
-              <>
-                <Layers3 size={14} />
-                {nodes.length >= 100
-                  ? 'Maximum 100 nodes'
-                  : 'Choose an app or trigger'}
-              </>
-            ) : view === 'templates' ? (
-              <>
-                <Star size={14} />
-                {savedDefinitions.length}
-                {' '}personal templates
-              </>
-            ) : (
-              <>
-                <Zap size={14} />
-                {templates.length}
-                {' '}workflow ideas
-              </>
-            )}
-          </span>
-
-          <span>CLIPTORA</span>
-        </footer>
 
         <div
           role="separator"
@@ -1383,17 +1306,16 @@ export function ToolLibrary({
       {view === 'nodes' &&
         currentProvider &&
         flyoutPosition &&
-        createPortal(
+        (
           <div
             ref={flyoutRef}
             role="dialog"
             aria-label={`${currentProvider.label} actions`}
-            className="fixed z-[9999] flex w-[480px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[22px] border border-[#e2e2e2] bg-white shadow-[0_12px_36px_#00000019] dark:border-[#374151] dark:bg-cl-dark-panel"
+            className="fixed z-[9992] flex w-[400px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[22px] border border-[#e2e2e2] bg-white shadow-[0_12px_36px_#00000019] dark:border-[#374151] dark:bg-cl-dark-panel"
             style={{
               left: flyoutPosition.left,
               top: flyoutPosition.top,
-              maxHeight:
-                'min(610px, calc(100dvh - 24px))',
+              maxHeight: flyoutPosition.maxHeight,
             }}
           >
             <div className="flex shrink-0 items-center gap-3 px-4 pb-2 pt-4">
@@ -1469,7 +1391,7 @@ export function ToolLibrary({
                       action.reason ||
                       action.label
                     }
-                    className="group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f5f5f5] focus-visible:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-[#1f2937] dark:focus-visible:bg-[#1f2937]"
+                    className="group flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f5f5f5] focus-visible:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-[#1f2937] dark:focus-visible:bg-[#1f2937]"
                   >
                     <span className="mt-0.5 grid size-7 shrink-0 place-items-center">
                       <WorkflowToolIcon
@@ -1478,16 +1400,16 @@ export function ToolLibrary({
                           action.id ||
                           undefined
                         }
-                        size={22}
+                        size={19}
                       />
                     </span>
 
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] font-medium leading-6 text-[#222] dark:text-white">
+                      <span className="block text-[13px] font-medium leading-5 text-[#222] dark:text-white">
                         {action.label}
                       </span>
 
-                      <span className="mt-0.5 block text-[12px] leading-[18px] text-[#777] dark:text-[#aaa]">
+                      <span className="mt-0.5 block text-[11px] leading-[16px] text-[#777] dark:text-[#aaa]">
                         {action.reason ||
                           action.description}
                       </span>
@@ -1502,9 +1424,9 @@ export function ToolLibrary({
                 </p>
               )}
             </div>
-          </div>,
-          document.body,
+          </div>
         )}
-    </>
+    </>,
+    document.body,
   )
 }
