@@ -11,6 +11,7 @@ For deployment, review database/migrations.
 from __future__ import annotations
 
 from app.workflows.SourceSelection import select_workflow_source_id
+from app.workflows.MediaStorage import project_media_dir, run_media_dir
 
 import json
 
@@ -63,7 +64,7 @@ def now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 def root_dir() -> Path:
-    base = Path(os.environ.get("CLIPTORA_WORKFLOW_ROOT", str(Path(__file__).resolve().parents[2] / "storage" / "workflows")))
+    base = Path(os.environ.get("CLIPTORA_WORKFLOW_ROOT", str(Path(__file__).resolve().parents[3] / "storage" / "workflows")))
     return base.expanduser().resolve()
 
 def project_dir(user_id: int, project_id: int) -> Path:
@@ -124,6 +125,132 @@ def view_run(row):
     return WorkflowResource.run(row)
 
 
+def source_location(db: Session, row: WorkflowSource) -> Path:
+    """Use Media Library first; support legacy workflow sources."""
+
+    if row.media_id is not None:
+        media = db.get(MediaAsset, row.media_id)
+
+        if media is not None and media.project_id == row.project_id:
+            candidate = Path(media.disk_path).resolve()
+            owned = project_media_dir(
+                row.user_id, row.project_id
+            ).resolve()
+
+            if candidate.is_relative_to(owned) and candidate.is_file():
+                return candidate
+
+    name = Path(str(row.stored_name)).name
+
+    if not name or name != row.stored_name:
+        raise FileNotFoundError("Invalid source filename")
+
+    candidates = [
+        project_media_dir(
+            row.user_id, row.project_id
+        ) / "workflow-sources" / name,
+        root_dir()
+        / str(row.user_id)
+        / str(row.project_id)
+        / "sources"
+        / name,
+    ]
+
+    for path in candidates:
+        if path.is_file():
+            return path.resolve()
+
+    raise FileNotFoundError(
+        f"Workflow source #{row.id} is missing"
+    )
+
+
+def register_run_media(
+    user_id: int,
+    project_id: int,
+    run_id: int
+) -> None:
+    """Register generated files in the existing Media Library."""
+
+    import mimetypes
+
+    folder = (
+        project_media_dir(user_id, project_id)
+        / "workflow-runs"
+        / str(run_id)
+    )
+
+    if not folder.is_dir():
+        return
+
+    kinds = {
+        ".mp4": "video",
+        ".mov": "video",
+        ".mkv": "video",
+        ".webm": "video",
+        ".m4v": "video",
+        ".png": "image",
+        ".jpg": "image",
+        ".jpeg": "image",
+        ".webp": "image",
+        ".gif": "image",
+        ".svg": "image",
+        ".wav": "audio",
+        ".mp3": "audio",
+        ".m4a": "audio",
+        ".flac": "audio",
+        ".mka": "audio",
+        ".ogg": "audio",
+        ".aac": "audio",
+    }
+
+    with SessionLocal() as db:
+        for path in folder.rglob("*"):
+            if not path.is_file() or path.is_symlink():
+                continue
+
+            kind = kinds.get(path.suffix.lower())
+
+            if kind is None:
+                continue
+
+            size = path.stat().st_size
+
+            if not 0 < size <= 2147483647:
+                continue
+
+            absolute = str(path.resolve())
+
+            existing = db.scalar(
+                select(MediaAsset.id).where(
+                    MediaAsset.project_id == project_id,
+                    MediaAsset.disk_path == absolute
+                )
+            )
+
+            if existing is not None:
+                continue
+
+            mime = (
+                mimetypes.guess_type(path.name)[0]
+                or "application/octet-stream"
+            )
+
+            db.add(
+                MediaAsset(
+                    project_id=project_id,
+                    name=f"Workflow {run_id} - {path.name}"[:255],
+                    kind=kind,
+                    mime=mime,
+                    disk_path=absolute,
+                    size_bytes=size,
+                    created_at=now(),
+                )
+            )
+
+        db.commit()
+
+
 def process_run(run_id: int) -> None:
     session = SessionLocal()
     try:
@@ -135,9 +262,7 @@ def process_run(run_id: int) -> None:
         source = None
         if row.source_id is not None:
             item = owner(session, WorkflowSource, row.source_id, row.user_id, row.project_id)
-            source = project_dir(row.user_id, row.project_id) / "sources" / item.stored_name
-            if not source.is_file():
-                raise RuntimeError("Source video disappeared from storage")
+            source = source_location(session, item)
         workspace = project_dir(row.user_id, row.project_id) / "runs" / str(run_id)
 
         previous_runs = session.scalars(
@@ -160,6 +285,7 @@ def process_run(run_id: int) -> None:
             previous_runs,
             workspace,
             row.source_id,
+            source=source,
         )
 
         def update(progress: int, current: str, results: dict) -> None:
@@ -183,6 +309,21 @@ def process_run(run_id: int) -> None:
         row.results_json = json.dumps(output["nodes"], ensure_ascii=False)
         row.finished_at = now()
         session.commit()
+
+        try:
+            register_run_media(
+                row.user_id,
+                row.project_id,
+                run_id
+            )
+        except Exception:
+            import logging
+            logging.getLogger(
+                "cliptora.workflows.storage"
+            ).exception(
+                "Failed to index run %s media",
+                run_id
+            )
     except Exception as exc:
         session.rollback()
         row = session.get(WorkflowRun, run_id)
@@ -334,7 +475,10 @@ class WorkflowService:
         if ext not in (".mp4", ".mov", ".mkv", ".webm", ".m4v"):
             raise HTTPException(422, "Upload a video: MP4/MOV/MKV/WEBM/M4V")
         stored = f"{uuid.uuid4().hex}{ext}"
-        location = project_dir(user.id, project_id) / "sources"
+        location = (
+            project_media_dir(user.id, project_id)
+            / "workflow-sources"
+        )
         location.mkdir(parents=True, exist_ok=True)
         path = location / stored
         limit = int(os.environ.get("CLIPTORA_WORKFLOW_MAX_UPLOAD_MB", "4096")) * 1024 * 1024
@@ -355,7 +499,30 @@ class WorkflowService:
                 raise HTTPException(422, str(exc)[:250]) from exc
             if not info["width"] or not info["duration"]:
                 raise HTTPException(422, "Could not detect a video stream")
-            row = WorkflowSource(user_id=user.id, project_id=project_id, filename=name, stored_name=stored, size_bytes=amount)
+            import mimetypes
+
+            media = MediaAsset(
+                project_id=project_id,
+                name=name,
+                kind="video",
+                mime=mimetypes.guess_type(name)[0] or "video/mp4",
+                disk_path=str(path.resolve()),
+                size_bytes=amount,
+                created_at=now(),
+            )
+
+            db.add(media)
+            db.flush()
+
+            row = WorkflowSource(
+                user_id=user.id,
+                project_id=project_id,
+                media_id=media.id,
+                filename=name,
+                stored_name=stored,
+                size_bytes=amount,
+            )
+
             db.add(row)
             db.commit()
             db.refresh(row)
@@ -375,36 +542,62 @@ class WorkflowService:
         origin = Path(media.disk_path).resolve()
         if not origin.is_file():
             raise HTTPException(404, "Media file is missing from storage")
-        ext = origin.suffix.lower()
-        stored = f"{uuid.uuid4().hex}{ext}"
-        destination_dir = project_dir(user.id, project_id) / "sources"
-        destination_dir.mkdir(parents=True, exist_ok=True)
-        destination = destination_dir / stored
-        try:
-            try:
-                os.link(origin, destination)
-            except OSError:
-                shutil.copy2(origin, destination)
-            info = probe(destination)
-            if not info["width"] or not info["duration"]:
-                raise HTTPException(422, "Could not detect a video stream")
-            row = WorkflowSource(user_id=user.id, project_id=project_id, media_id=media.id, filename=media.name[:200],
-                                 stored_name=stored, size_bytes=destination.stat().st_size)
-            db.add(row)
-            db.commit()
-            db.refresh(row)
-            return view_source(row)
-        except Exception:
-            destination.unlink(missing_ok=True)
-            raise
+        if not origin.is_relative_to(
+            project_media_dir(user.id, project_id).resolve()
+        ):
+            raise HTTPException(
+                422, "Media must belong to this project's media folder"
+            )
+
+        info = probe(origin)
+
+        if not info["width"] or not info["duration"]:
+            raise HTTPException(
+                422, "Could not detect a video stream"
+            )
+
+        row = WorkflowSource(
+            user_id=user.id,
+            project_id=project_id,
+            media_id=media.id,
+            filename=media.name[:200],
+            stored_name=origin.name,
+            size_bytes=origin.stat().st_size,
+        )
+
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
+        return view_source(row)
 
     def start_run(self, project_id: int, body: StartRun, background: BackgroundTasks, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
         definition = owner(db, WorkflowDefinition, body.workflow_id, user.id, project_id)
+        
         try:
-            nodes = execution_nodes(json.loads(definition.nodes_json), body.target_node_id)
+            nodes = execution_nodes(
+                json.loads(definition.nodes_json),
+                body.target_node_id,
+            )
+
+            if body.target_node_id is not None:
+                nodes = [
+                    {
+                        **node,
+                        "settings": {
+                            **node["settings"],
+                            "__cliptora_execute_step_target": True,
+                        },
+                    }
+                    if node["id"] == body.target_node_id
+                    else node
+                    for node in nodes
+                ]
+
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+
         try:
             source_id = select_workflow_source_id(nodes, body.source_id)
         except ValueError as exc:
@@ -426,7 +619,14 @@ class WorkflowService:
             if expected != row_cred.provider:
                 raise HTTPException(422, f'Credential provider does not match node {workflow_node["id"]}')
         if source_id is not None:
-            owner(db, WorkflowSource, source_id, user.id, project_id)
+            source_row = owner(
+                db, WorkflowSource, source_id, user.id, project_id
+            )
+
+            try:
+                source_location(db, source_row)
+            except FileNotFoundError as exc:
+                raise HTTPException(422, str(exc)) from exc
         if source_id is None and any(node["type"] in ("core.video_source", "media.probe", "audio.extract", "video.render") and node.get("when") != "has_video" for node in nodes):
             raise HTTPException(422, "This workflow requires a source video. Upload/select one first")
         row = WorkflowRun(user_id=user.id, project_id=project_id, workflow_id=definition.id, source_id=source_id,
@@ -509,12 +709,20 @@ class WorkflowService:
         entry = next((item for item in files if isinstance(item, dict) and item.get("track") == track), None)
         if not entry or not isinstance(entry.get("path"), str):
             raise HTTPException(404, "Audio track not available")
-        base = (workspace / "audio").resolve()
         target = Path(entry["path"]).resolve()
-        try:
-            target.relative_to(base)
-        except ValueError as exc:
-            raise HTTPException(404, "Audio artifact unavailable") from exc
+
+        allowed = [
+            (workspace / "audio").resolve(),
+            (run_media_dir(workspace) / "audio").resolve(),
+        ]
+
+        if not any(
+            target.is_relative_to(folder)
+            for folder in allowed
+        ):
+            raise HTTPException(
+                404, "Audio artifact unavailable"
+            )
         suffix = target.suffix.lower()
         content_types = {
             ".wav": "audio/wav", ".mp3": "audio/mpeg", ".m4a": "audio/mp4",
@@ -531,7 +739,21 @@ class WorkflowService:
     def rendered_video(self, project_id: int, run_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
         owner(db, WorkflowRun, run_id, user.id, project_id)
-        path = project_dir(user.id, project_id) / "runs" / str(run_id) / "final.mp4"
+        workspace = (
+            project_dir(user.id, project_id)
+            / "runs"
+            / str(run_id)
+        )
+
+        path = (
+            run_media_dir(workspace)
+            / "videos"
+            / "final.mp4"
+        )
+
+        if not path.is_file():
+            path = workspace / "final.mp4"
+
         if not path.is_file():
             raise HTTPException(404, "Rendered video not available. Enable video.render in workflow")
         return FileResponse(path, media_type="video/mp4", filename=f"cliptora_run_{run_id}.mp4")

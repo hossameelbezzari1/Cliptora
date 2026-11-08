@@ -352,7 +352,7 @@ class CredentialService:
         elif row.provider == "gemini":
             url = (
                 "https://generativelanguage.googleapis.com"
-                "/v1beta/models?pageSize=100"
+                "/v1beta/models?pageSize=1000"
             )
             headers = {
                 "x-goog-api-key": secrets["api_key"]
@@ -435,6 +435,14 @@ class CredentialService:
             )
 
             if row.provider == "gemini":
+                methods = item.get("supportedGenerationMethods") or []
+
+                if not isinstance(methods, list):
+                    continue
+
+                if "generateContent" not in methods:
+                    continue
+
                 key = key.removeprefix("models/")
 
             if key and len(key) <= 160:

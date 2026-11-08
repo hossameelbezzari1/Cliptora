@@ -4,6 +4,7 @@ Provider implementation is native to this class. Keep operation IDs unchanged.
 """
 from __future__ import annotations
 from app.workflows.Node import Node
+from app.workflows.MediaStorage import run_media_dir
 import hashlib
 import base64
 import ipaddress
@@ -75,6 +76,8 @@ class GeminiNode(Node):
             'output_mode': {'type': 'string', 'title': 'Output Mode', 'options': [{'value': 'text', 'label': 'Text'}, {'value': 'json', 'label': 'JSON'}, {'value': 'highlights', 'label': 'Highlights (word-timed clips)'}], 'default': 'text'},
             'messages': {'type': 'array', 'widget': 'messages', 'default': []},
             'output_content_as_json': {'type': 'boolean', 'default': False},
+            'simplify_output': {'type': 'boolean', 'default': True},
+            'built_in_tools': {'type': 'array', 'default': []},
             'target_duration': {'type': 'integer', 'default': 120, 'minimum': 10, 'maximum': 7200, 'visible_if': {'output_mode': 'highlights'}},
             'max_highlights': {'type': 'integer', 'default': 12, 'minimum': 1, 'maximum': 100, 'visible_if': {'output_mode': 'highlights'}},
             'min_clip_seconds': {'type': 'number', 'default': 3, 'visible_if': {'output_mode': 'highlights'}},
@@ -337,12 +340,15 @@ class GeminiNode(Node):
 
     @staticmethod
     def _allowed_roots(workdir: Path, source: Path | None) -> list[Path]:
-        roots = [workdir.resolve(), workdir.resolve().parent]
-        for var in ('STORAGE_DIR', 'CLIPTORA_WORKFLOW_ROOT'):
-            if os.environ.get(var):
-                roots.append(Path(os.environ[var]).resolve())
+        roots = [
+            workdir.resolve(),
+            workdir.resolve().parent,
+            run_media_dir(workdir).parents[1].resolve(),
+        ]
+
         if source is not None:
             roots.append(source.resolve().parent)
+
         return roots
 
     @staticmethod
@@ -582,7 +588,7 @@ class GeminiNode(Node):
 
     @staticmethod
     def _safe_output(workdir: Path, node: dict, extension: str) -> Path:
-        folder = workdir / 'gemini_artifacts'
+        folder = run_media_dir(workdir) / 'gemini_artifacts'
         folder.mkdir(parents=True, exist_ok=True)
         ident = re.sub('[^a-zA-Z0-9_-]', '_', str(node.get('id') or 'gemini'))[:70]
         name = f'{ident}_{int(time.time() * 1000)}.{extension}'
@@ -889,6 +895,31 @@ class GeminiNode(Node):
         if not contents:
             raise ValueError('Gemini requires a prompt or at least one nonempty user message')
         body: dict[str, Any] = {'contents': contents}
+
+        requested_tools = cfg.get('built_in_tools') or []
+
+        names = {
+            'google_search': 'googleSearch',
+            'code_execution': 'codeExecution',
+        }
+
+        if not isinstance(requested_tools, list) or any(
+            not isinstance(item, str) or item not in names
+            for item in requested_tools
+        ):
+            raise ValueError('Unsupported Gemini built-in tool')
+
+        if requested_tools:
+            if json_schema is not None:
+                raise ValueError(
+                    'Built-in tools are not available in Highlights mode'
+                )
+
+            body['tools'] = [
+                {names[item]: {}}
+                for item in dict.fromkeys(requested_tools)
+            ]
+
         if system_prompt:
             body['systemInstruction'] = {'parts': [{'text': system_prompt}]}
         generation: dict[str, Any] = {'maxOutputTokens': GeminiNode._int_setting(cfg, 'max_output_tokens', 2048, 128, 32768)}
@@ -920,7 +951,7 @@ class GeminiNode(Node):
             message = ''.join((part['text'] for part in parts if isinstance(part, dict) and isinstance(part.get('text'), str)))
             if not message.strip():
                 raise ValueError(f"Gemini returned no text (finish reason: {candidate.get('finishReason', 'unknown')})")
-            return {'text': message, 'usage': data.get('usageMetadata') or {}, 'finish_reason': candidate.get('finishReason')}
+            return {'text': message, 'usage': data.get('usageMetadata') or {}, 'finish_reason': candidate.get('finishReason'), 'raw': data}
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise ValueError('Gemini returned an invalid or empty response') from exc
 
@@ -1040,6 +1071,10 @@ class GeminiNode(Node):
         if mode == 'json':
             cfg = {**cfg, 'output_content_as_json': True}
         response = GeminiNode._request(model, cfg, prompt, system)
+
+        if cfg.get('simplify_output') is False:
+            return response['raw']
+
         result: dict[str, Any] = {'model': model, 'text': response['text'], 'usage': response['usage'], 'finish_reason': response['finish_reason']}
         if mode == 'json' or bool(cfg.get('output_content_as_json')):
             parsed = GeminiNode._json_content(response['text'])

@@ -1,28 +1,107 @@
+
 export type WorkflowNode = {
   id: string
   type: string
   depends_on: string[]
-  when: 'always' | 'has_video' | 'has_transcript' | 'ai_enabled'
+  when: 'always' | 'has_video' | 'has_transcript' | 'ai_enabled' | 'condition_true' | 'condition_false' | 'route_0' | 'route_1' | 'route_2' | 'route_3' | 'route_4' | 'route_fallback'
   settings: Record<string, unknown>
   position?: { x: number; y: number }
   retry_limit?: number
   cache?: boolean
 }
-export type WorkflowDefinition = { id: number; name: string; nodes: WorkflowNode[]; version?: number; updated_at?: string }
-export type WorkflowVersion = { id: number; version: number; name: string; nodes: WorkflowNode[]; created_at: string }
-export type WorkflowTemplate = { key: string; name: string; description: string; nodes: WorkflowNode[] }
-export type WorkflowCatalogItem = {
-  type: string; label: string; group: string; settings: Record<string, unknown>
-  status?: 'implemented' | 'planned'; priority?: 'P0' | 'P1'; icon?: string
-  actions?: string[]; input_types?: string[]; output_types?: string[]
-  action_capabilities?: Record<string, { status: 'implemented' | 'unavailable'; group?: string; label?: string; reason?: string }>
-  parameters_schema?: Record<string, unknown>; credentials?: string[]; backend_executor?: string | null
+
+export type WorkflowDefinition = {
+  id: number
+  name: string
+  nodes: WorkflowNode[]
+  version?: number
+  updated_at?: string
 }
-export type WorkflowSource = { id: number; media_id: number | null; filename: string; size_bytes: number; created_at: string }
+
+export type WorkflowVersion = {
+  id: number
+  version: number
+  name: string
+  nodes: WorkflowNode[]
+  created_at: string
+}
+
+export type WorkflowTemplate = {
+  key: string
+  name: string
+  description: string
+  nodes: WorkflowNode[]
+}
+
+export type WorkflowCatalogInput = {
+  name: string
+  type: 'media' | string
+  title?: string
+  label?: string
+  accepts: string[]
+  required?: boolean
+  binding?: string
+  preview?: boolean
+  description?: string
+}
+
+export type WorkflowCatalogItem = {
+  type: string
+  label: string
+  group: string
+  settings: Record<string, unknown>
+  status?: 'implemented' | 'planned' | 'unavailable'
+  priority?: 'P0' | 'P1'
+  icon?: string
+  actions?: Array<string | {
+    id: string
+    label: string
+    resource?: string
+    icon?: string
+  }>
+  action_parameters?: Record<string, Record<string, unknown>>
+  source_picker?: boolean
+  inputs?: WorkflowCatalogInput[]
+  input_types?: string[]
+  output_types?: string[]
+  action_capabilities?: Record<string, {
+    status: 'implemented' | 'unavailable'
+    group?: string
+    label?: string
+    reason?: string
+  }>
+  parameters_schema?: Record<string, unknown>
+  credentials?: string[]
+  backend_executor?: string | null
+  description?: string
+  availability_reason?: string
+  source_package?: string
+  source_path?: string
+  source_license?: string
+  version?: string
+}
+
+export type WorkflowSource = {
+  id: number
+  media_id: number | null
+  filename: string
+  size_bytes: number
+  created_at: string
+}
+
 export type WorkflowRun = {
-  id: number; workflow_id: number; source_id: number | null
+  id: number
+  workflow_id: number
+  source_id: number | null
   state: 'queued' | 'running' | 'cancelling' | 'cancelled' | 'completed' | 'failed'
-  progress: number; current_node: string | null
-  results: Record<string, { state: string; type: string; artifact?: boolean; [key: string]: unknown }>
-  error: string | null; created_at: string
+  progress: number
+  current_node: string | null
+  results: Record<string, {
+    state: string
+    type: string
+    artifact?: boolean
+    [key: string]: unknown
+  }>
+  error: string | null
+  created_at: string
 }

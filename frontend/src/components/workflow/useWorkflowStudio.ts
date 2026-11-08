@@ -369,8 +369,8 @@ export function useWorkflowStudio({
   const setWorkflowSourceId = (value: number | null) => {
     const nextId =
       typeof value === 'number' &&
-      Number.isInteger(value) &&
-      value > 0 ? value : null
+        Number.isInteger(value) &&
+        value > 0 ? value : null
 
     setSourceId(nextId)
 
@@ -436,11 +436,11 @@ export function useWorkflowStudio({
         const sourceHandles = node.settings.__cliptora_ui_source_handles
         const nextHandles =
           sourceHandles &&
-          typeof sourceHandles === 'object' &&
-          !Array.isArray(sourceHandles)
+            typeof sourceHandles === 'object' &&
+            !Array.isArray(sourceHandles)
             ? Object.fromEntries(
-                Object.entries(sourceHandles).filter(([sourceId]) => sourceId !== id),
-              )
+              Object.entries(sourceHandles).filter(([sourceId]) => sourceId !== id),
+            )
             : sourceHandles
 
         return {
@@ -449,9 +449,9 @@ export function useWorkflowStudio({
           settings: nextHandles === sourceHandles
             ? node.settings
             : {
-                ...node.settings,
-                __cliptora_ui_source_handles: nextHandles,
-              },
+              ...node.settings,
+              __cliptora_ui_source_handles: nextHandles,
+            },
         }
       }),
     )
@@ -464,12 +464,12 @@ export function useWorkflowStudio({
       const result = run?.results?.[node.id]
       const status: StudioFlowNode['data']['status'] =
         result?.state === 'completed' ? 'done'
-        : result?.state === 'failed' ||
-          (run?.state === 'failed' && run.current_node === node.id)
-          ? 'failed'
-        : run?.state === 'running' && run.current_node === node.id
-          ? 'running'
-        : 'waiting'
+          : result?.state === 'failed' ||
+            (run?.state === 'failed' && run.current_node === node.id)
+            ? 'failed'
+            : run?.state === 'running' && run.current_node === node.id
+              ? 'running'
+              : 'waiting'
 
       const count = Object.entries(result ?? {})
         .find(([key]) => key.endsWith('_count'))?.[1]
@@ -485,23 +485,22 @@ export function useWorkflowStudio({
         data: {
           label:
             typeof node.settings.__cliptora_ui_label === 'string' &&
-            node.settings.__cliptora_ui_label.trim()
+              node.settings.__cliptora_ui_label.trim()
               ? node.settings.__cliptora_ui_label
               : catalog.find(item => item.type === node.type)?.label ?? node.type,
           pinned: node.settings.__cliptora_ui_pinned === true,
           note:
             node.settings.__cliptora_ui_note_visible === true &&
-            typeof node.settings.__cliptora_ui_notes === 'string'
+              typeof node.settings.__cliptora_ui_notes === 'string'
               ? node.settings.__cliptora_ui_notes
               : undefined,
           nodeType: node.type,
           subtitle: node.type === 'core.video_source'
             ? sources.find(item => item.id === node.settings.source_id)?.filename ??
-              'Select a video'
+            'Select a video'
             : node.depends_on.length
-              ? `${node.depends_on.length} connected input${
-                  node.depends_on.length === 1 ? '' : 's'
-                }`
+              ? `${node.depends_on.length} connected input${node.depends_on.length === 1 ? '' : 's'
+              }`
               : 'Start workflow here',
           meta: count !== undefined
             ? `${String(count)} items`
@@ -512,7 +511,7 @@ export function useWorkflowStudio({
         selected: selectedId === node.id,
       }
     }),
-  [nodes, catalog, selectedId, run, sources])
+    [nodes, catalog, selectedId, run, sources])
 
   const flowEdges = useMemo<Edge[]>(() =>
     nodes.flatMap(node =>
@@ -524,7 +523,7 @@ export function useWorkflowStudio({
         animated: run?.state === 'running' && run.current_node === node.id,
       })),
     ),
-  [nodes, run?.state, run?.current_node])
+    [nodes, run?.state, run?.current_node])
 
   const connect = (connection: Connection) => {
     if (
@@ -610,13 +609,13 @@ export function useWorkflowStudio({
 
       const result = savedId
         ? await api<WorkflowDefinition>(
-            `/workflows/${projectId}/definitions/${savedId}`,
-            { method: 'PUT', body: JSON.stringify(data) },
-          )
+          `/workflows/${projectId}/definitions/${savedId}`,
+          { method: 'PUT', body: JSON.stringify(data) },
+        )
         : await api<WorkflowDefinition>(
-            `/workflows/${projectId}/definitions`,
-            { method: 'POST', body: JSON.stringify(data) },
-          )
+          `/workflows/${projectId}/definitions`,
+          { method: 'POST', body: JSON.stringify(data) },
+        )
 
       activeIdRef.current = result.id
       setActiveId(result.id)
@@ -667,7 +666,7 @@ export function useWorkflowStudio({
     }, 650)
 
     return () => window.clearTimeout(timer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSnapshot, working, canvasDragging])
 
   useEffect(() => {
@@ -761,7 +760,9 @@ export function useWorkflowStudio({
         next,
         ...previous.filter(item => item.id !== next.id),
       ])
-      setMessage(`Testing ${nodeId} with its required upstream nodes.`)
+      setMessage(
+        `Executing ${nodeId} using previously completed upstream outputs.`,
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1055,9 +1056,8 @@ export function useWorkflowStudio({
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${
-      name.replace(/[^a-z0-9_-]+/gi, '_') || 'workflow'
-    }.json`
+    anchor.download = `${name.replace(/[^a-z0-9_-]+/gi, '_') || 'workflow'
+      }.json`
     anchor.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 10000)
   }

@@ -4,6 +4,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from app.workflows.Node import Node
+from app.workflows.MediaStorage import run_media_dir
 from app.helpers.Transcript import get_input
 from app.helpers import Media as media
 
@@ -56,6 +57,13 @@ class OutputNode(Node):
             args=['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y','-i',str(source),'-filter_complex',';'.join(graph),'-map','[outv]','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',str(tmp)]
             media.tool(*args,timeout=3600)
             if not tmp.is_file() or tmp.stat().st_size<=0:raise RuntimeError('FFmpeg returned an empty video')
-            tmp.replace(workdir/'final.mp4')
+            target = (
+                run_media_dir(workdir)
+                / 'videos'
+                / 'final.mp4'
+            )
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(tmp), str(target))
         return {'render':{'enabled':True,'status':'completed','filename':'final.mp4',
                           'duration':round(sum(d for _,d in fragments),3),'cuts':len(fragments)}}
