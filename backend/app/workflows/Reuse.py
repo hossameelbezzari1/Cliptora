@@ -37,9 +37,23 @@ REUSABLE_TYPES = frozenset({
 
 
 def signature(node: dict) -> dict:
-    """Compare executable node configuration, excluding canvas position."""
+    """Compare executable configuration, ignoring step-only metadata.
+
+    The Execute Step target flag is a temporary execution instruction,
+    not a user setting. It must not invalidate a completed node's
+    reusable output when the next downstream node is executed.
+    """
+    settings = node.get("settings")
+
+    if isinstance(settings, dict):
+        settings = {
+            key: value
+            for key, value in settings.items()
+            if key != STEP_TARGET_KEY
+        }
+
     return {
-        key: node.get(key)
+        key: settings if key == "settings" else node.get(key)
         for key in (
             "id",
             "type",

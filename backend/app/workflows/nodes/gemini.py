@@ -956,6 +956,131 @@ class GeminiNode(Node):
             raise ValueError('Gemini returned an invalid or empty response') from exc
 
     @staticmethod
+    def _message_input(
+        node: dict[str, Any],
+        outputs: dict[str, Any],
+        path: str,
+    ) -> Any:
+        """Resolve one expression message without evaluating arbitrary code."""
+        if path.strip():
+            try:
+                return resolve_input_path(outputs, path)
+            except ValueError:
+                # Targeted execution can reuse an AI Batch artifact created
+                # before compact_highlights existed. Materialize only this
+                # lightweight view in memory instead of invalidating the full
+                # word-aligned backend artifact.
+                normalized = path.strip()
+                wrapped = re.fullmatch(
+                    r'\{\{\s*(.*?)\s*\}\}', normalized
+                )
+                if wrapped:
+                    normalized = wrapped.group(1).strip()
+
+                parts = normalized.split('.')
+                if parts[-1:] == ['compact_highlights']:
+                    source = None
+                    if len(parts) == 2:
+                        source = outputs.get(parts[0])
+                    elif len(outputs) == 1:
+                        source = next(iter(outputs.values()))
+
+                    compact = GeminiNode._legacy_compact_highlights(source)
+                    if compact is not None:
+                        return compact
+
+                raise
+
+        dependencies = [
+            node_id for node_id in (node.get('depends_on') or [])
+            if isinstance(node_id, str) and node_id in outputs
+        ]
+
+        scoped = (
+            {node_id: outputs[node_id] for node_id in dependencies}
+            if dependencies else outputs
+        )
+        inferred = infer_text_input(scoped)
+
+        if len(scoped) == 1:
+            only_output = next(iter(scoped.values()))
+            compact = GeminiNode._legacy_compact_highlights(only_output)
+
+            if compact is not None:
+                return compact
+
+        if inferred:
+            return inferred[1]
+        if len(scoped) == 1:
+            return next(iter(scoped.values()))
+        if not scoped:
+            raise ValueError(
+                'Expression message needs a connected upstream node'
+            )
+
+        raise ValueError(
+            'Expression message has multiple upstream sources; select a field'
+        )
+
+    @staticmethod
+    def _legacy_compact_highlights(value: Any) -> list[dict[str, Any]] | None:
+        if not isinstance(value, dict):
+            return None
+
+        compact = value.get('compact_highlights')
+        if isinstance(compact, list):
+            return compact
+
+        merged = value.get('merged')
+        if not isinstance(merged, dict):
+            return None
+
+        from app.services.context.AIBatchProcessor import AIBatchProcessor
+
+        return AIBatchProcessor._compact_highlights(merged)
+
+    @staticmethod
+    def _resolve_expression_messages(
+        node: dict[str, Any],
+        cfg: dict[str, Any],
+        outputs: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], bool]:
+        messages = cfg.get('messages') or []
+        if not isinstance(messages, list):
+            return [], False
+
+        resolved: list[dict[str, Any]] = []
+        has_expression = False
+
+        for item in messages:
+            if not isinstance(item, dict):
+                resolved.append(item)
+                continue
+
+            mode = str(item.get('mode') or 'fixed').lower()
+            path = str(item.get('input_path') or '').strip()
+
+            if mode != 'expression':
+                resolved.append(dict(item))
+                continue
+
+            has_expression = True
+            value = GeminiNode._message_input(node, outputs, path)
+            text = (
+                value if isinstance(value, str)
+                else json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+            )
+
+            if not text.strip():
+                raise ValueError(
+                    'Expression message resolved to an empty upstream value'
+                )
+
+            resolved.append({**item, 'text': text})
+
+        return resolved, has_expression
+
+    @staticmethod
     def _json_content(value: str) -> Any:
         try:
             return json.loads(value)
@@ -1051,14 +1176,23 @@ class GeminiNode(Node):
             raise ValueError('output_mode must be text, json, or highlights')
         prompt = str(cfg.get('prompt') or '')
         system = str(cfg.get('system_prompt') or '')
+        resolved_messages, has_expression_messages = (
+            GeminiNode._resolve_expression_messages(node, cfg, outputs)
+        )
+        if resolved_messages != (cfg.get('messages') or []):
+            cfg = {**cfg, 'messages': resolved_messages}
         chosen_path = str(cfg.get('input_path') or '').strip()
         # Auto mode uses one unambiguous connected text output.
-        # An explicit path always takes precedence.
-        if chosen_path:
+        # An explicit legacy path always takes precedence. Per-message
+        # expression mappings are already materialized above and must not be
+        # appended a second time.
+        if chosen_path and not has_expression_messages:
             upstream_value = resolve_input_path(outputs, chosen_path)
-        else:
+        elif not has_expression_messages:
             inferred = infer_text_input(outputs)
             upstream_value = inferred[1] if inferred else None
+        else:
+            upstream_value = None
         if upstream_value is not None and upstream_value != '':
             payload_text = (upstream_value if isinstance(upstream_value, str)
                             else json.dumps(upstream_value, ensure_ascii=False))

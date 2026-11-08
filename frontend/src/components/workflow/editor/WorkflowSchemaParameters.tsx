@@ -593,9 +593,6 @@ function MessageEditor({
     : [{ role: 'user', text: '' }]
 
   const [closed, setClosed] = useState<Record<number, boolean>>({})
-  const [expression, setExpression] =
-    useState<Record<number, boolean>>({})
-
   const dragging = useRef<number | null>(null)
 
   const update = (index: number, patch: Partial<Message>) =>
@@ -653,7 +650,18 @@ function MessageEditor({
       </div>
 
       <div className="space-y-3">
-        {shown.map((message, index) => (
+        {shown.map((message, index) => {
+          const legacyExpression = message.mode === undefined &&
+            Boolean(upstreamPath) &&
+            !String(message.text ?? '').trim()
+          const messageMode = message.mode === 'expression' || legacyExpression
+            ? 'expression'
+            : 'fixed'
+          const messagePath = typeof message.input_path === 'string'
+            ? message.input_path
+            : (messageMode === 'expression' ? upstreamPath : '')
+
+          return (
           <div
             key={`${node.id}-message-${index}`}
             className="overflow-hidden rounded-[15px] border border-[#e2e2e5] bg-white dark:border-[#414753] dark:bg-cl-dark-panel"
@@ -730,18 +738,15 @@ function MessageEditor({
                             key={mode}
                             type="button"
                             aria-pressed={
-                              Boolean(expression[index]) ===
-                              (mode === 'Expression')
+                              messageMode === mode.toLowerCase()
                             }
-                            onClick={() =>
-                              setExpression(previous => ({
-                                ...previous,
-                                [index]:
-                                  mode === 'Expression',
-                              }))
-                            }
-                            className={`rounded-md px-2.5 py-1.5 text-[11px] transition-colors ${Boolean(expression[index]) ===
-                                (mode === 'Expression')
+                            onClick={() => update(index, {
+                              mode: mode.toLowerCase(),
+                              ...(mode === 'Expression' && !message.input_path
+                                ? { input_path: upstreamPath }
+                                : {}),
+                            })}
+                            className={`rounded-md px-2.5 py-1.5 text-[11px] transition-colors ${messageMode === mode.toLowerCase()
                                 ? 'bg-white text-[#222] shadow-sm dark:bg-[#4a5567] dark:text-white'
                                 : 'text-[#555] dark:text-[#c9ced7]'
                               }`}
@@ -753,21 +758,28 @@ function MessageEditor({
                     </div>
                   </div>
 
-                  {expression[index] ? (
+                  {messageMode === 'expression' ? (
                     <div className="rounded-lg border border-[#e6e6e9] p-3 dark:border-[#414753]">
                       <WorkflowInputSelector
                         node={node}
                         studio={studio}
                         inputValue={inputValue}
                         kind="text"
-                        value={upstreamPath}
-                        onChange={onUpstreamPathChange}
+                        value={messagePath}
+                        onChange={path => {
+                          update(index, {
+                            mode: 'expression',
+                            input_path: path,
+                          })
+                          onUpstreamPathChange('')
+                        }}
                       />
 
                       <p className="mt-2 text-[11px] leading-4 text-[#888] dark:text-[#b8bec7]">
-                        This selects the shared upstream input
-                        path used by this operation. Message
-                        text remains unchanged.
+                        The selected upstream value becomes this
+                        message at execution time. Auto prefers
+                        compact highlights, then uses the only
+                        connected upstream node.
                       </p>
                     </div>
                   ) : (
@@ -807,7 +819,8 @@ function MessageEditor({
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       <button
@@ -942,7 +955,12 @@ export function WorkflowSchemaParameters({
   hasAgentModel,
 }: WorkflowNodeParametersProps) {
   const settings = node.settings
-  const provider = catalog?.credentials?.[0] ?? ''
+  const configuredProvider = String(settings.provider ?? '').toLowerCase()
+  const provider = node.type === 'ai.batch'
+    ? (configuredProvider === 'gemini' || configuredProvider === 'openai'
+      ? configuredProvider
+      : '')
+    : catalog?.credentials?.[0] ?? ''
 
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [credentialsError, setCredentialsError] = useState('')
@@ -1009,6 +1027,9 @@ export function WorkflowSchemaParameters({
   const isGeminiMessage =
     node.type === 'ai.gemini' &&
     action === 'message_model'
+
+  const modelAction =
+    node.type === 'ai.batch' ? 'message_model' : action
 
   const isSource = catalog?.source_picker === true
 
@@ -1166,7 +1187,7 @@ export function WorkflowSchemaParameters({
 
   const suggestedModels = useMemo((): ModelOption[] => {
     if (provider === 'gemini') {
-      return modelsForGeminiAction(action).map(item => {
+      return modelsForGeminiAction(modelAction).map(item => {
         const id = item.id.replace(/^models\//, '')
 
         return {
@@ -1178,19 +1199,19 @@ export function WorkflowSchemaParameters({
     }
 
     if (provider === 'openai') {
-      return modelsForOpenAIAction(action)
+      return modelsForOpenAIAction(modelAction)
     }
 
     return (fields.model?.options ?? []).map(option => ({
       id: option.value,
       label: option.label,
     }))
-  }, [provider, action, fields.model])
+  }, [provider, modelAction, fields.model])
 
   const filteredLive = models.filter(
     id =>
       provider !== 'gemini' ||
-      action !== 'message_model' ||
+      modelAction !== 'message_model' ||
       (
         /^gemini-/i.test(id) &&
         !/(embedding|image|tts|speech|native-audio|live|realtime)/i.test(id)
@@ -1777,9 +1798,24 @@ export function WorkflowSchemaParameters({
           node={node}
           studio={studio}
           inputValue={inputValue}
-          onChange={next =>
-            onChange(name, next)
-          }
+          onChange={next => {
+            if (
+              node.type === 'ai.batch' &&
+              name === 'provider' &&
+              next !== settings.provider
+            ) {
+              studio.updateNode(node.id, {
+                settings: {
+                  ...settings,
+                  provider: next,
+                  credential_id: null,
+                  model: '',
+                },
+              })
+            } else {
+              onChange(name, next)
+            }
+          }}
         />
       ))}
 

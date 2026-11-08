@@ -26,6 +26,13 @@ const obj = (x: unknown): Record<string, unknown> =>
 
 function collect(value: unknown, root: string, group: string, kind: Kind): Choice[] {
   const found: Choice[] = []
+  const seen = new Set<string>()
+
+  const add = (choice: Choice) => {
+    if (seen.has(choice.path)) return
+    seen.add(choice.path)
+    found.push(choice)
+  }
 
   const visit = (v: unknown, path: string, depth: number) => {
     if (depth > 4 || found.length >= 120 || v == null) return
@@ -35,7 +42,7 @@ function collect(value: unknown, root: string, group: string, kind: Kind): Choic
       const isMedia = mediaKey.test(key) && mediaValue.test(v)
 
       if (kind === 'media' ? isMedia : kind === 'text' ? !isMedia : true) {
-        found.push({
+        add({
           path,
           label: path.slice(root.length + 1),
           group,
@@ -47,19 +54,25 @@ function collect(value: unknown, root: string, group: string, kind: Kind): Choic
 
     if (Array.isArray(v)) {
       if (kind !== 'media') {
-        found.push({
+        add({
           path,
           label: path.slice(root.length + 1),
           group,
           kind: `array (${v.length})`,
         })
       }
+
+      for (const sample of v
+        .filter(item => item !== undefined && item !== null)
+        .slice(0, 5)) {
+        visit(sample, `${path}[]`, depth + 1)
+      }
       return
     }
 
     if (typeof v !== 'object') {
-      if (kind === 'any') {
-        found.push({
+      if (kind === 'any' || kind === 'text') {
+        add({
           path,
           label: path.slice(root.length + 1),
           group,
@@ -67,6 +80,15 @@ function collect(value: unknown, root: string, group: string, kind: Kind): Choic
         })
       }
       return
+    }
+
+    if (kind === 'text' && path.includes('[]')) {
+      add({
+        path,
+        label: path.slice(root.length + 1),
+        group,
+        kind: 'json',
+      })
     }
 
     for (const [key, child] of Object.entries(obj(v)).slice(0, 120)) {
@@ -163,7 +185,7 @@ export function WorkflowInputSelector({
         value={value}
         onChange={event => onChange(event.target.value)}
         className={`${fieldClass} font-mono`}
-        placeholder="node_id.field"
+        placeholder="node_id.items[].value"
       />
     )}
   </section>

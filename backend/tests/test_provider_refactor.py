@@ -31,6 +31,263 @@ def test_gemini_message_dispatch(monkeypatch):
     assert result['text'] == 'mock text'
 
 
+def test_gemini_expression_message_resolves_ai_batch_items(monkeypatch):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['messages'] = cfg['messages']
+        captured['prompt'] = prompt
+        return {'text': 'mock text', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    outputs = {
+        'ai_batch': {
+            'merged': {
+                'items': [
+                    {'value': {'title': 'First'}},
+                    {'value': {'title': 'Second'}},
+                ]
+            }
+        }
+    }
+    settings = {
+        'action': 'message_model',
+        'messages': [{
+            'role': 'user',
+            'text': '',
+            'mode': 'expression',
+            'input_path': 'ai_batch.merged.items[].value',
+        }],
+    }
+
+    result = GeminiNode().execute(
+        'ai.gemini',
+        {
+            'id': 'gemini',
+            'type': 'ai.gemini',
+            'depends_on': ['ai_batch'],
+            'settings': settings,
+        },
+        outputs,
+        None,
+        Path('.'),
+    )
+
+    assert result['text'] == 'mock text'
+    assert captured['prompt'] == ''
+    assert captured['messages'][0]['text'] == (
+        '[{"title":"First"},{"title":"Second"}]'
+    )
+
+
+def test_gemini_expression_selects_compact_highlights_only(monkeypatch):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['text'] = cfg['messages'][0]['text']
+        return {'text': 'ok', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    compact = [{
+        'title': 'First',
+        'selected_text': 'Short exact quote',
+        'start': 1.0,
+        'end': 4.0,
+        'duration': 3.0,
+        'score': 0.9,
+        'reason': 'Strong moment',
+    }]
+    noisy = {
+        'compact_highlights': compact,
+        'merged': {
+            'items': [{
+                'value': {
+                    **compact[0],
+                    'references': [{'word': index} for index in range(500)],
+                },
+            }],
+        },
+        'provenance': [{'duplicate': 'metadata'}],
+    }
+
+    GeminiNode().execute(
+        'ai.gemini',
+        {
+            'id': 'gemini',
+            'type': 'ai.gemini',
+            'depends_on': ['ai_batch'],
+            'settings': {
+                'messages': [{
+                    'role': 'user',
+                    'text': '',
+                    'mode': 'expression',
+                    'input_path': 'ai_batch.compact_highlights',
+                }],
+            },
+        },
+        {'ai_batch': noisy},
+        None,
+        Path('.'),
+    )
+
+    assert captured['text'] == (
+        '[{"title":"First","selected_text":"Short exact quote",'
+        '"start":1.0,"end":4.0,"duration":3.0,"score":0.9,'
+        '"reason":"Strong moment"}]'
+    )
+    assert 'references' not in captured['text']
+    assert 'provenance' not in captured['text']
+
+
+def test_gemini_expression_auto_prefers_compact_highlights(monkeypatch):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['text'] = cfg['messages'][0]['text']
+        return {'text': 'ok', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    compact = [{'title': 'Only compact data'}]
+
+    GeminiNode().execute(
+        'ai.gemini',
+        {
+            'id': 'gemini',
+            'type': 'ai.gemini',
+            'depends_on': ['ai_batch'],
+            'settings': {
+                'messages': [{
+                    'role': 'user',
+                    'text': '',
+                    'mode': 'expression',
+                    'input_path': '',
+                }],
+            },
+        },
+        {
+            'ai_batch': {
+                'compact_highlights': compact,
+                'merged': {'large': 'ignored'},
+            },
+        },
+        None,
+        Path('.'),
+    )
+
+    assert captured['text'] == '[{"title":"Only compact data"}]'
+
+
+def test_gemini_expression_projects_compact_from_legacy_batch_cache(
+    monkeypatch,
+):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['text'] = cfg['messages'][0]['text']
+        return {'text': 'ok', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    legacy = {
+        'merged': {
+            'items': [{
+                'value': {
+                    'title': 'Legacy cached highlight',
+                    'selected_text': 'Exact words',
+                    'start': 2.0,
+                    'end': 5.0,
+                    'duration': 3.0,
+                    'score': 0.8,
+                    'reason': 'Relevant',
+                    'references': [
+                        {'word': index} for index in range(200)
+                    ],
+                },
+                'references': [
+                    {'duplicated': index} for index in range(200)
+                ],
+            }],
+            'merged_object': {},
+            'provenance': [{'large': 'metadata'}],
+        },
+    }
+
+    GeminiNode().execute(
+        'ai.gemini',
+        {
+            'id': 'gemini',
+            'type': 'ai.gemini',
+            'depends_on': ['ai_batch'],
+            'settings': {
+                'messages': [{
+                    'role': 'user',
+                    'text': '',
+                    'mode': 'expression',
+                    'input_path': 'ai_batch.compact_highlights',
+                }],
+            },
+        },
+        {'ai_batch': legacy},
+        None,
+        Path('.'),
+    )
+
+    assert 'Legacy cached highlight' in captured['text']
+    assert 'references' not in captured['text']
+    assert 'provenance' not in captured['text']
+
+
+def test_gemini_expression_message_auto_uses_only_dependency(monkeypatch):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['text'] = cfg['messages'][0]['text']
+        return {'text': 'ok', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    result = GeminiNode().execute(
+        'ai.gemini',
+        {
+            'id': 'gemini',
+            'type': 'ai.gemini',
+            'depends_on': ['upstream'],
+            'settings': {
+                'messages': [{
+                    'role': 'user',
+                    'text': '',
+                    'mode': 'expression',
+                    'input_path': '',
+                }],
+            },
+        },
+        {'older': {'text': 'ignore'}, 'upstream': {'answer': 42}},
+        None,
+        Path('.'),
+    )
+
+    assert result['text'] == 'ok'
+    assert captured['text'] == '{"answer":42}'
+
+
+def test_gemini_fixed_messages_remain_unchanged(monkeypatch):
+    captured = {}
+
+    def request(model, cfg, prompt, system, **kwargs):
+        captured['messages'] = cfg['messages']
+        return {'text': 'ok', 'usage': {}, 'finish_reason': 'STOP'}
+
+    monkeypatch.setattr(GeminiNode, '_request', staticmethod(request))
+    fixed = [{'role': 'user', 'text': 'fixed prompt'}]
+
+    result = _execute(
+        'ai.gemini', GeminiNode,
+        {'action': 'message_model', 'messages': fixed},
+        {'upstream': {'text': 'dynamic'}},
+    )
+
+    assert result['text'] == 'ok'
+    assert captured['messages'] == fixed
+
+
 def test_gemini_media_dispatch(monkeypatch):
     monkeypatch.setattr(GeminiNode, '_key', staticmethod(lambda: 'mock'))
     monkeypatch.setattr(GeminiNode, '_uploaded', staticmethod(lambda *a, **k: {
