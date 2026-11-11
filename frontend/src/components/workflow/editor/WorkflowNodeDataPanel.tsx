@@ -1,6 +1,7 @@
 import { useState, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { ArrowRight, ChevronDown, ChevronRight, Copy, GripVertical, LoaderCircle, Play, RefreshCw, Search, X, Zap } from 'lucide-react'
 import { WorkflowToolIcon } from '../WorkflowToolIcon'
+import { fileUrl } from '../../../lib/api'
 import { WorkflowNodeInputTree, WorkflowVariablesContext } from './WorkflowNodeInputTree'
 import type { WorkflowStudioState } from '../useWorkflowStudio'
 import { getNodeUI } from '../nodeRegistry'
@@ -160,6 +161,11 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
   })
   const activeInput = inputSources.find(source => source.id === selectedInputId) ?? inputSources[0]
   const activeVideoSource = sources.find(source => source.id === sourceId) ?? null
+  const sourceMediaUrl = activeVideoSource
+    ? (studio.previewMedia
+      ? fileUrl(studio.previewMedia.id)
+      : `${import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1'}/workflows/${studio.projectId}/sources/${activeVideoSource.id}/stream`)
+    : undefined
   const CustomInput = selected ? getNodeUI(selected.type)?.Input : undefined
   const CustomOutput = selected ? getNodeUI(selected.type)?.Output : undefined
   const downstream = selected ? nodes.filter(node => node.depends_on.includes(selected.id)) : []
@@ -285,7 +291,7 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
         </div>}
         {loadingData && !known ? <div className="flex min-h-[180px] items-center justify-center gap-2 text-xs text-[#888] dark:text-[#b8bec7]"><LoaderCircle size={16} className="animate-spin" /> Loading data…</div>
           : known ? (CustomOutput && view === 'schema' && !query.trim()
-            ? <CustomOutput value={value} />
+            ? <CustomOutput value={value} mediaUrl={sourceMediaUrl} />
             : <DataInspector value={value} view={view} label={side} query={query} onCopy={() => void copyData(side, value)} />)
             : waitingForOutput ? <div className="px-5 py-8 text-center text-[12px] leading-6 text-[#777] dark:text-[#b8bec7]">The output JSON will appear automatically when this node finishes.</div>
             : <EmptyData

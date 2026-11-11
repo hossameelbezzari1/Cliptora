@@ -1,4 +1,5 @@
 import type { WorkflowNodeUI } from './nodeTypes'
+import { WorkflowRemixOutput } from './preview/WorkflowRemixOutput'
 
 // Eager glob lets Vite discover newly created TSX modules at build time.
 // Backend catalog still authorizes which types may appear or execute.
@@ -16,7 +17,9 @@ for (const [path, module] of Object.entries(modules)) {
 }
 
 export function getNodeUI(type: string): WorkflowNodeUI | undefined {
-  return registered.get(type)
+  return registered.get(type) ?? (type.startsWith('video.remix_')
+    ? { type, Output: WorkflowRemixOutput }
+    : undefined)
 }
 
 export function registeredUINodeTypes(): string[] {

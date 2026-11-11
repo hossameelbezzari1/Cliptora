@@ -94,7 +94,14 @@ export function NodeProgress({
       : null
   const reportedProgress = asNumber(node.progress)
   const value = completed ? 100 : reportedProgress ?? derivedProgress
-  const percent = value === null ? null : Math.max(0, Math.min(100, Math.round(value)))
+
+  const progressValue = value === null
+    ? null
+    : Math.max(0, Math.min(100, value))
+
+  const percent = progressValue === null
+    ? null
+    : Math.round(progressValue)
 
   const stage = String(node.stage || (queued ? 'queued' : 'processing'))
     .replace(/[_-]/g, ' ')
@@ -106,6 +113,18 @@ export function NodeProgress({
   const elapsed = started === null
     ? asNumber(node.elapsed_seconds)
     : Math.max(0, ((running ? now : finished ?? now) - started) / 1000)
+
+  const etaSeconds = asNumber(node.eta_seconds) ?? (
+    elapsed !== null &&
+    progressValue !== null &&
+    progressValue > 0 &&
+    progressValue < 100
+      ? elapsed * (100 - progressValue) / progressValue
+      : null
+  )
+
+  const speed = asNumber(node.speed)
+
   const unit = typeof node.unit === 'string' ? node.unit : 'items'
 
   const StatusIcon = failed ? AlertCircle : completed ? CheckCircle2 : queued ? Clock3 : LoaderCircle
@@ -130,7 +149,13 @@ export function NodeProgress({
                 style={{ width: `${percent}%` }} />
             : <div className="h-full w-1/3 animate-pulse rounded-full bg-[#a78bfa]" />}
         </div>
-        {elapsed !== null && <div className="mt-1 text-[10px] tabular-nums text-[#888] dark:text-[#b8bec7]">{formatTime(elapsed)} elapsed</div>}
+        {(elapsed !== null || (!failed && etaSeconds !== null) || speed !== null) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[10px] tabular-nums text-[#888] dark:text-[#b8bec7]">
+            {elapsed !== null && <span>{formatTime(elapsed)} elapsed</span>}
+            {!failed && etaSeconds !== null && <span>{formatTime(etaSeconds)} ETA</span>}
+            {speed !== null && <span>{speed.toFixed(2)}× realtime</span>}
+          </div>
+        )}
       </div>
     )
   }
@@ -146,7 +171,26 @@ export function NodeProgress({
   if (segments !== null) metrics.push({ label: 'Segments', value: segments.toLocaleString() })
   if (frames !== null) metrics.push({ label: 'Frames', value: frames.toLocaleString() })
   if (requests !== null) metrics.push({ label: 'Requests', value: requests.toLocaleString() })
-  if (elapsed !== null) metrics.push({ label: 'Real elapsed time', value: formatTime(elapsed) })
+  if (elapsed !== null) {
+    metrics.push({
+      label: 'Real elapsed time',
+      value: formatTime(elapsed),
+    })
+  }
+
+  if (!failed && etaSeconds !== null) {
+    metrics.push({
+      label: 'Estimated remaining',
+      value: formatTime(etaSeconds),
+    })
+  }
+
+  if (speed !== null) {
+    metrics.push({
+      label: 'Encoding speed',
+      value: `${speed.toFixed(2)}× realtime`,
+    })
+  }
 
   return (
     <section className={`rounded-xl border border-[#e7e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel p-4 text-[#292929] dark:text-[#f3f4f6] ${className}`}

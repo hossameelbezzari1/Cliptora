@@ -53,6 +53,10 @@ class WorkflowController:
     def source_from_media(self, project_id: int, media_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.source_from_media(project_id=project_id, media_id=media_id, db=db, user=user)
 
+    def source_video(self, project_id: int, source_id: int,
+                     db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        return self.service.source_video(project_id=project_id, source_id=source_id,
+                                         db=db, user=user)
     def start_run(self, project_id: int, body: StartRun, background: BackgroundTasks, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.start_run(project_id=project_id, body=body, background=background, db=db, user=user)
 
@@ -96,6 +100,7 @@ router.add_api_route('/{project_id}/definitions/{definition_id}', controller.del
 router.add_api_route('/{project_id}/sources', controller.sources, methods=["GET"])
 router.add_api_route('/{project_id}/sources', controller.upload_source, methods=["POST"], status_code=201)
 router.add_api_route('/{project_id}/sources/from-media/{media_id}', controller.source_from_media, methods=["POST"], status_code=201)
+router.add_api_route('/{project_id}/sources/{source_id}/stream', controller.source_video, methods=['GET'])
 router.add_api_route('/{project_id}/runs', controller.start_run, methods=["POST"], status_code=202)
 router.add_api_route('/{project_id}/runs', controller.runs, methods=["GET"])
 router.add_api_route('/{project_id}/runs/{run_id}', controller.run_detail, methods=["GET"])

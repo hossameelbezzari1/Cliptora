@@ -285,6 +285,8 @@ def run_graph(
                     "segments_processed",
                     "frames_processed",
                     "requests_processed",
+                    "eta_seconds",
+                    "speed",
                 ):
                     value = event.get(field)
 
@@ -539,6 +541,8 @@ def run_graph(
             "segments_processed",
             "frames_processed",
             "requests_processed",
+            "eta_seconds",
+            "speed",
             "unit",
         ):
             if metric in previous_progress:

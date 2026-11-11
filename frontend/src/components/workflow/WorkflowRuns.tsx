@@ -28,6 +28,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
+import NodeProgress from './editor/NodeProgress'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 
 type Dict = Record<string, unknown>
@@ -475,17 +476,76 @@ export function WorkflowRuns({
       {/* Right: selected execution + read-only workflow graph */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex min-h-[86px] shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#ebebeb] bg-white px-4 py-3 sm:px-6 dark:border-[#393939] dark:bg-[#202020]">
-          <div className="min-w-0">
-            <h3 className="truncate text-[21px] font-normal leading-7 tracking-[-0.3px]">{previewRun ? formatDate(previewRun) : 'Select an execution'}</h3>
-            {previewRun && (
-              <p className="mt-[3px] text-[16px] leading-6 text-[#555] dark:text-[#c5c5c5]">
-                <span title={getString(asDict(previewRun), 'error') || undefined} className={['failed', 'error'].includes(previewRun.state) ? 'text-[#f01414]' : ['completed', 'success', 'succeeded'].includes(previewRun.state) ? 'text-[#24975d]' : 'text-[#b08300]'}>{stateLabel(previewRun.state)}</span>
-                {getDuration(previewRun) && <> in {getDuration(previewRun)}</>}
-                {getOutputSize(previewRun) && <> | {getOutputSize(previewRun)}</>}
-                {' | '}ID#{previewRun.id}
-              </p>
-            )}
+          
+<div className="min-w-0">
+  <h3 className="truncate text-[21px] font-normal leading-7 tracking-[-0.3px]">
+    {previewRun ? formatDate(previewRun) : 'Select an execution'}
+  </h3>
+
+  {previewRun && (
+    <>
+      <p className="mt-[3px] text-[16px] leading-6 text-[#555] dark:text-[#c5c5c5]">
+        <span
+          title={getString(asDict(previewRun), 'error') || undefined}
+          className={
+            ['failed', 'error'].includes(previewRun.state)
+              ? 'text-[#f01414]'
+              : ['completed', 'success', 'succeeded'].includes(previewRun.state)
+                ? 'text-[#24975d]'
+                : 'text-[#b08300]'
+          }
+        >
+          {stateLabel(previewRun.state)}
+        </span>
+
+        {getDuration(previewRun) && (
+          <> in {getDuration(previewRun)}</>
+        )}
+
+        {getOutputSize(previewRun) && (
+          <> | {getOutputSize(previewRun)}</>
+        )}
+
+        {' | '}ID#{previewRun.id}
+      </p>
+
+      {['queued', 'running', 'cancelling'].includes(previewRun.state) && (
+        <div className="mt-2 max-w-[420px]">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-[#777] dark:text-[#b8bec7]">
+            <span>Workflow progress</span>
+
+            <span className="font-semibold tabular-nums">
+              {Math.round(
+                Math.max(
+                  0,
+                  Math.min(100, previewRun.progress ?? 0)
+                )
+              )}%
+            </span>
           </div>
+
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#ececec] dark:bg-[#303030]">
+            <div
+              className="h-full rounded-full bg-violet-600 transition-[width] duration-300"
+              style={{
+                width: `${Math.max(
+                  0,
+                  Math.min(100, previewRun.progress ?? 0)
+                )}%`,
+              }}
+            />
+          </div>
+
+          {previewRun.current_node && (
+            <p className="mt-1 truncate text-[11px] text-[#777] dark:text-[#b8bec7]">
+              Current node: {previewRun.current_node}
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  )}
+</div>
           <div className="flex flex-wrap items-center gap-2.5">
             {previewRun && !isActivePreview && <button type="button" onClick={activatePreview} className="rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-100" title="Only activate this execution for existing run actions; nothing is applied to the timeline">Use this execution</button>}
             <button type="button" disabled={!previewRun || !canDebug || (!isActivePreview && !extra.debugInEditor && !extra.openRunInEditor)} title={!canDebug ? 'Connect an editor-navigation action in useWorkflowStudio' : 'Debug in editor'} onClick={openEditor} className="h-11 rounded-full border border-[#dfdfdf] bg-white px-4 text-[16px] shadow-sm transition-colors hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#484848] dark:bg-[#262626] dark:hover:bg-[#303030]">Debug in editor</button>
@@ -562,6 +622,17 @@ export function WorkflowRuns({
                 <button type="button" aria-label="Close node details" className="rounded p-1 hover:bg-[#f2f2f2]" onClick={() => setSelectedNode(null)}><X size={16} /></button>
               </div>
               <p className="mt-2 text-xs text-[#777]">{getString(selectedDetails, 'state', 'status') || 'No detailed result available for this execution'}</p>
+
+              {previewRun && (
+                <NodeProgress
+                  run={previewRun}
+                  nodeId={selectedNode}
+                  label={graphNodes.get(selectedNode)?.label ?? selectedNode}
+                  variant="compact"
+                  className="mt-3"
+                />
+              )}
+
               {getString(selectedDetails, 'error') && <p className="mt-2 break-words text-xs text-red-600">{getString(selectedDetails, 'error')}</p>}
               {selectedDetails && <pre className="mt-3 max-h-[min(45vh,350px)] overflow-auto rounded-lg bg-[#f5f5f5] p-3 text-[11px] leading-5 text-[#333]">{JSON.stringify(selectedDetails, null, 2)}</pre>}
               {!selectedDetails && <p className="mt-3 text-xs leading-5 text-[#777]">You can inspect the workflow without activating it. Detailed node results require a saved execution payload.</p>}

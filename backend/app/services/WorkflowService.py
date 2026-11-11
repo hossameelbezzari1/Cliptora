@@ -571,6 +571,22 @@ class WorkflowService:
 
         return view_source(row)
 
+    def source_video(self, project_id: int, source_id: int,
+                     db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        """Authorized video streaming for browser-only remix preview."""
+        authorize(db, project_id, user.id)
+        item = owner(db, WorkflowSource, source_id, user.id, project_id)
+        try:
+            path = source_location(db, item)
+        except FileNotFoundError as exc:
+            raise HTTPException(404, "Workflow source video not found") from exc
+        mime = {".mp4": "video/mp4", ".webm": "video/webm",
+                ".mov": "video/quicktime", ".m4v": "video/mp4",
+                ".mkv": "video/x-matroska"}.get(path.suffix.lower())
+        if not mime:
+            raise HTTPException(415, "Unsupported preview media format")
+        return FileResponse(path, media_type=mime, content_disposition_type="inline",
+                            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
     def start_run(self, project_id: int, body: StartRun, background: BackgroundTasks, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
         definition = owner(db, WorkflowDefinition, body.workflow_id, user.id, project_id)

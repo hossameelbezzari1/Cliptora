@@ -4,8 +4,12 @@ from __future__ import annotations
 import json
 import math
 import subprocess
+import time
+from collections import deque
+from queue import Empty, Queue
+from threading import Thread
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def tool(*args: str, timeout: int = 120) -> str:
@@ -22,6 +26,253 @@ def tool(*args: str, timeout: int = 120) -> str:
     if process.returncode != 0:
         raise RuntimeError(f"{args[0]} failed: {process.stderr[-1200:]}")
     return process.stdout
+
+
+def tool_progress(
+    *args: str,
+    timeout: int = 3600,
+    total_seconds: float | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> str:
+    """Execute FFmpeg and consume its machine-readable progress output."""
+
+    if not args:
+        raise ValueError("Media command is empty")
+
+    if not isinstance(timeout, int) or timeout < 1:
+        raise ValueError("Media timeout must be positive")
+
+    duration = _number(total_seconds)
+
+    if duration is not None and duration <= 0:
+        duration = None
+
+    try:
+        process = subprocess.Popen(
+            list(args),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"Missing media tool: {args[0]}. Install FFmpeg and add it to PATH"
+        ) from exc
+
+    stderr_tail = deque(maxlen=80)
+    output_queue: Queue[str | None] = Queue()
+
+    def read_stdout():
+        try:
+            if process.stdout is not None:
+                for line in process.stdout:
+                    output_queue.put(line)
+        finally:
+            output_queue.put(None)
+
+    def read_stderr():
+        if process.stderr is not None:
+            for line in process.stderr:
+                stderr_tail.append(line.rstrip())
+
+    stdout_thread = Thread(
+        target=read_stdout,
+        daemon=True,
+    )
+
+    stderr_thread = Thread(
+        target=read_stderr,
+        daemon=True,
+    )
+
+    stdout_thread.start()
+    stderr_thread.start()
+
+    def stop_process():
+        if process.poll() is None:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    process.kill()
+                except OSError:
+                    pass
+
+                process.wait()
+
+    started = time.monotonic()
+    fields: dict[str, str] = {}
+
+    try:
+        while True:
+
+            if time.monotonic() - started > timeout:
+                raise RuntimeError(
+                    f"Media process exceeded {timeout}s"
+                )
+
+            try:
+                line = output_queue.get(timeout=0.25)
+
+            except Empty:
+                if process.poll() is not None and output_queue.empty():
+                    break
+
+                continue
+
+            if line is None:
+                break
+
+            line = line.strip()
+
+            if not line or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            fields[key] = value
+
+            if key != "progress":
+                continue
+
+            processed = None
+
+            for time_key in (
+                "out_time_us",
+                "out_time_ms",
+            ):
+                raw = fields.get(time_key)
+
+                if raw:
+                    try:
+                        parsed = float(raw) / 1_000_000
+
+                        if math.isfinite(parsed) and parsed >= 0:
+                            processed = parsed
+                            break
+
+                    except (ValueError, TypeError):
+                        pass
+
+            if processed is None:
+                raw = fields.get("out_time")
+
+                if raw and raw != "N/A":
+                    try:
+                        hours, minutes, seconds = raw.split(":")
+
+                        processed = (
+                            float(hours) * 3600
+                            + float(minutes) * 60
+                            + float(seconds)
+                        )
+
+                    except (ValueError, TypeError):
+                        pass
+
+            speed = None
+
+            speed_text = fields.get(
+                "speed",
+                "",
+            ).strip().lower()
+
+            if speed_text.endswith("x"):
+                speed_text = speed_text[:-1]
+
+            try:
+                parsed_speed = float(speed_text)
+
+                if math.isfinite(parsed_speed) and parsed_speed > 0:
+                    speed = parsed_speed
+
+            except (ValueError, TypeError):
+                pass
+
+            if (
+                duration is not None
+                and processed is not None
+                and callable(progress_callback)
+            ):
+                processed = min(
+                    duration,
+                    max(0.0, processed),
+                )
+
+                percent = min(
+                    99.0,
+                    max(0.0, processed / duration * 100),
+                )
+
+                event = {
+                    "stage": "rendering",
+                    "message": "Rendering video with FFmpeg",
+                    "progress": round(percent, 2),
+                    "processed_seconds": round(processed, 3),
+                    "total_seconds": round(duration, 3),
+                    "unit": "seconds",
+                }
+
+                if speed is not None:
+                    event["speed"] = round(speed, 3)
+
+                    event["eta_seconds"] = round(
+                        max(0.0, duration - processed) / speed,
+                        2,
+                    )
+
+                progress_callback(event)
+
+            fields.clear()
+
+        return_code = process.wait(
+            timeout=max(
+                0.1,
+                timeout - (time.monotonic() - started),
+            )
+        )
+
+    except subprocess.TimeoutExpired as exc:
+        stop_process()
+
+        raise RuntimeError(
+            f"Media process exceeded {timeout}s"
+        ) from exc
+
+    except BaseException:
+        stop_process()
+        raise
+
+    finally:
+        stdout_thread.join(timeout=1)
+        stderr_thread.join(timeout=1)
+
+        for stream in (
+            process.stdout,
+            process.stderr,
+        ):
+            if stream is not None:
+                stream.close()
+
+    if return_code != 0:
+        details = "\n".join(stderr_tail).strip()
+
+        if not details:
+            details = f"exit code {return_code}"
+
+        raise RuntimeError(
+            f"{args[0]} failed: {details[-1200:]}"
+        )
+
+    return ""
 
 
 def _number(value: Any) -> float | None:

@@ -25,6 +25,7 @@ export type WorkflowNodeInputProps = {
 
 export type WorkflowNodeOutputProps = {
   value: unknown
+  mediaUrl?: string
 }
 
 export type WorkflowNodeUI = {
