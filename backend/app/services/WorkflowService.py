@@ -1,3 +1,4 @@
+
 """Authenticated, project-owned workflow definitions, media sources and runs.
 
 Connect to app.main using:
@@ -597,19 +598,11 @@ class WorkflowService:
                 body.target_node_id,
             )
 
-            if body.target_node_id is not None:
-                nodes = [
-                    {
-                        **node,
-                        "settings": {
-                            **node["settings"],
-                            "__cliptora_execute_step_target": True,
-                        },
-                    }
-                    if node["id"] == body.target_node_id
-                    else node
-                    for node in nodes
-                ]
+            # Execute Step runs the target and its required dependency chain.
+            # Do NOT mark the target as strict checkpoint-only. Browser sessions,
+            # network requests and new workflows cannot be restored from absent
+            # artifacts; their upstream dependencies must execute normally.
+            # Engine-level checkpoint reuse remains available where safe.
 
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc

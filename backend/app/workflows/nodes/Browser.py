@@ -1,3 +1,4 @@
+
 """CLIPTORA Browser Automation — explicit, declarative Playwright tools.
 
 All browser.* helpers are CONFIGURATION nodes. Only browser.bot starts a
@@ -19,6 +20,7 @@ from urllib.parse import urlsplit
 
 from app.workflows.Node import Node
 from app.workflows.MediaStorage import run_media_dir
+from app.workflows.BrowserLiveState import BrowserLiveState
 
 PREFIX = "browser."
 HELPERS = {
@@ -65,7 +67,7 @@ def _public_url(url: str, allowed_hosts: list[str]) -> str:
     if not isinstance(url, str) or len(url) > 2048:
         raise ValueError("Invalid browser URL")
     p = urlsplit(url.strip())
-    if p.scheme != "https" or not p.hostname or p.username or p.password or p.fragment:
+    if p.scheme != "https" or not p.hostname or p.username is not None or p.password is not None:
         raise ValueError("Browser requires an HTTPS URL without embedded credentials")
     host = p.hostname.casefold().rstrip('.')
     if not any(host == item or host.endswith('.' + item) for item in allowed_hosts):
@@ -187,10 +189,28 @@ class BrowserAutomationNode(Node):
             "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "minimum": 1000, "maximum": 60000},
             "max_actions": {"type": "integer", "title": "Maximum Actions", "minimum": 1, "maximum": 100},
             "allowed_hosts": {"type": "array", "title": "Allowed HTTPS Hosts", "items": {"type": "string"}},
-            "actions": {"type": "array", "title": "Built-in Commands", "items": {"type": "object"}},
+            "actions": {"type": "array", "title": "Built-in Commands", "widget": "list", "items": {"type": "object", "properties": {
+                "command": {"type": "string", "title": "Operation", "default": "click", "enum": [
+                    "navigate", "click", "double_click", "fill", "type", "press", "hover", "scroll",
+                    "mouse_move", "mouse_drag", "wait", "select", "check", "uncheck", "extract_text",
+                    "screenshot", "back", "forward", "reload", "download", "new_tab", "switch_tab"
+                ]},
+                "target": {"type": "string", "title": "CSS Selector / Target", "default": ""},
+                "value": {"type": "string", "title": "Value / URL / Expression", "default": ""},
+                "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "default": 15000, "minimum": 1000, "maximum": 60000}
+            }}},
             "attachments": {"type": "object", "title": "Attached Node IDs by Port"},
         },
-        PREFIX + "commands": {"actions": {"type": "array", "title": "Actions", "items": {"type": "object"}}},
+        PREFIX + "commands": {"actions": {"type": "array", "title": "Actions", "widget": "list", "items": {"type": "object", "properties": {
+                "command": {"type": "string", "title": "Operation", "default": "click", "enum": [
+                    "navigate", "click", "double_click", "fill", "type", "press", "hover", "scroll",
+                    "mouse_move", "mouse_drag", "wait", "select", "check", "uncheck", "extract_text",
+                    "screenshot", "back", "forward", "reload", "download", "new_tab", "switch_tab"
+                ]},
+                "target": {"type": "string", "title": "CSS Selector / Target", "default": ""},
+                "value": {"type": "string", "title": "Value / URL / Expression", "default": ""},
+                "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "default": 15000, "minimum": 1000, "maximum": 60000}
+            }}}},
     }
 
     def execute_operation(self, operation, node, outputs, source, workdir):
@@ -284,6 +304,7 @@ class BrowserAutomationNode(Node):
         retry_delay = _positive(attached.get("error_handler", {}).get("retry_delay_ms", 500), "retry_delay_ms", 0, 10000)
         verification_wait = _positive(attached.get("verification", {}).get("wait_seconds", 120), "verification wait", 5, 300) if "verification" in attached else 0
         selected_tab = 0
+        live = BrowserLiveState(workdir, node['id'], 'playwright', len(actions)) if 'live_preview' in attached else None
 
         with sync_playwright() as playwright:
             engine = getattr(playwright, browser_name)
@@ -320,6 +341,8 @@ class BrowserAutomationNode(Node):
                 page = context.new_page()
                 page.set_default_timeout(timeout)
                 page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+                if live:
+                    live.update(status='running', message='Page loaded', url=page.url)
 
                 def capture(label: str, element=None) -> str:
                     filename = _safe_filename(f"{node['id']}_{label}_{len(screenshots)+1}", ".png")
@@ -329,6 +352,8 @@ class BrowserAutomationNode(Node):
                     else:
                         page.screenshot(path=str(dest), full_page=False, timeout=timeout)
                     screenshots.append(filename)
+                    if live:
+                        live.frame(filename, step=len(log), label=label, url=page.url)
                     return filename
 
                 def smooth_move(x: float, y: float):
@@ -362,17 +387,25 @@ class BrowserAutomationNode(Node):
                     # A person must interact with the visible browser. We do not
                     # synthesize mouse events to solve or bypass CAPTCHA.
                     deadline = time.monotonic() + verification_wait
+                    if live:
+                        live.update(status='waiting', step=len(log), message='Human verification required', url=page.url)
                     progress(len(log), "Waiting for human verification")
                     while time.monotonic() < deadline:
                         page.wait_for_timeout(750)
                         if _captcha_element(page) is None:
+                            if live:
+                                live.update(status='running', message='Verification finished', url=page.url)
                             return
                     raise TimeoutError("Human verification timed out")
 
+                if live:
+                    capture('initial')
                 progress(0, "Browser ready")
                 for index, action in enumerate(actions):
                     check_verification()
                     command = action["command"]
+                    if live:
+                        live.update(status='running', step=index, message=f'Executing {command}', url=page.url)
                     detail = {"index": index + 1, "command": command, "status": "completed"}
                     started = time.monotonic()
                     last_error: Exception | None = None
@@ -465,6 +498,8 @@ class BrowserAutomationNode(Node):
                     if attached.get("live_preview", {}).get("each_step"):
                         capture(f"preview_{index+1}")
                     check_verification()
+                    if live:
+                        live.update(status='running', step=index+1, message=f'Completed {command}', url=page.url)
                     progress(index+1, f"Completed {command} ({index+1}/{len(actions)})")
 
                 if attached.get("screenshot", {}).get("at_end"):
@@ -477,6 +512,8 @@ class BrowserAutomationNode(Node):
                 project_id = parent.parent.parent.name
                 run_id = parent.name
                 artifact_base = f"/api/v1/workflows/{project_id}/runs/{run_id}/browser-artifacts"
+                if live:
+                    live.finish('completed', 'Browser execution completed')
                 return {"status": "completed", "url": page.url, "title": page.title()[:500],
                         "actions_completed": len(log), "log": log, "extracted": extracted,
                         "screenshots": screenshots,
@@ -484,5 +521,9 @@ class BrowserAutomationNode(Node):
                         "downloads": [{**entry, "url": f"{artifact_base}/{entry['file']}"} for entry in downloads],
                         "inspection": inspection, "attached_ports": sorted(attached),
                         "artifacts_dir": "browser"}
+            except BaseException as exc:
+                if live:
+                    live.finish('failed', f'Browser stopped: {type(exc).__name__}')
+                raise
             finally:
                 browser.close()

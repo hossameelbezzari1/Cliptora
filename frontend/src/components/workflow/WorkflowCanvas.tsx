@@ -145,6 +145,9 @@ type ActionEdgeData = {
 }
 
 const connectionKey = '__cliptora_ui_source_handles'
+const typedConnectionKey = '__cliptora_ui_target_handles'
+const agentPortTypes = new Set(['chat_model', 'memory', 'tool'])
+
 const pinKey = '__cliptora_ui_pinned'
 const labelKey = '__cliptora_ui_label'
 const edgeLabelKey = '__cliptora_ui_edge_labels'
@@ -892,6 +895,9 @@ export function WorkflowCanvas({
           const labels = Object.fromEntries(
             Object.entries(edgeLabelsFor(node)).filter(([id]) => !removed.has(id)),
           )
+          const rawTyped = node.settings[typedConnectionKey]
+          const typed = rawTyped && typeof rawTyped === 'object' && !Array.isArray(rawTyped)
+            ? Object.fromEntries(Object.entries(rawTyped).filter(([id]) => !removed.has(id))) : {}
 
           return {
             ...node,
@@ -900,6 +906,7 @@ export function WorkflowCanvas({
               ...node.settings,
               [connectionKey]: handles,
               [edgeLabelKey]: labels,
+              [typedConnectionKey]: typed,
             },
           }
         }),
@@ -1093,6 +1100,13 @@ export function WorkflowCanvas({
           handle,
         ]),
       )
+      const oldTyped = settings[typedConnectionKey]
+      if (oldTyped && typeof oldTyped === 'object' && !Array.isArray(oldTyped)) {
+        settings[typedConnectionKey] = Object.fromEntries(
+          Object.entries(oldTyped).filter(([id]) => ids.has(id) || existing.has(id))
+            .map(([id, port]) => [ids.get(id) ?? id, port]),
+        )
+      }
 
       return {
         ...structuredClone(node),
@@ -1264,6 +1278,9 @@ export function WorkflowCanvas({
 
           const handles = handlesFor(node)
           const labels = edgeLabelsFor(node)
+          const rawTyped = node.settings[typedConnectionKey]
+          const typed = rawTyped && typeof rawTyped === 'object' && !Array.isArray(rawTyped)
+            ? {...rawTyped as Record<string, string>} : {}
           const removedBranch = removedSources.some(source =>
             /^(true|false)$/.test(handles[source] ?? ''),
           )
@@ -1271,6 +1288,7 @@ export function WorkflowCanvas({
           removedSources.forEach(source => {
             delete handles[source]
             delete labels[source]
+            delete typed[source]
           })
 
           return {
@@ -1287,6 +1305,7 @@ export function WorkflowCanvas({
               ...node.settings,
               [connectionKey]: handles,
               [edgeLabelKey]: labels,
+              [typedConnectionKey]: typed,
             },
           }
         }),
@@ -1475,16 +1494,21 @@ export function WorkflowCanvas({
         routeLabel ||
         (state === 'done' ? count : '')
 
+      const typedEdge = target?.type === 'ai.agent' && agentPortTypes.has(String((target.settings[typedConnectionKey] as Record<string, unknown> | undefined)?.[edge.source] ?? ''))
       return {
         ...edge,
         type: 'cliptora-action',
         sourceHandle,
-        targetHandle: 'input',
+        targetHandle: target?.type === 'ai.agent' &&
+          typeof (target.settings[typedConnectionKey] as Record<string, unknown> | undefined)?.[edge.source] === 'string'
+            ? String((target.settings[typedConnectionKey] as Record<string, unknown>)[edge.source])
+            : 'input',
         selected,
         animated: false,
         style: {
-          stroke: color,
-          strokeWidth: 2.7,
+          stroke: typedEdge ? '#a9a9b4' : color,
+          strokeWidth: typedEdge ? 2 : 2.7,
+          ...(typedEdge ? { strokeDasharray: '5 5' } : {}),
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
@@ -1516,39 +1540,61 @@ export function WorkflowCanvas({
     ])
 
   const onConnect = useCallback((connection: Connection) => {
-    const { source, target, sourceHandle } = connection
+    const { source, target, sourceHandle, targetHandle } = connection
     if (!source || !target || createsCycle(nodes, source, target)) return
+    const sourceNode = nodes.find(node => node.id === source)
+    const targetNode = nodes.find(node => node.id === target)
+    if (!sourceNode || !targetNode) return
 
-    setNodes(previous =>
-      previous.map(node => {
-        if (node.id !== target) return node
+    const isAgentPort = targetNode.type === 'ai.agent' && agentPortTypes.has(targetHandle ?? '')
+    if (isAgentPort) {
+      if (targetHandle === 'chat_model' && sourceNode.type !== 'ai.chat_model') {
+        setMessage('Chat Model port only accepts a Chat Model node.')
+        return
+      }
+      if (targetHandle === 'memory' && !/memory/i.test(sourceNode.type)) {
+        setMessage('Memory port only accepts Memory nodes.')
+        return
+      }
+      if (targetHandle === 'tool' && (
+        sourceNode.type === 'ai.chat_model' ||
+        sourceNode.type === 'ai.agent' ||
+        /trigger/i.test(sourceNode.type)
+      )) {
+        setMessage('Tool port requires an executable Tool node.')
+        return
+      }
+    } else if (targetHandle && targetHandle !== 'input') {
+      return
+    }
 
-        const isBranch = previous.find(
-          candidate => candidate.id === source,
-        )?.type === 'flow.if'
-
-        const sourceHandles = isBranch
-          ? {
-            ...handlesFor(node),
-            [source]: sourceHandle === 'false' ? 'false' : 'true',
-          }
-          : handlesFor(node)
-
-        return {
-          ...node,
-          depends_on: [...new Set([...node.depends_on, source])],
-          when: isBranch
-            ? sourceHandle === 'false'
-              ? 'condition_false'
-              : 'condition_true'
-            : node.when,
-          settings: isBranch
-            ? { ...node.settings, [connectionKey]: sourceHandles }
-            : node.settings,
-        }
-      }),
-    )
-  }, [nodes, setNodes])
+    setNodes(previous => previous.map(node => {
+      if (node.id !== target) return node
+      const isBranch = sourceNode.type === 'flow.if'
+      const sourceHandles = isBranch
+        ? {...handlesFor(node), [source]: sourceHandle === 'false' ? 'false' : 'true'}
+        : handlesFor(node)
+      const previousTyped = node.settings[typedConnectionKey]
+      const typed = previousTyped && typeof previousTyped === 'object' && !Array.isArray(previousTyped)
+        ? {...previousTyped as Record<string, string>} : {}
+      if (isAgentPort && targetHandle) typed[source] = targetHandle
+      else delete typed[source]
+      // Chat Model is a single provider, not an arbitrary list of models.
+      const existingModels = isAgentPort && targetHandle === 'chat_model'
+        ? Object.keys(typed).filter(id => id !== source && typed[id] === 'chat_model') : []
+      for (const oldId of existingModels) delete typed[oldId]
+      return {
+        ...node,
+        depends_on: [...new Set([...node.depends_on.filter(id => !existingModels.includes(id)), source])],
+        when: isBranch ? sourceHandle === 'false' ? 'condition_false' : 'condition_true' : node.when,
+        settings: {
+          ...node.settings,
+          ...(isBranch ? {[connectionKey]:sourceHandles} : {}),
+          [typedConnectionKey]: typed,
+        },
+      }
+    }))
+  }, [nodes, setNodes, setMessage])
 
   const openQuickAdd = useCallback((
     sourceId: string,
@@ -1581,6 +1627,37 @@ export function WorkflowCanvas({
     )
     const source = nodes.find(node => node.id === quickAdd.sourceId)
     if (!template || !source) return
+
+    if (source.type === 'ai.agent' && agentPortTypes.has(quickAdd.sourceHandle)) {
+      const port = quickAdd.sourceHandle
+      const compatible = port === 'chat_model' ? template.type === 'ai.chat_model'
+        : port === 'memory' ? /memory/i.test(template.type)
+        : template.type !== 'ai.agent' && template.type !== 'ai.chat_model' && !/trigger/i.test(template.type)
+      if (!compatible) { setMessage(`This node is not compatible with the ${port} port.`); return }
+      const id = uid(type, nodes.map(node => node.id))
+      const anchor = source.position ?? { x: 100, y: 100 }
+      const offset = port === 'chat_model' ? -280 : port === 'memory' ? 0 : 280
+      const nodeToAdd: WorkflowNode = {
+        id, type, depends_on: [], when: 'always', retry_limit: 1, cache: true,
+        settings: structuredClone(template.settings),
+        position: { x: anchor.x + offset, y: anchor.y + 300 },
+      }
+      setNodes(previous => [...previous.map(node => {
+        if (node.id !== source.id) return node
+        const previousTyped = node.settings[typedConnectionKey]
+        const handles = previousTyped && typeof previousTyped === 'object' && !Array.isArray(previousTyped)
+          ? { ...previousTyped as Record<string, string> } : {}
+        const oldModels = port === 'chat_model' ? Object.keys(handles).filter(key => handles[key] === 'chat_model') : []
+        oldModels.forEach(key => delete handles[key])
+        handles[id] = port
+        return { ...node, depends_on: [...node.depends_on.filter(dep => !oldModels.includes(dep)), id], settings: { ...node.settings, [typedConnectionKey]: handles } }
+      }), nodeToAdd])
+      setSelectedId(id)
+      setJsonEditor(JSON.stringify(nodeToAdd.settings, null, 2))
+      setMessage(`${template.label} connected to AI Agent ${port} port. Save workflow to persist.`)
+      setQuickAdd(null)
+      return
+    }
 
     if (quickAdd.mode === 'insert' && quickAdd.insertEdge) {
       const target = nodes.find(
@@ -1788,6 +1865,9 @@ export function WorkflowCanvas({
 
   const quickItems = useMemo(
     () => catalog.filter(item =>
+      (quickAdd?.sourceHandle === 'chat_model' ? item.type === 'ai.chat_model' :
+       quickAdd?.sourceHandle === 'memory' ? /memory/i.test(item.type) :
+       quickAdd?.sourceHandle === 'tool' ? item.type !== 'ai.agent' && item.type !== 'ai.chat_model' && !/trigger/i.test(item.type) : true) &&
       item.status === 'implemented' &&
       !!item.backend_executor &&
       (
@@ -1798,7 +1878,7 @@ export function WorkflowCanvas({
         .toLowerCase()
         .includes(quickSearch.trim().toLowerCase()),
     ).slice(0, 35),
-    [catalog, quickSearch, quickAdd?.mode],
+    [catalog, quickSearch, quickAdd?.mode, quickAdd?.sourceHandle],
   )
 
   const duplicateSelectedNodes = useCallback(() => {
@@ -3264,7 +3344,7 @@ onPaneClick={() => {
                   ? 'Replace node'
                   : quickAdd.mode === 'insert'
                     ? 'Insert node on connection'
-                    : 'What happens next?'}
+                    : agentPortTypes.has(quickAdd.sourceHandle) ? `Add ${quickAdd.sourceHandle.replace('_', ' ')}` : 'What happens next?'}
               </strong>
 
               <button

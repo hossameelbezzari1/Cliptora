@@ -1,4 +1,3 @@
-
 """CLIPTORA native workflow execution engine.
 
 Supports dependency ordering, branch conditions, caching,
@@ -52,6 +51,18 @@ def run_graph(
     summary: dict[str, dict] = {}
 
     total_nodes = len(ordered)
+    by_node_id = {item["id"]: item for item in ordered}
+    agent_tool_ids = {
+        source_id
+        for item in ordered if item["type"] == "ai.agent"
+        for source_id, port in (item.get("settings", {}).get("__cliptora_ui_target_handles") or {}).items()
+        if port == "tool" and source_id in by_node_id
+        and by_node_id[source_id]["type"] == "browser.playwright"
+    }
+    main_consumers = {
+        dep for item in ordered for dep in item["depends_on"]
+        if (item.get("settings", {}).get("__cliptora_ui_target_handles") or {}).get(dep) != "tool"
+    }
 
     for index, node in enumerate(ordered):
 
@@ -138,6 +149,17 @@ def run_graph(
 
             continue
 
+        # A Browser attached solely to an Agent Tool port is a declarative
+        # capability, not an independent browser run. The Agent owns one live
+        # session across all of its iterations. Other main-flow Browser nodes
+        # retain their existing standalone behavior.
+        if node_id in agent_tool_ids and node_id not in main_consumers:
+            outputs[node_id] = {"agent_tool": "browser.playwright", "configured": True}
+            summary[node_id] = {"state": "completed", "type": node_type, "tool_ready": True,
+                                "result": outputs[node_id]}
+            update(int(100 * (index + 1) / total_nodes), node_id, summary)
+            continue
+
         artifact = workspace / f"{node_id}.json"
         checkpoint = workspace / f".{node_id}.sha256"
 
@@ -166,9 +188,10 @@ def run_graph(
         result = None
         cached = False
 
+        allow_cache = node.get("cache", True) and node_type != "ai.agent"
         reused_node = (
             (reused or {}).get(node_id)
-            if node.get("cache", True)
+            if allow_cache
             else None
         )
 
@@ -199,7 +222,7 @@ def run_graph(
 
         if (
             result is None and
-            node.get("cache", True)
+            allow_cache
             and artifact.is_file()
             and checkpoint.is_file()
             and checkpoint.read_text(
@@ -340,15 +363,14 @@ def run_graph(
                 "message": "Starting node execution...",
             })
 
+        # Replaying an agent browser session can repeat external actions.
+        effective_retry_limit = 0 if node_type == "ai.agent" else node.get("retry_limit", 1)
         attempts = 0
         last_error: Exception | None = None
 
         while (
             result is None
-            and attempts <= node.get(
-                "retry_limit",
-                1,
-            )
+            and attempts <= effective_retry_limit
         ):
 
             if cancelled():
@@ -384,7 +406,15 @@ def run_graph(
                 execution_node = {
                     **node,
                     "_progress_callback": node_progress_callback,
+                    "_cancelled_callback": cancelled,
                 }
+                if node_type == "ai.agent":
+                    typed = node.get("settings", {}).get("__cliptora_ui_target_handles") or {}
+                    execution_node["_agent_tool_specs"] = {
+                        source_id: by_node_id[source_id]
+                        for source_id, port in typed.items()
+                        if port == "tool" and source_id in by_node_id
+                    }
 
                 with bind_for_node(execution_node):
                     candidate = node_executor(

@@ -1,3 +1,4 @@
+
 import {
 
   useEffect,
@@ -43,6 +44,9 @@ export type FieldSchema = {
   minimum?: number
 
   maximum?: number
+  items?: FieldSchema
+  properties?: Record<string, FieldSchema>
+  additionalProperties?: boolean
 
 }
 
@@ -452,138 +456,77 @@ function useFieldMode(
 
 }
 
-export function JsonField({
+function visualInitial(schema?: FieldSchema): unknown {
+  if (schema?.default !== undefined) return structuredClone(schema.default)
+  if (schema?.type === 'array') return []
+  if (schema?.type === 'object') return Object.fromEntries(
+    Object.entries(schema.properties || {}).map(([name, field]) => [name, visualInitial(field)])
+  )
+  if (schema?.type === 'boolean') return false
+  if (schema?.type === 'integer' || schema?.type === 'number') return 0
+  return ''
+}
 
-  label,
-
-  value,
-
-  onChange,
-
-}: {
-
-  label: string
-
+function VisualValueEditor({ value, onChange, schema, depth = 0 }: {
   value: unknown
-
   onChange: (value: unknown) => void
-
+  schema?: FieldSchema
+  depth?: number
 }) {
-
-  const fallback = {}
-
-  const { mode, changeMode, reset } = useFieldMode(
-
-    value,
-
-    fallback,
-
-    onChange,
-
-  )
-
-  const [draft, setDraft] = useState(() => formatJSON(value))
-
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-
-    setDraft(formatJSON(value))
-
-    setError('')
-
-  }, [value])
-
-  const commit = () => {
-
-    try {
-
-      onChange(JSON.parse(draft) as unknown)
-
-      setError('')
-
-    } catch {
-
-      setError('Invalid JSON — fix it before saving.')
-
-    }
-
-  }
-
-  return (
-
-    <div className="group/field block min-w-0">
-
-      <FieldToolbar
-
-        label={label}
-
-        mode={mode}
-
-        onModeChange={changeMode}
-
-        onReset={reset}
-
-      />
-
-      {mode === 'expression' ? (
-
-        <ExpressionEditor
-
-          value={value}
-
-          onChange={onChange}
-
-          multiline
-
-        />
-
-      ) : (
-
-        <>
-
-          <textarea
-
-            rows={5}
-
-            aria-label={label}
-
-            spellCheck={false}
-
-            className={`${inputClass} resize-y font-mono text-[11px]`}
-
-            value={draft}
-
-            onChange={event => setDraft(event.target.value)}
-
-            onBlur={commit}
-
-          />
-
-          {error && (
-
-            <span
-
-              role="alert"
-
-              className="mt-1 block text-[11px] text-red-600 dark:text-red-300"
-
-            >
-
-              {error}
-
-            </span>
-
-          )}
-
-        </>
-
-      )}
-
+  const isList = Array.isArray(value) || schema?.type === 'array'
+  const isObject = !isList && (schema?.type === 'object' || (value !== null && typeof value === 'object'))
+  if (depth > 7) return <span className="text-xs text-amber-700">Maximum nesting depth reached.</span>
+  if (isList) {
+    const items = Array.isArray(value) ? value : []
+    return <div className="space-y-2">
+      {items.map((item, index) => <div key={index} className="rounded-lg border border-[#e5e7eb] dark:border-[#374151] p-2">
+        <div className="mb-2 flex items-center justify-between text-xs text-[#666] dark:text-[#b8bec7]">
+          <span>Item {index + 1}</span>
+          <button type="button" className={lightButton} onClick={() => onChange(items.filter((_, i) => i !== index))}>Remove</button>
+        </div>
+        <VisualValueEditor depth={depth + 1} schema={schema?.items} value={item} onChange={next => onChange(items.map((v, i) => i === index ? next : v))} />
+      </div>)}
+      <button type="button" className={lightButton} onClick={() => onChange([...items, visualInitial(schema?.items)])}>+ Add item</button>
     </div>
+  }
+  if (isObject) {
+    const entries = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+    const fixed = schema?.properties || {}
+    const names = [...new Set([...Object.keys(fixed), ...Object.keys(entries)])]
+    return <div className="space-y-2">
+      {names.map(key => <div key={key} className="rounded-lg border border-[#e5e7eb] dark:border-[#374151] p-2">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="break-all text-xs font-medium">{fixed[key]?.title || titleize(key)}</span>
+          {!fixed[key] && <button type="button" className={lightButton} onClick={() => { const next = {...entries}; delete next[key]; onChange(next) }}>Remove</button>}
+        </div>
+        <VisualValueEditor depth={depth+1} schema={fixed[key]} value={entries[key] ?? visualInitial(fixed[key])} onChange={next => onChange({...entries,[key]:next})}/>
+      </div>)}
+      {schema?.additionalProperties !== false && <button type="button" className={lightButton} onClick={() => {
+        const name = window.prompt('Field name (letters, numbers, underscore):')?.trim()
+        if (name && /^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$/.test(name) && !(name in entries)) onChange({...entries,[name]:''})
+      }}>+ Add field</button>}
+    </div>
+  }
+  if (schema?.enum?.length) return <select className={inputClass} value={String(value ?? '')} onChange={e => onChange(e.target.value)}>
+    {schema.enum.map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
+  </select>
+  if (typeof value === 'boolean' || schema?.type === 'boolean') return <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={value === true} onChange={e => onChange(e.target.checked)}/> Enabled</label>
+  if (typeof value === 'number' || schema?.type === 'integer' || schema?.type === 'number') return <input className={inputClass} type="number" value={typeof value === 'number' ? value : 0} min={schema?.minimum} max={schema?.maximum} step={schema?.type === 'integer' ? 1 : 'any'} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}/>
+  return <input className={inputClass} value={typeof value === 'string' ? value : ''} onChange={e => onChange(e.target.value)} placeholder="Value"/>
+}
 
-  )
-
+export function JsonField({label, value, onChange, schema}: {
+  label: string
+  value: unknown
+  onChange: (value: unknown) => void
+  schema?: FieldSchema
+}) {
+  const {mode, changeMode, reset} = useFieldMode(value, visualInitial(schema), onChange)
+  return <div className="group/field min-w-0 space-y-2">
+    <FieldToolbar label={label} mode={mode} onModeChange={changeMode} onReset={reset}/>
+    {mode === 'expression' ? <ExpressionEditor value={value} onChange={onChange} multiline/> :
+      <VisualValueEditor value={value} schema={schema} onChange={onChange}/>}
+  </div>
 }
 
 export function DynamicField({
@@ -665,6 +608,7 @@ export function DynamicField({
           label={label}
 
           value={effective ?? (type === 'array' ? [] : {})}
+          schema={schema}
 
           onChange={onChange}
 

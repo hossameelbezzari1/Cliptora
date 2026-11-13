@@ -28,11 +28,12 @@ class OpenAINode(Node):
     family = 'openai'
     group = 'AI'
     icon = 'brand:openai'
-    operations = {'ai.openai': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'classify_violations', 'label': 'Classify Violations', 'icon': 'lucide:shield-alert'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}], 'icon': 'brand:openai', 'label': 'OpenAI', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gpt-5.5', 'prompt': ''}, 'credentials': ['openai']}, 'ai.chat_model': {'icon': 'lucide:brain-circuit', 'label': 'Chat Model', 'settings': {'provider': 'openai', 'model': 'gpt-5.5', 'reasoning_effort': 'medium', 'credential_id': None}, 'credentials': ['openai']}, 'ai.agent': {'icon': 'lucide:bot', 'label': 'AI Agent', 'settings': {'prompt_source': 'define_below', 'prompt': '', 'credential_id': None}, 'credentials': ['openai']}}
+    operations = {'ai.openai': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'classify_violations', 'label': 'Classify Violations', 'icon': 'lucide:shield-alert'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}], 'icon': 'brand:openai', 'label': 'OpenAI', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gpt-5.5', 'prompt': ''}, 'credentials': ['openai']}, 'ai.chat_model': {'icon': 'lucide:brain-circuit', 'label': 'Chat Model', 'settings': {'provider': 'openai', 'model': 'gpt-5.5', 'reasoning_effort': 'medium', 'credential_id': None}, 'credentials': ['openai', 'gemini', 'ollama']}, 'ai.agent': {'icon': 'lucide:bot', 'label': 'AI Agent', 'settings': {'prompt_source': 'define_below', 'prompt': ''}, 'credentials': []}}
 
     parameter_fields = {
         'ai.openai': {'model': {'type':'string','widget':'model'}},
         'ai.chat_model': {
+            'provider': {'type':'string','enum':['openai','gemini','ollama'],'title':'Provider'},
             'model': {'type':'string','widget':'model'},
             'reasoning_effort': {'type':'string','enum':['none','low','medium','high','xhigh','max']},
         },
@@ -43,6 +44,9 @@ class OpenAINode(Node):
             'enable_fallback_model': {'type':'boolean','default':False},
             'system_message': {'type':'string','widget':'textarea','group':'Advanced'},
             'fallback_model': {'type':'string','group':'Advanced'},
+            'max_iterations': {'type':'integer','title':'Max Iterations','minimum':1,'maximum':30,'default':10,'group':'Advanced'},
+            'browser_snapshot_chars': {'type':'integer','title':'Browser Snapshot Characters','minimum':1000,'maximum':16000,'default':6500,'group':'Advanced'},
+            'allow_sensitive_actions': {'type':'boolean','title':'Allow External/Destructive Actions','default':False,'group':'Advanced'},
         },
     }
     action_fields = {'ai.openai': {
@@ -64,13 +68,16 @@ class OpenAINode(Node):
     def execute_operation(self, operation, node, outputs, source, workdir):
         cfg = node.get('settings') or {}
         if operation == 'ai.chat_model':
-            model = str(cfg.get('model') or 'gpt-5.5')
+            provider = str(cfg.get('provider') or 'openai').lower()
+            if provider not in ('openai','gemini','ollama'):
+                raise ValueError('Unsupported Chat Model provider')
+            model = str(cfg.get('model') or ('gemini-2.5-flash' if provider == 'gemini' else 'gemma3' if provider == 'ollama' else 'gpt-5.5'))
             effort = str(cfg.get('reasoning_effort') or 'medium')
             if effort == 'none' and model in ('gpt-6.1-sol', 'gpt-6-astra'):
                 effort = 'medium'
-            return {'chat_model': {'model': model, 'reasoning_effort': effort, 'provider': cfg.get('provider', 'openai'), 'credential_id': cfg.get('credential_id')}}
+            return {'chat_model': {'model': model, 'reasoning_effort': effort, 'provider': provider, 'credential_id': cfg.get('credential_id')}}
         if operation == 'ai.agent':
-            return self.execute_ai_agent(cfg, outputs)
+            return self.execute_ai_agent({**cfg, '_agent_tool_specs': node.get('_agent_tool_specs', {}), '_progress_callback': node.get('_progress_callback'), '_cancelled_callback': node.get('_cancelled_callback'), '_workdir': workdir}, outputs)
         if cfg.get('action', 'message_model') == 'message_model':
             return self.openai_chat(cfg, outputs)
         return self.openai_action(cfg, outputs)
@@ -180,13 +187,69 @@ class OpenAINode(Node):
         if tools:
             prompt += '\n\nConnected tool results:\n' + json.dumps(tools, ensure_ascii=False, separators=(',', ':'))
         request_cfg = {**model_cfg, 'prompt': prompt, 'system_prompt': str(cfg.get('system_message', 'You are a helpful AI agent.'))}
+        provider = str(model_cfg.get('provider') or 'openai').lower()
+        credential_id = model_cfg.get('credential_id')
+        if provider not in ('openai', 'gemini', 'ollama'):
+            raise ValueError('Connected Chat Model provider is unsupported')
+        if type(credential_id) is not int or credential_id < 1:
+            raise ValueError(f'Connect a {provider} credential in the Chat Model node')
+        from app.workflows.Credentials import bind_for_node
+
+        def invoke(selected_cfg: dict[str, Any]) -> dict[str, Any]:
+            # Rebind to the connected model's credential rather than the Agent's.
+            # The owner is inherited from the Workflow Engine's execution context.
+            model_node = {'type': 'ai.chat_model', 'settings': {
+                'provider': provider, 'credential_id': credential_id}}
+            with bind_for_node(model_node):
+                if provider == 'openai':
+                    return OpenAINode.openai_chat(selected_cfg, {})
+                if provider == 'gemini':
+                    from app.workflows.nodes.Gemini import GeminiNode
+                    return GeminiNode.message_model({'type': 'ai.gemini', 'settings': {
+                        'model': selected_cfg['model'],
+                        'prompt': selected_cfg['prompt'],
+                        'system_prompt': selected_cfg['system_prompt'],
+                        'output_mode': 'text'}}, {})
+                from app.workflows.nodes.Ollama import OllamaNode
+                return OllamaNode.ollama_action({
+                    'action': 'message_model', 'model': selected_cfg['model'],
+                    'prompt': selected_cfg['prompt'],
+                    'system_prompt': selected_cfg['system_prompt']}, {})
+
+        browser_specs = {
+            key: spec for key, spec in (cfg.get('_agent_tool_specs') or {}).items()
+            if spec.get('type') == 'browser.playwright'
+        }
+        if browser_specs:
+            if len(browser_specs) != 1:
+                raise ValueError('AI Agent currently supports one connected Playwright Browser tool')
+            from app.workflows.AgentBrowserRuntime import run_browser_agent
+            tool_id, spec = next(iter(browser_specs.items()))
+            result = run_browser_agent(
+                cfg=cfg,
+                request_cfg=request_cfg,
+                browser_node=spec,
+                model_invoke=invoke,
+                outputs=outputs,
+                workdir=Path(cfg['_workdir']),
+                progress=cfg.get('_progress_callback'),
+                cancelled=cfg.get('_cancelled_callback'),
+            )
+            result.setdefault('agent', {}).update({
+                'chat_model_node': model_ids[0],
+                'memory_inputs': list(memory),
+                'tool_inputs': list(tools),
+                'browser_tool_node': tool_id,
+            })
+            return result
+
         try:
-            result = OpenAINode.openai_chat(request_cfg, {})
+            result = invoke(request_cfg)
         except RuntimeError:
             fallback = str(cfg.get('fallback_model', '')).strip()
             if not cfg.get('enable_fallback_model') or not fallback:
                 raise
-            result = OpenAINode.openai_chat({**request_cfg, 'model': fallback}, {})
+            result = invoke({**request_cfg, 'model': fallback})
             result['fallback_used'] = True
         if cfg.get('require_specific_output'):
             try:

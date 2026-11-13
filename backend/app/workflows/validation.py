@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 import hashlib
 import base64
@@ -80,6 +81,23 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
     for ident, node in by_id.items():
         if ident in node["depends_on"] or any(d not in by_id for d in node["depends_on"]):
             raise ValueError(f"Missing or self dependency for {ident}")
+        typed = node["settings"].get("__cliptora_ui_target_handles", {})
+        if not isinstance(typed, dict):
+            raise ValueError(f"Invalid typed connections for {ident}")
+        for source_id, port in typed.items():
+            if not isinstance(source_id, str) or source_id not in node["depends_on"]:
+                raise ValueError(f"Typed connection must reference a dependency of {ident}")
+            if node["type"] != "ai.agent" or port not in ("chat_model", "memory", "tool"):
+                raise ValueError(f"Unsupported typed connection on {ident}")
+            source_type = by_id[source_id]["type"]
+            if port == "chat_model" and source_type != "ai.chat_model":
+                raise ValueError(f"Chat Model port of {ident} requires ai.chat_model")
+            if port == "memory" and "memory" not in source_type:
+                raise ValueError(f"Memory port of {ident} requires a memory node")
+            if port == "tool" and (source_type in ("ai.chat_model", "ai.agent") or "trigger" in source_type):
+                raise ValueError(f"Tool port of {ident} requires an executable tool")
+        if list(typed.values()).count("chat_model") > 1:
+            raise ValueError(f"AI Agent {ident} accepts only one Chat Model")
     ordered: list[dict] = []
     pending = dict(by_id)
     while pending:

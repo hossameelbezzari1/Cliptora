@@ -1,3 +1,4 @@
+
 """Serialize safe node UI descriptions. Values are metadata, not executable code."""
 from __future__ import annotations
 from copy import deepcopy
@@ -24,6 +25,23 @@ def inferred_parameters_schema(settings: dict[str, Any]) -> dict[str, Any]:
         if name in ('input_path', 'media_input_path'):
             field['widget'] = 'upstream'
             field['accepts'] = ['media'] if name == 'media_input_path' else ['text', 'json']
+        if typ == 'array':
+            field['widget'] = 'list'
+            first = next((item for item in value if item is not None), None)
+            if isinstance(first, dict):
+                field['items'] = inferred_parameters_schema(first).get('properties', {})
+                field['items'] = {'type': 'object', 'properties': field['items']}
+            elif isinstance(first, str):
+                field['items'] = {'type': 'string'}
+            elif isinstance(first, bool):
+                field['items'] = {'type': 'boolean'}
+            elif isinstance(first, (int, float)):
+                field['items'] = {'type': 'number'}
+            else:
+                field['items'] = {'type': 'string'}
+        if typ == 'object':
+            field['widget'] = 'object'
+            field['properties'] = inferred_parameters_schema(value).get('properties', {})
         if name == 'model':
             field['widget'] = 'model'
         fields[name] = field

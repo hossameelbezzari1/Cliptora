@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -960,6 +959,7 @@ export function WorkflowSchemaParameters({
     ? (configuredProvider === 'gemini' || configuredProvider === 'openai'
       ? configuredProvider
       : '')
+    : node.type === 'ai.chat_model' ? (['openai','gemini','ollama'].includes(configuredProvider) ? configuredProvider : 'openai')
     : catalog?.credentials?.[0] ?? ''
 
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -1800,7 +1800,7 @@ export function WorkflowSchemaParameters({
           inputValue={inputValue}
           onChange={next => {
             if (
-              node.type === 'ai.batch' &&
+              (node.type === 'ai.batch' || node.type === 'ai.chat_model') &&
               name === 'provider' &&
               next !== settings.provider
             ) {

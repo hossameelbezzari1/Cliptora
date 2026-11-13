@@ -1,5 +1,6 @@
 import { useContext, type CSSProperties } from 'react'
 import {
+  Bot,
   Check,
   Clock3,
   LoaderCircle,
@@ -87,6 +88,125 @@ function StatusIcon({
   return <Clock3 size={17} strokeWidth={2.1} />
 }
 
+const agentPorts = [
+  { id: 'chat_model', label: 'Chat Model', x: '17%', required: true },
+  { id: 'memory', label: 'Memory', x: '50%', required: false },
+  { id: 'tool', label: 'Tool', x: '83%', required: false },
+] as const
+
+function AIAgentCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
+  const quickAdd = useContext(WorkflowQuickAddContext)
+  const mainHandleClass =
+    '!z-30 !size-[17px] !border-[2px] !border-[#9ca5b5] !bg-white dark:!border-[#9ca5b5] dark:!bg-cl-dark-panel !shadow-[0_0_0_3px_white] dark:!shadow-none'
+
+  return (
+    <div className="group/agent relative w-[300px] h-[222px] cursor-grab select-none overflow-visible text-left active:cursor-grabbing">
+      <div className={`relative flex h-[112px] items-center gap-[18px] rounded-[22px] border-[1.5px] bg-white px-[25px] dark:bg-cl-dark-panel ${
+        data.status === 'done'
+          ? 'border-emerald-400'
+          : data.status === 'failed'
+            ? 'border-red-300'
+            : 'border-[#d8dce3] dark:border-[#515966]'
+      } shadow-[0_2px_7px_rgba(15,23,42,0.07)] transition-shadow hover:shadow-[0_5px_16px_rgba(15,23,42,0.11)] ${
+        selected ? 'ring-[4px] ring-violet-200/70 dark:ring-violet-900/50' : ''
+      }`}>
+        <Handle id="input" type="target" position={Position.Left} className={mainHandleClass} style={{ left: -9 }} />
+
+        <span className="pointer-events-none grid size-[57px] shrink-0 place-items-center text-[#9135f0] dark:text-[#b486ff]">
+          <Bot size={49} strokeWidth={2.1} aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[20px] font-semibold tracking-[-0.02em] text-[#1a1a1c] dark:text-[#f3f4f6]">
+          {data.label}
+        </span>
+
+        <Handle id="main" type="source" position={Position.Right} className={mainHandleClass} style={{ right: -9 }} />
+        {quickAdd && (
+          <button
+            type="button"
+            className="nodrag nopan absolute left-[calc(100%+34px)] top-[40px] z-20 grid size-[32px] place-items-center rounded-[9px] bg-[#ededee] text-[#333] transition-colors hover:bg-[#dedee2] dark:bg-[#343946] dark:text-[#eee] dark:hover:bg-[#454b59]"
+            title="Add next node"
+            aria-label="Add next node"
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); quickAdd(id, 'main', e) }}
+          >
+            <Plus size={21} strokeWidth={1.9} />
+          </button>
+        )}
+
+        {/* Status belongs to the card's lower-right corner, not the ports. */}
+        <span
+          className={`pointer-events-none absolute -bottom-[10px] right-[11px] z-30 grid size-[25px] place-items-center rounded-full border-[3px] border-white bg-[#f5f6f8] dark:border-[#232833] dark:bg-[#2b303b] ${
+            data.status === 'done' ? 'text-emerald-600' : data.status === 'failed' ? 'text-red-500' : data.status === 'running' ? 'text-violet-600' : 'text-[#9299a6]'
+          }`}
+          title={data.status}
+        >
+          <StatusIcon status={data.status} />
+        </span>
+      </div>
+
+      {agentPorts.map(port => (
+        <div
+          key={port.id}
+          className="absolute top-[112px] z-30 h-[108px] w-[96px] -translate-x-1/2 overflow-visible"
+          style={{ left: port.x }}
+        >
+          {/* Position each handle at the precise horizontal centre of its own port. */}
+          <Handle
+            id={port.id}
+            type="target"
+            position={Position.Bottom}
+            className="!absolute !z-30 !size-[14px] !rounded-[2px] !border-[1.5px] !border-[#a5acb7] !bg-white dark:!bg-cl-dark-panel"
+            style={{
+              left: '50%',
+              top: -7,
+              right: 'auto',
+              bottom: 'auto',
+              transform: 'translateX(-50%) rotate(45deg)',
+            }}
+            title={port.label}
+          />
+
+          {/* Each caption uses its own fixed-width centered row; no flex shifting. */}
+          <div className="pointer-events-none absolute left-1/2 top-[21px] z-50 flex -translate-x-1/2 items-center justify-center whitespace-nowrap rounded-md bg-white px-[7px] py-[2px] text-center text-[11px] font-medium leading-[15px] text-[#707784] dark:bg-cl-dark-panel dark:text-[#c1c6d0]">
+            <span>{port.label}</span>
+            {port.required && <span className="ml-[2px] text-red-500">*</span>}
+          </div>
+
+          {/* Decoration only. React Flow draws the real connection separately. */}
+          <span className="pointer-events-none absolute left-1/2 top-[46px] z-10 h-[18px] w-[1px] -translate-x-1/2 bg-[#d5d9df] dark:bg-[#626a78]" />
+
+          {quickAdd && (
+            <button
+              type="button"
+              className="nodrag nopan absolute left-1/2 top-[65px] z-50 grid size-[30px] -translate-x-1/2 place-items-center rounded-[8px] bg-[#ebeced] text-[#333] transition-colors hover:bg-[#dedee2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:bg-[#343946] dark:text-[#eee] dark:hover:bg-[#454b59]"
+              title={`Add ${port.label}`}
+              aria-label={`Add ${port.label}`}
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); quickAdd(id, port.id, e) }}
+            >
+              <Plus size={20} strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
+      ))}
+
+      {data.pinned && (
+        <span className="pointer-events-none absolute left-2 top-2 z-30 rounded-full bg-white p-1 text-[#777] dark:bg-cl-dark-panel" title="Pinned node">
+          <LockKeyhole size={13} />
+        </span>
+      )}
+      {(data.status === 'running' || data.status === 'failed') && (
+        <NodeProgress run={data.run} nodeId={id} label={data.label} variant="compact" className="absolute left-0 top-[202px] w-full" />
+      )}
+      {data.note && (
+        <div className="nodrag absolute left-0 top-[222px] z-10 w-full whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] bg-[#fffbe6] px-2 py-1.5 text-[11px] leading-4 text-[#675c37] dark:border-[#696553] dark:bg-[#1f2937] dark:text-[#bfbbab]">
+          {data.note}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
   const { id, data, selected } = props
   const onQuickAdd = useContext(WorkflowQuickAddContext)
@@ -95,6 +215,10 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
 
   if (CustomCard) {
     return <CustomCard {...props} />
+  }
+
+  if (data.nodeType.toLowerCase() === 'ai.agent') {
+    return <AIAgentCard {...props} />
   }
 
   const isBranch = data.nodeType.toLowerCase() === 'flow.if'
@@ -163,6 +287,27 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
           ? 'ring-[5px] ring-[#c8b5ff83] shadow-[0_4px_18px_#00000018]'
           : ''
       }`}>
+        {data.nodeType === 'ai.agent' && (
+          <div className="absolute left-0 right-0 top-[calc(100%+5px)] z-20 flex justify-between px-1">
+            {([
+              ['chat_model', 'Chat Model', '#8b5cf6'],
+              ['memory', 'Memory', '#10b981'],
+              ['tool', 'Tool', '#3b82f6'],
+            ] as const).map(([port, title, color]) => (
+              <div key={port} className="relative flex flex-col items-center gap-1">
+                <Handle
+                  id={port}
+                  type="target"
+                  position={Position.Bottom}
+                  className="!relative !left-auto !top-auto !size-[13px] !translate-x-0 !translate-y-0 !rounded-full !border-[2px] !border-white dark:!border-[#374151]"
+                  style={{ backgroundColor: color }}
+                  title={title}
+                />
+                <span className="whitespace-nowrap text-[9px] font-semibold" style={{ color }}>{title}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {!isTrigger && (
           <Handle
             id="input"
@@ -260,7 +405,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
         </span>
       </div>
 
-      <strong className="mt-[12px] max-w-[190px] break-words text-[16px] font-semibold leading-[1.25] text-[#202020] dark:text-[#f3f4f6]">
+      <strong className={`${data.nodeType === 'ai.agent' ? 'mt-[35px]' : 'mt-[12px]'} max-w-[190px] break-words text-[16px] font-semibold leading-[1.25] text-[#202020] dark:text-[#f3f4f6]`}>
         {data.label}
       </strong>
 

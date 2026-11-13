@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleAlert, LoaderCircle, Play, Save, Settings2, X } from 'lucide-react'
+import { CircleAlert, LoaderCircle, Play, Save, Settings2, X, Plus, Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import type { WorkflowRun } from './workflowTypes'
 import { WorkflowToolIcon } from './WorkflowToolIcon'
+import { uid } from './workflowUtils'
 import { getObject } from './editor/WorkflowNodeFields'
 import { WorkflowNodeDataPanel, WorkflowNodePanelDivider } from './editor/WorkflowNodeDataPanel'
 import { WorkflowNodeParameters } from './editor/WorkflowNodeParameters'
@@ -38,6 +39,8 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const [backendRun, setBackendRun] = useState<WorkflowRun | null>(null)
   const [loadingData, setLoadingData] = useState(false)
   const [localError, setLocalError] = useState('')
+  const [agentPortPicker, setAgentPortPicker] = useState<string | null>(null)
+  const [agentPortSearch, setAgentPortSearch] = useState('')
   const [testing, setTesting] = useState(false)
   const [openAIConfigured, setOpenAIConfigured] = useState<boolean | null>(null)
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null)
@@ -210,7 +213,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const dependencies = useMemo(() => selected?.depends_on ?? [], [selected?.depends_on])
   const agentInputs = Object.values(getObject(selected?.settings.__cliptora_ui_target_handles)).map(String)
   const hasAgentModel = !agentNode || agentInputs.includes('chat_model')
-  const requiresOpenAI = openAINode || agentNode
+  const requiresOpenAI = openAINode
   const requiresGemini = geminiNode
   useEffect(() => {
     if (!requiresOpenAI) { setOpenAIConfigured(null); return }
@@ -300,6 +303,38 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
     finally { setTesting(false) }
   }
 
+  const addAgentAttachment = (type: string) => {
+    if (!selected || selected.type !== 'ai.agent' || !agentPortPicker) return
+    const catalogItem = studio.catalog.find(item => item.type === type)
+    if (!catalogItem) return
+    const port = agentPortPicker
+    const id = uid(type, studio.nodes.map(node => node.id))
+    const position = selected.position ?? {x: 150,y: 130}
+    const newNode = {
+      id, type, depends_on: [] as string[], when: 'always' as const,
+      retry_limit: 1, cache: true,
+      settings: structuredClone(catalogItem.settings),
+      position: {x: position.x + (port === 'chat_model' ? -250 : port === 'tool' ? 250 : 0),y:position.y + 300},
+    }
+    studio.setNodes(previous => [...previous.map(node => {
+      if (node.id !== selected.id) return node
+      const raw = node.settings.__cliptora_ui_target_handles
+      const handles: Record<string,string> = raw && typeof raw === 'object' && !Array.isArray(raw) ? {...raw as Record<string,string>} : {}
+      const replaced = port === 'chat_model' ? Object.keys(handles).filter(key => handles[key] === 'chat_model') : []
+      replaced.forEach(key => delete handles[key])
+      handles[id] = port
+      return {...node, depends_on: [...node.depends_on.filter(key => !replaced.includes(key)),id], settings: {...node.settings,__cliptora_ui_target_handles:handles}}
+    }),newNode])
+    studio.setMessage(`Added ${catalogItem.label} to ${port} port. Save the workflow.`)
+    setAgentPortPicker(null)
+    setAgentPortSearch('')
+    studio.setSelectedId(id)
+  }
+  const availableAgentAttachments = studio.catalog.filter(item => item.status === 'implemented' && Boolean(item.backend_executor) &&
+    (agentPortPicker === 'chat_model' ? item.type === 'ai.chat_model' : agentPortPicker === 'memory' ? /memory/i.test(item.type) :
+      agentPortPicker === 'tool' ? item.type !== 'ai.agent' && item.type !== 'ai.chat_model' && !/trigger/i.test(item.type) : false) &&
+    `${item.label} ${item.type}`.toLowerCase().includes(agentPortSearch.toLowerCase()))
+
   const executeDisabled = working || testing || !hasAgentModel ||
     (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)
 
@@ -367,7 +402,7 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
         <section className={`${mobilePanel === 'parameters' ? 'flex' : 'hidden'} min-h-0 min-w-0 w-full flex-col bg-white dark:bg-cl-dark-panel lg:flex`}>
           <div className="flex h-[54px] shrink-0 items-center justify-between gap-2 border-b border-[#e5e5e5] dark:border-[#374151] px-4">
             <div className="flex h-full gap-5">{(['parameters', 'settings'] as const).map(t => <button type="button" key={t} onClick={() => setTab(t)} className={`relative text-[13px] font-medium capitalize ${tab === t ? 'text-[#202020] dark:text-[#f3f4f6] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[#202020] dark:after:bg-white' : 'text-[#666] dark:text-[#b8bec7]'}`}>{t}</button>)}</div>
-            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect an OpenAI Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure an OpenAI credential first.' : requiresGemini && geminiConfigured === false ? 'Select a saved Gemini credential in this node first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#e8e8e8] dark:text-[#202020] dark:hover:bg-white">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
+            <button type="button" disabled={(!onExecuteStep && !isManualTrigger) || testing || working || !hasAgentModel || (requiresOpenAI && openAIConfigured === false) || (requiresGemini && geminiConfigured === false)} onClick={() => { if (onExecuteStep) void execute(); else if (isManualTrigger) void start() }} title={!hasAgentModel ? 'Connect a Chat Model to the required Chat Model port first.' : requiresOpenAI && openAIConfigured === false ? 'Configure an OpenAI credential first.' : requiresGemini && geminiConfigured === false ? 'Select a saved Gemini credential in this node first.' : !onExecuteStep ? 'Single-node execution requires a backend executor; Run workflow is available.' : 'Execute this node only'} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#242424] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#e8e8e8] dark:text-[#202020] dark:hover:bg-white">{testing ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={14} />} Execute step</button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
             {localError && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 dark:border-red-900/70 bg-red-50 dark:bg-red-950/40 p-3 text-[12px] text-red-700 dark:text-red-300"><CircleAlert size={16} className="shrink-0" />{localError}</div>}
@@ -379,7 +414,17 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
                 isManualTrigger={isManualTrigger} hasAgentModel={hasAgentModel} />
               : <WorkflowNodeSettings key={selected.id} studio={studio} />}
           </div>
-          {agentNode && <footer className="grid h-[66px] shrink-0 grid-cols-3 border-t border-[#e7e7e7] dark:border-[#374151] px-3 text-center text-[11px] text-[#555] dark:text-[#b8bec7]">{[['chat_model', 'Chat Model *'], ['memory', 'Memory'], ['tool', 'Tool']].map(([handle, label]) => <div key={handle} className="flex flex-col items-center justify-center gap-1"><span className={`size-3 rotate-45 rounded-[2px] border ${agentInputs.includes(handle) ? 'border-violet-200 dark:border-violet-600 bg-violet-100 dark:bg-violet-950/40' : 'border-[#d1d5db] dark:border-[#aaa] bg-white dark:bg-cl-dark-panel'}`} /><span>{label}</span></div>)}</footer>}
+          {agentNode && <footer className="relative grid h-[80px] shrink-0 grid-cols-3 border-t border-[#e7e7e7] bg-white px-3 text-center text-[11px] text-[#555] dark:border-[#374151] dark:bg-cl-dark-panel dark:text-[#b8bec7]">
+            {([['chat_model', 'Chat Model *'], ['memory', 'Memory'], ['tool', 'Tool']] as const).map(([handle,label]) => <div key={handle} className="flex flex-col items-center justify-center gap-1.5">
+              <span>{label}</span>
+              <button type="button" onClick={()=>{setAgentPortPicker(agentPortPicker===handle?null:handle);setAgentPortSearch('')}} title={`Add ${label}`} aria-label={`Add ${label}`} className={`grid size-9 place-items-center rounded-full border ${agentInputs.includes(handle) ? 'border-violet-500 text-violet-600' : 'border-[#dedee3] text-[#555]'} hover:bg-violet-50 dark:hover:bg-[#374151]`}><Plus size={20}/></button>
+            </div>)}
+            {agentPortPicker && <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 rounded-xl border border-[#dedee3] bg-white p-2 text-left shadow-xl dark:border-[#374151] dark:bg-[#252b36]">
+              <div className="flex items-center gap-2 border-b border-[#eee] pb-2 dark:border-[#374151]"><Search size={16}/><input className="min-w-0 flex-1 bg-transparent p-1 text-sm outline-none" autoFocus value={agentPortSearch} onChange={e=>setAgentPortSearch(e.target.value)} placeholder={`Search ${agentPortPicker.replace('_',' ')} nodes...`}/><button type="button" onClick={()=>setAgentPortPicker(null)} aria-label="Close picker"><X size={17}/></button></div>
+              <div className="max-h-56 overflow-y-auto">{availableAgentAttachments.map(item=><button type="button" key={item.type} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-[#f5f5f7] dark:hover:bg-[#374151]" onClick={()=>addAgentAttachment(item.type)}><WorkflowToolIcon type={item.type} label={item.label} size={20}/>{item.label}</button>)}
+              {!availableAgentAttachments.length && <p className="p-3 text-xs text-[#888]">No compatible implemented nodes found.</p>}</div>
+            </div>}
+          </footer>}
         </section>
         <WorkflowNodePanelDivider side="output"
           onPointerDown={isEntryTrigger ? event => onTriggerResizePointerDown(event) : onResizePointerDown}

@@ -13,6 +13,7 @@ from typing import Any
 
 from app.workflows.Node import Node
 from app.workflows.MediaStorage import run_media_dir
+from app.workflows.BrowserLiveState import BrowserLiveState
 from app.workflows.nodes.Browser import (
     BrowserAutomationNode, HELPERS, COMMANDS, _public_url,
     _interpolate, _positive, _safe_filename,
@@ -162,6 +163,7 @@ class BrowserProvidersNode(Node):
         project_id = workdir.parent.parent.name
         run_id = workdir.name
         url_base = f"/api/v1/workflows/{project_id}/runs/{run_id}/browser-artifacts"
+        live = BrowserLiveState(workdir, node['id'], 'selenium', len(actions)) if 'live_preview' in attached else None
 
         def ensure_url() -> None:
             actual = driver.current_url
@@ -175,6 +177,8 @@ class BrowserProvidersNode(Node):
             if not ok:
                 raise RuntimeError("Screenshot failed")
             images.append(name)
+            if live:
+                live.frame(name, step=len(log), label=label, url=driver.current_url)
             return name
 
         def locate(target: Any):
@@ -231,6 +235,8 @@ class BrowserProvidersNode(Node):
             if found is None:
                 return
             capture("verification", found)
+            if live:
+                live.update(status='waiting', message='Human verification required', url=driver.current_url)
             if headless:
                 raise RuntimeError("Human verification requires headless=false")
             limit = _positive(attached["verification"].get("wait_seconds", 120), "wait_seconds", 5, 300)
@@ -238,6 +244,8 @@ class BrowserProvidersNode(Node):
             while time.monotonic() < until:
                 time.sleep(1)
                 if not any(e.is_displayed() for sel in selectors for e in driver.find_elements(By.CSS_SELECTOR, sel)):
+                    if live:
+                        live.update(status='running', message='Verification finished', url=driver.current_url)
                     return
             raise RuntimeError("Human verification timed out")
 
@@ -245,10 +253,15 @@ class BrowserProvidersNode(Node):
             driver.set_page_load_timeout(timeout)
             driver.get(url)
             ensure_url()
+            if live:
+                live.update(status='running', url=driver.current_url, message='Page loaded')
+                capture('initial')
             for index, action in enumerate(actions, 1):
                 ensure_url()
                 check_verification()
                 cmd = action["command"]
+                if live:
+                    live.update(status='running', step=index-1, message=f'Executing {cmd}', url=driver.current_url)
                 target = action.get("target")
                 value = _interpolate(str(action.get("value", "")), outputs)
                 started = time.monotonic()
@@ -321,6 +334,8 @@ class BrowserProvidersNode(Node):
                 if attached.get("live_preview", {}).get("each_step"):
                     capture(f"preview_{index}")
                 check_verification()
+                if live:
+                    live.update(status='running', step=index, message=f'Completed {cmd}', url=driver.current_url)
                 progress(index, cmd)
             if attached.get("screenshot", {}).get("at_end"):
                 capture("final")
@@ -328,6 +343,8 @@ class BrowserProvidersNode(Node):
             if attached.get("inspector", {}).get("enabled"):
                 chars = _positive(attached["inspector"].get("max_text_chars", 3000), "max_text_chars", 100, 10000)
                 inspection = {"title": driver.title[:500], "text": driver.find_element(By.TAG_NAME, "body").text[:chars]}
+            if live:
+                live.finish('completed', 'Browser execution completed')
             return {
                 "status": "completed", "provider": "selenium", "url": driver.current_url,
                 "title": driver.title[:500], "actions_completed": len(log), "log": log,
@@ -336,6 +353,10 @@ class BrowserProvidersNode(Node):
                 "screenshot_urls": [f"{url_base}/{name}" for name in images],
                 "downloads": [], "attached_ports": sorted(attached),
             }
+        except BaseException as exc:
+            if live:
+                live.finish('failed', f'Browser stopped: {type(exc).__name__}')
+            raise
         finally:
             driver.quit()
 

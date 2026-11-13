@@ -443,15 +443,19 @@ export function useWorkflowStudio({
             )
             : sourceHandles
 
+        const typedHandles = node.settings.__cliptora_ui_target_handles
+        const nextTypedHandles = typedHandles &&
+          typeof typedHandles === 'object' && !Array.isArray(typedHandles)
+          ? Object.fromEntries(Object.entries(typedHandles).filter(([sourceId]) => sourceId !== id))
+          : typedHandles
         return {
           ...node,
           depends_on: node.depends_on.filter(dep => dep !== id),
-          settings: nextHandles === sourceHandles
-            ? node.settings
-            : {
-              ...node.settings,
-              __cliptora_ui_source_handles: nextHandles,
-            },
+          settings: {
+            ...node.settings,
+            __cliptora_ui_source_handles: nextHandles,
+            __cliptora_ui_target_handles: nextTypedHandles,
+          },
         }
       }),
     )
@@ -761,7 +765,7 @@ export function useWorkflowStudio({
         ...previous.filter(item => item.id !== next.id),
       ])
       setMessage(
-        `Executing ${nodeId} using previously completed upstream outputs.`,
+        `Executing ${nodeId} with its required upstream nodes (cached results reused where safe).`,
       )
     } catch (err) {
       setError(errorMessage(err))
