@@ -1,4 +1,3 @@
-
 """Non-destructive CLIPTORA video remix nodes.
 
 Each transformation consumes/returns a versioned JSON clip_manifest. Only
@@ -192,8 +191,9 @@ class VideoRemixNode(Node):
         PREFIX + 'shuffle': _op.__func__('shuffle', 'lucide:shuffle', 'Shuffle Clips', {'seed': 42, 'avoid_adjacent_identical': True}),
         PREFIX + 'zoom': _op.__func__('zoom', 'lucide:zoom-in', 'Zoom & Reframe', {'min_zoom_percent': 10.0, 'max_zoom_percent': 20.0, 'seed': 42}),
         PREFIX + 'merge': _op.__func__('merge', 'lucide:combine', 'Merge Clips', {}),
+        PREFIX + 'attach_voice': _op.__func__('attach_voice', 'lucide:audio-lines', 'Attach Voice-over to Groups', {}),
         PREFIX + 'preview': _op.__func__('preview', 'lucide:monitor-play', 'Preview Montage', {}),
-        PREFIX + 'render': _op.__func__('render', 'lucide:film', 'Render Remix MP4', {'include_audio': True}),
+        PREFIX + 'render': _op.__func__('render', 'lucide:film', 'Render Remix MP4', {'include_audio': True, 'original_audio_volume': 0.18, 'require_group_voiceovers': False}),
     }
 
     parameter_fields = {
@@ -217,6 +217,13 @@ class VideoRemixNode(Node):
         'min_zoom_percent': {'type': 'number', 'title': 'Minimum Zoom Increase (%)', 'minimum': 0, 'maximum': 200},
         'max_zoom_percent': {'type': 'number', 'title': 'Maximum Zoom Increase (%)', 'minimum': 0, 'maximum': 200},
         'seed': {'type': 'integer', 'title': 'Random Seed'},
+    })
+
+    parameter_fields[PREFIX + 'render'].update({
+        'include_audio': {'type': 'boolean', 'title': 'Include Original Audio'},
+        'require_group_voiceovers': {'type': 'boolean', 'title': 'Require Voice-over for Every Group'},
+        'original_audio_volume': {'type': 'number', 'title': 'Original Audio Volume with Voice-over',
+                                  'minimum': 0, 'maximum': 1, 'default': 0.18},
     })
 
     parameter_fields[PREFIX + 'shuffle'].update({
@@ -326,6 +333,7 @@ class VideoRemixNode(Node):
                     'group_id': gid,
                     'label': _label(index),
                     'title': str(entry.get('title') or f'Highlight {index+1}')[:160],
+                    'selected_text': str(entry.get('selected_text') or entry.get('text') or '')[:8000],
                     'clips': [{
                         'clip_id': cid,
                         'original_clip_id': cid,
@@ -459,6 +467,38 @@ class VideoRemixNode(Node):
                     clip['transforms']['position_x'] = 0.5
                     clip['transforms']['position_y'] = 0.5
 
+        elif action == 'attach_voice':
+            items = [item['voiceovers'] for item in outputs.values()
+                     if isinstance(item, dict) and isinstance(item.get('voiceovers'), list)]
+            if len(items) != 1:
+                raise ValueError('Attach Voice-over requires exactly one AI Agent voiceovers output')
+            entries = items[0]
+            expected = {str(group['group_id']) for group in manifest['groups']}
+            got = {str(item.get('group_id')) for item in entries if isinstance(item, dict)}
+            if len(entries) != len(expected) or got != expected:
+                raise ValueError('Each video group must have exactly one matching voice-over')
+            folder = (run_media_dir(workdir) / 'audio' / 'voiceovers').resolve()
+            by_group = {str(entry['group_id']): entry for entry in entries}
+            for group in manifest['groups']:
+                entry = by_group[str(group['group_id'])]
+                path = Path(str(entry.get('path') or '')).resolve()
+                if not path.is_file() or path.parent != folder or path.suffix.lower() != '.mp3':
+                    raise ValueError('Voice-over file missing or outside this run')
+                group_seconds = sum(float(clip['source_end']) - float(clip['source_start'])
+                                    for clip in group['clips'])
+                ffprobe = subprocess.run(
+                    ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                     '-of', 'default=noprint_wrappers=1:nokey=1', str(path)],
+                    capture_output=True, text=True, timeout=30, check=True,
+                )
+                seconds = _num(ffprobe.stdout.strip(), 'Voice-over duration', 0.05, 3600)
+                if seconds > group_seconds + 0.12:
+                    raise ValueError(f'Voice-over for group {group["group_id"]} is too long. '
+                                     'Shorten it and regenerate instead of cutting spoken words.')
+                group['voiceover'] = {'path': str(path), 'mime_type': 'audio/mpeg',
+                                      'duration': round(seconds, 3)}
+            return _finish(manifest, cut_plan=_cut_plan(manifest), voiceovers_attached=len(entries))
+
         elif action in {'merge', 'preview'}:
             plan = _cut_plan(manifest)
             output = _finish(manifest, cut_plan=plan)
@@ -499,9 +539,13 @@ class VideoRemixNode(Node):
             raise ValueError('Render Remix requires a selected source video')
 
         plan = _cut_plan(manifest)
+        total_duration = sum(c['duration'] for c in plan)
 
         if not plan or len(plan) > 600:
             raise ValueError('Render requires 1 to 600 clips')
+        if cfg.get('require_group_voiceovers') and any(
+                not isinstance(group.get('voiceover'), dict) for group in manifest['groups']):
+            raise ValueError('Voice-over is required for every group. Connect Attach Voice-over to Groups before Render.')
 
         ffprobe = subprocess.run(
             [
@@ -700,6 +744,48 @@ class VideoRemixNode(Node):
             if not output.is_file() or output.stat().st_size <= 0:
                 raise RuntimeError('FFmpeg produced no output')
 
+            # Add one voice-over per group at its final montage timestamp.
+            voice_groups = [g for g in manifest['groups'] if isinstance(g.get('voiceover'), dict)]
+            if voice_groups:
+                if len(voice_groups) != len(manifest['groups']):
+                    raise ValueError('Some groups have no voice-over; refusing incomplete render')
+                allowed_folder = (run_media_dir(workdir) / 'audio' / 'voiceovers').resolve()
+                starts = {}
+                cursor = 0.0
+                for group in manifest['groups']:
+                    gid = str(group['group_id'])
+                    duration = sum(float(c['source_end']) - float(c['source_start']) for c in group['clips'])
+                    starts[gid] = (cursor, duration)
+                    cursor += duration
+                audio_inputs = []
+                lines = []
+                for j, group in enumerate(voice_groups, 1):
+                    candidate = Path(group['voiceover']['path']).resolve()
+                    if candidate.parent != allowed_folder or candidate.suffix.lower() != '.mp3' or not candidate.is_file():
+                        raise ValueError('Voice-over must be a generated MP3 within this run')
+                    start, duration = starts[str(group['group_id'])]
+                    audio_inputs.extend(['-i', str(candidate)])
+                    delay = round(start * 1000)
+                    lines.append(f'[{j}:a:0]atrim=duration={duration:.6f},asetpts=PTS-STARTPTS,'
+                                 f'adelay={delay}|{delay},apad=whole_dur={total_duration:.6f},'
+                                 f'atrim=duration={total_duration:.6f}[v{j}]')
+                if audio:
+                    volume = _num(cfg.get('original_audio_volume', 0.18), 'Original audio volume', 0, 1)
+                    lines.append(f'[0:a:0]volume={volume:.4f}[bed]')
+                else:
+                    lines.append(f'anullsrc=r=48000:cl=stereo,atrim=duration={total_duration:.6f}[bed]')
+                mixed = '[bed]' + ''.join(f'[v{j}]' for j in range(1, len(voice_groups)+1))
+                lines.append(f'{mixed}amix=inputs={len(voice_groups)+1}:duration=first:'
+                             f'dropout_transition=0,atrim=duration={total_duration:.6f}[mixed]')
+                merged = Path(tmp) / 'remix_voice.mp4'
+                mix_cmd = ['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y',
+                           '-i',str(output),*audio_inputs,'-filter_complex',';'.join(lines),
+                           '-map','0:v:0','-map','[mixed]','-c:v','copy','-c:a','aac',
+                           '-b:a','192k','-movflags','+faststart',str(merged)]
+                subprocess.run(mix_cmd, check=True, timeout=1200, capture_output=True)
+                if not merged.is_file() or merged.stat().st_size <= 0:
+                    raise RuntimeError('FFmpeg could not merge group voice-overs')
+                merged.replace(output)
             output.replace(target)
 
         return _finish(
@@ -711,6 +797,7 @@ class VideoRemixNode(Node):
                 'video_path': str(target),
                 'mime_type': 'video/mp4',
                 'duration': round(sum(c['duration'] for c in plan), 3),
-                'audio_included': audio,
+                'audio_included': bool(audio or any(g.get('voiceover') for g in manifest['groups'])),
+                'voiceover_groups': sum(bool(g.get('voiceover')) for g in manifest['groups']),
             },
         )

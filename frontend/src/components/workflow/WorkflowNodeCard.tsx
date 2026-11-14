@@ -12,6 +12,7 @@ import {
 import {
   Handle,
   Position,
+  useEdges,
   type Node as FlowNode,
   type NodeProps,
 } from '@xyflow/react'
@@ -207,9 +208,73 @@ function AIAgentCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
   )
 }
 
+/** Attached n8n-style sub-node. The same node keeps its main-flow card when detached. */
+function AgentSubNodeCard({
+  id,
+  data,
+  selected,
+  port,
+}: NodeProps<StudioFlowNode> & { port: 'chat_model' | 'memory' | 'tool' }) {
+  const portLabel = port === 'chat_model' ? 'Model' : port === 'memory' ? 'Memory' : 'Tool'
+  const border = data.status === 'failed'
+    ? 'border-red-400'
+    : data.status === 'done'
+      ? 'border-emerald-400'
+      : 'border-[#dedfe2] dark:border-[#515966]'
+
+  return (
+    <div className="group/subnode relative flex w-[190px] cursor-grab select-none flex-col items-center overflow-visible text-center active:cursor-grabbing">
+      <div className="relative mt-[17px] flex size-[112px] items-center justify-center">
+        <div className={`relative grid size-[112px] place-items-center rounded-full border-[2px] bg-white shadow-[0_2px_7px_rgba(15,23,42,0.07)] transition-shadow hover:shadow-[0_4px_14px_rgba(15,23,42,0.12)] dark:bg-cl-dark-panel ${border} ${selected ? 'ring-[6px] ring-[#dce0e8] dark:ring-violet-900/50' : ''}`}>
+          <Handle
+            id="main"
+            type="source"
+            position={Position.Top}
+            className="!absolute !z-30 !size-[15px] !rounded-[2px] !border-[1.5px] !border-[#a5acb7] !bg-white dark:!bg-cl-dark-panel"
+            style={{ left: '50%', top: -9, transform: 'translateX(-50%) rotate(45deg)' }}
+            title={`Connect as ${portLabel}`}
+          />
+          <span className="pointer-events-none grid size-[72px] place-items-center">
+            <WorkflowToolIcon type={data.nodeType} label={data.label} nodeId={id} size={57} />
+          </span>
+          <span className={`pointer-events-none absolute -bottom-[9px] -right-[5px] z-20 grid size-[24px] place-items-center rounded-full border-[3px] border-white bg-[#f5f6f8] dark:border-cl-dark-line dark:bg-[#2b303b] ${data.status === 'failed' ? 'text-red-500' : data.status === 'done' ? 'text-emerald-600' : data.status === 'running' ? 'text-violet-600' : 'text-[#9299a6]'}`}>
+            <StatusIcon status={data.status} />
+          </span>
+        </div>
+      </div>
+      <span className="pointer-events-none mt-[11px] rounded bg-white/95 px-1.5 text-[12px] font-medium text-[#777] dark:bg-cl-dark-panel dark:text-[#c1c6d0]">
+        {portLabel}
+      </span>
+      <strong className="mt-[7px] max-w-[190px] break-words text-[15px] font-semibold leading-[1.3] text-[#242424] dark:text-[#f3f4f6]">
+        {data.label}
+      </strong>
+      {(data.status === 'running' || data.status === 'failed') && (
+        <NodeProgress run={data.run} nodeId={id} label={data.label} variant="compact" className="mt-2 w-full" />
+      )}
+      {data.note && (
+        <div className="nodrag mt-2 max-w-[190px] whitespace-pre-wrap break-words rounded-md border border-[#e9e1b9] bg-[#fffbe6] px-2 py-1.5 text-left text-[11px] leading-4 text-[#675c37] dark:border-[#696553] dark:bg-[#1f2937] dark:text-[#bfbbab]">
+          {data.note}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
   const { id, data, selected } = props
   const onQuickAdd = useContext(WorkflowQuickAddContext)
+  const edges = useEdges()
+
+  // n8n-style sub-node is determined by a real, typed edge, not its node type.
+  // This preserves existing main-flow cards for the very same node types.
+  const attachedEdge = edges.find(edge =>
+    edge.source === id &&
+    (edge.targetHandle === 'chat_model' || edge.targetHandle === 'memory' || edge.targetHandle === 'tool')
+  )
+  const attachedPort = attachedEdge?.targetHandle
+  if (attachedPort === 'chat_model' || attachedPort === 'memory' || attachedPort === 'tool') {
+    return <AgentSubNodeCard {...props} port={attachedPort} />
+  }
 
   const CustomCard = getNodeUI(data.nodeType)?.Card
 

@@ -1,5 +1,5 @@
-
 import type { WorkflowStudioState } from '../useWorkflowStudio'
+import { getNodeUI } from '../nodeRegistry'
 import { WorkflowSchemaParameters } from './WorkflowSchemaParameters'
 import { WorkflowMediaField } from './WorkflowMediaField'
 import {
@@ -58,6 +58,24 @@ export function WorkflowNodeParameters({
 
   if (!selected) return null
 
+  // Node-specific Parameters take precedence over the generic schema editor.
+  // In particular, ai.agent needs the n8n-style prompt-source and Add Option UI.
+  const CustomParameters = getNodeUI(selected.type)?.Parameters
+  if (CustomParameters && selected.type !== 'ai.agent') {
+    return (
+      <CustomParameters
+        key={selected.id}
+        node={selected}
+        catalog={selectedCatalog}
+        studio={studio}
+        inputValue={inputValue}
+        onChange={updateSelectedSetting}
+        hasAgentModel={hasAgentModel}
+        onManageCredentials={onManageCredentials}
+      />
+    )
+  }
+
   const properties = schemaProperties(
     selectedCatalog?.parameters_schema,
   )
@@ -68,13 +86,15 @@ export function WorkflowNodeParameters({
     input => input.type === 'media',
   )
 
-  const usesDynamicCollection = Object.values(
+  // AI Agent always uses the shared schema renderer for Add Option and
+  // Fixed/Expression controls, even when its schema contains collections.
+  const usesDynamicCollection = selected.type !== 'ai.agent' && Object.values(
     properties,
   ).some(
     field => field.widget === 'collection',
   )
 
-  const usesGenericMedia = mediaInputs.length > 0
+  const usesGenericMedia = selected.type !== 'ai.agent' && mediaInputs.length > 0
 
   if (usesGenericMedia || usesDynamicCollection) {
     return (
@@ -101,6 +121,7 @@ export function WorkflowNodeParameters({
 
   return (
     <WorkflowSchemaParameters
+      key={selected.id}
       node={selected}
       catalog={selectedCatalog}
       studio={studio}

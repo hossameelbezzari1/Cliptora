@@ -1,4 +1,3 @@
-
 """Reuse completed upstream outputs in CLIPTORA workflows.
 
 Supports:
@@ -365,7 +364,10 @@ def _candidate(
             )
             continue
 
-        if (
+        # An explicit Execute Step is a read-only restore of an already
+        # completed output. The normal cache=False execution preference does
+        # not invalidate a verified historical checkpoint.
+        if target_id is None and (
             node.get("cache", True) is False
             or old_node.get("cache", True) is False
         ):
@@ -540,6 +542,71 @@ def collect_reusable_outputs(
         ):
             break
 
+    if target_id is not None:
+        by_id = {node["id"]: node for node in current_nodes}
+        main_consumers = {
+            dependency
+            for node in current_nodes
+            for dependency in node["depends_on"]
+            if (node.get("settings", {}).get("__cliptora_ui_target_handles") or {}).get(dependency) != "tool"
+        }
+        # These Browser nodes are capability declarations, not standalone
+        # executions. The Agent creates a fresh browser session itself; there
+        # is no old browser process to restore or rerun.
+        declarative_browser = {
+            source_id
+            for node in current_nodes if node["type"] == "ai.agent"
+            for source_id, port in (node.get("settings", {}).get("__cliptora_ui_target_handles") or {}).items()
+            if port == "tool" and source_id in by_id
+            and by_id[source_id]["type"] == "browser.playwright"
+            and source_id not in main_consumers
+        }
+        for node_id in declarative_browser:
+            selected[node_id] = (
+                {"agent_tool": "browser.playwright", "configured": True},
+                new_dir, None,
+            )
+
+        # A Chat Model plugged into an Agent is a configuration provider,
+        # not an external processing step. Reconstruct its output from the
+        # CURRENT settings so changes to the provider/model/credential work
+        # immediately without replaying video-processing ancestors.
+        # Only apply this to an exclusively attached, dependency-free subnode;
+        # a Chat Model used by a main-flow consumer retains strict reuse.
+        main_flow_consumers = {
+            dependency
+            for consumer in current_nodes
+            for dependency in consumer["depends_on"]
+            if (consumer.get("settings", {}).get("__cliptora_ui_target_handles") or {}).get(dependency)
+            not in ("chat_model", "memory", "tool")
+        }
+        attached_chat_models = {
+            source_id
+            for node in current_nodes if node["type"] == "ai.agent"
+            and node["id"] == target_id
+            for source_id, port in (node.get("settings", {}).get("__cliptora_ui_target_handles") or {}).items()
+            if port == "chat_model" and source_id in by_id
+            and by_id[source_id]["type"] == "ai.chat_model"
+            and not by_id[source_id]["depends_on"]
+            and source_id not in main_flow_consumers
+        }
+        for node_id in attached_chat_models:
+            config = by_id[node_id].get("settings") or {}
+            provider = str(config.get("provider") or "openai").lower()
+            if provider not in ("openai", "gemini", "ollama"):
+                raise ValueError(f"Unsupported Chat Model provider on {node_id}")
+            defaults = {"openai": "gpt-5.5", "gemini": "gemini-2.5-flash", "ollama": "gemma3"}
+            model = str(config.get("model") or defaults[provider])
+            effort = str(config.get("reasoning_effort") or "medium")
+            if effort == "none" and model in ("gpt-6.1-sol", "gpt-6-astra"):
+                effort = "medium"
+            selected[node_id] = ({"chat_model": {
+                "model": model,
+                "reasoning_effort": effort,
+                "provider": provider,
+                "credential_id": config.get("credential_id"),
+            }}, new_dir, None)
+
     if (
         target_id is not None
         and not required.issubset(selected)
@@ -574,10 +641,9 @@ def collect_reusable_outputs(
         artifact, old_dir, run_id = entry
 
         try:
-            rebased = rebase(
-                artifact,
-                old_dir,
-                new_dir,
+            rebased = (
+                artifact if run_id is None
+                else rebase(artifact, old_dir, new_dir)
             )
 
         except (

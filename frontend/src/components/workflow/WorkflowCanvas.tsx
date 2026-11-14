@@ -11,7 +11,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-
+import { tidyWorkflowNodes } from './workflowTidyLayout'
 import {
   Background,
   BaseEdge,
@@ -47,6 +47,7 @@ import {
   Copy,
   ExternalLink,
   LayoutGrid,
+  Hand,
   LockKeyhole,
   LockKeyholeOpen,
   MousePointer2,
@@ -86,6 +87,7 @@ import { clone, uid } from './workflowUtils'
 import { CanvasStickyNotes, type CanvasStickyNotesHandle } from './CanvasStickyNotes'
 
 type Position = { x: number; y: number }
+type CanvasInteractionMode = 'mouse' | 'hand'
 
 type CanvasSearchTab = 'all' | 'nodes' | 'workflows' | 'actions'
 
@@ -460,8 +462,8 @@ function ActionEdge({
 
         <div
           className={`nodrag nopan absolute z-30 flex items-center gap-2 transition-all duration-150 ${visible
-              ? 'pointer-events-auto scale-100 opacity-100'
-              : 'pointer-events-none scale-90 opacity-0'
+            ? 'pointer-events-auto scale-100 opacity-100'
+            : 'pointer-events-none scale-90 opacity-0'
             }`}
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
@@ -696,7 +698,9 @@ export function WorkflowCanvas({
     targetId: string
     value: string
   } | null>(null)
-  const [viewport, setViewport] = useState<Viewport>(START_VIEWPORT)
+  // Keep React Flow's viewport uncontrolled: panning must not rerender all nodes.
+  const [zoom, setZoom] = useState(START_VIEWPORT.zoom)
+  const [interactionMode, setInteractionMode] = useState<CanvasInteractionMode>('mouse')
   const [quickAdd, setQuickAdd] = useState<QuickAddPosition | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [selectedEdges, setSelectedEdges] = useState<string[]>([])
@@ -1131,47 +1135,22 @@ export function WorkflowCanvas({
   const tidyWorkflow = useCallback(() => {
     if (!nodes.length) return
 
-    const byId = new Map(nodes.map(node => [node.id, node]))
-    const cache = new Map<string, number>()
+    setNodes(previous => tidyWorkflowNodes(previous))
 
-    const levelOf = (
-      id: string,
-      visiting = new Set<string>(),
-    ): number => {
-      if (cache.has(id)) return cache.get(id)!
-      if (visiting.has(id)) return 0
+    setMessage(
+      'Workflow arranged: AI Agent children are directly below their agent.'
+    )
 
-      visiting.add(id)
-      const deps = byId.get(id)?.depends_on.filter(dep => byId.has(dep)) ?? []
-      const level = deps.length
-        ? Math.max(...deps.map(dep => levelOf(dep, visiting))) + 1
-        : 0
-
-      visiting.delete(id)
-      cache.set(id, level)
-      return level
-    }
-
-    const rows = new Map<number, number>()
-
-    setNodes(previous => previous.map(node => {
-      if (node.settings[pinKey] === true) return node
-
-      const depth = levelOf(node.id)
-      const row = rows.get(depth) ?? 0
-      rows.set(depth, row + 1)
-
-      return {
-        ...node,
-        position: {
-          x: 90 + depth * 300,
-          y: 85 + row * 210,
-        },
-      }
-    }))
-
-    setMessage('Nodes arranged by dependencies.')
-  }, [nodes, setNodes, setMessage])
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        void flow.current?.fitView({
+          padding: 0.16,
+          duration: 450,
+          maxZoom: 1,
+        })
+      })
+    })
+  }, [nodes.length, setNodes, setMessage, flow])
 
   const renameNode = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1280,7 +1259,7 @@ export function WorkflowCanvas({
           const labels = edgeLabelsFor(node)
           const rawTyped = node.settings[typedConnectionKey]
           const typed = rawTyped && typeof rawTyped === 'object' && !Array.isArray(rawTyped)
-            ? {...rawTyped as Record<string, string>} : {}
+            ? { ...rawTyped as Record<string, string> } : {}
           const removedBranch = removedSources.some(source =>
             /^(true|false)$/.test(handles[source] ?? ''),
           )
@@ -1501,8 +1480,8 @@ export function WorkflowCanvas({
         sourceHandle,
         targetHandle: target?.type === 'ai.agent' &&
           typeof (target.settings[typedConnectionKey] as Record<string, unknown> | undefined)?.[edge.source] === 'string'
-            ? String((target.settings[typedConnectionKey] as Record<string, unknown>)[edge.source])
-            : 'input',
+          ? String((target.settings[typedConnectionKey] as Record<string, unknown>)[edge.source])
+          : 'input',
         selected,
         animated: false,
         style: {
@@ -1572,11 +1551,11 @@ export function WorkflowCanvas({
       if (node.id !== target) return node
       const isBranch = sourceNode.type === 'flow.if'
       const sourceHandles = isBranch
-        ? {...handlesFor(node), [source]: sourceHandle === 'false' ? 'false' : 'true'}
+        ? { ...handlesFor(node), [source]: sourceHandle === 'false' ? 'false' : 'true' }
         : handlesFor(node)
       const previousTyped = node.settings[typedConnectionKey]
       const typed = previousTyped && typeof previousTyped === 'object' && !Array.isArray(previousTyped)
-        ? {...previousTyped as Record<string, string>} : {}
+        ? { ...previousTyped as Record<string, string> } : {}
       if (isAgentPort && targetHandle) typed[source] = targetHandle
       else delete typed[source]
       // Chat Model is a single provider, not an arbitrary list of models.
@@ -1589,7 +1568,7 @@ export function WorkflowCanvas({
         when: isBranch ? sourceHandle === 'false' ? 'condition_false' : 'condition_true' : node.when,
         settings: {
           ...node.settings,
-          ...(isBranch ? {[connectionKey]:sourceHandles} : {}),
+          ...(isBranch ? { [connectionKey]: sourceHandles } : {}),
           [typedConnectionKey]: typed,
         },
       }
@@ -1632,7 +1611,7 @@ export function WorkflowCanvas({
       const port = quickAdd.sourceHandle
       const compatible = port === 'chat_model' ? template.type === 'ai.chat_model'
         : port === 'memory' ? /memory/i.test(template.type)
-        : template.type !== 'ai.agent' && template.type !== 'ai.chat_model' && !/trigger/i.test(template.type)
+          : template.type !== 'ai.agent' && template.type !== 'ai.chat_model' && !/trigger/i.test(template.type)
       if (!compatible) { setMessage(`This node is not compatible with the ${port} port.`); return }
       const id = uid(type, nodes.map(node => node.id))
       const anchor = source.position ?? { x: 100, y: 100 }
@@ -1866,8 +1845,8 @@ export function WorkflowCanvas({
   const quickItems = useMemo(
     () => catalog.filter(item =>
       (quickAdd?.sourceHandle === 'chat_model' ? item.type === 'ai.chat_model' :
-       quickAdd?.sourceHandle === 'memory' ? /memory/i.test(item.type) :
-       quickAdd?.sourceHandle === 'tool' ? item.type !== 'ai.agent' && item.type !== 'ai.chat_model' && !/trigger/i.test(item.type) : true) &&
+        quickAdd?.sourceHandle === 'memory' ? /memory/i.test(item.type) :
+          quickAdd?.sourceHandle === 'tool' ? item.type !== 'ai.agent' && item.type !== 'ai.chat_model' && !/trigger/i.test(item.type) : true) &&
       item.status === 'implemented' &&
       !!item.backend_executor &&
       (
@@ -2018,6 +1997,16 @@ export function WorkflowCanvas({
         document.activeElement === document.body
 
       if (!keyboardScope) return
+      if (commandOpen || quickAdd || renameDraft || edgeRenameDraft) return
+
+      // V = select/move nodes, H = pan the canvas. Ignore modified shortcuts.
+      if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        if (key === 'v' || key === 'h') {
+          event.preventDefault()
+          setInteractionMode(key === 'v' ? 'mouse' : 'hand')
+          return
+        }
+      }
 
       if (event.key === 'Escape') {
         setSelectedNodeIds([])
@@ -2167,7 +2156,7 @@ export function WorkflowCanvas({
     duplicateSelectedNodes, redo, undo, selectedId, nodes,
     selectedNodeIds, selectedEdges, catalog, copySelection,
     pasteSelection, setSelectedId, tidyWorkflow, toggleNodePin,
-    contextMenu, renameDraft, edgeRenameDraft, flow,
+    contextMenu, commandOpen, quickAdd, renameDraft, edgeRenameDraft, flow,
     deleteSelection, onOpenNode, testStep, working,
   ])
 
@@ -2532,7 +2521,10 @@ export function WorkflowCanvas({
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#fbfbfa] dark:bg-[#1f2937]">
       <div
         ref={canvasRef}
-        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#fbfbfa] dark:bg-[#1f2937] [&_.react-flow__attribution]:!hidden [&_.react-flow__node]:!border-0 [&_.react-flow__node]:!bg-transparent [&_.react-flow__node]:!shadow-none [&_.react-flow__node]:!overflow-visible [&_.react-flow__handle]:!transition-all [&_.react-flow__handle:hover]:!scale-125 [&_.react-flow__handle-connecting]:!ring-4 [&_.react-flow__handle-connecting]:!ring-violet-200 dark:ring-violet-900/70"
+        className={`relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#fbfbfa] dark:bg-[#1f2937] ${interactionMode === 'hand'
+          ? '[&_.react-flow__pane]:!cursor-grab [&_.react-flow__pane.dragging]:!cursor-grabbing [&_.react-flow__nodes]:!pointer-events-none [&_.react-flow__node]:!pointer-events-none [&_.react-flow__edges]:!pointer-events-none [&_.react-flow__edge]:!pointer-events-none [&_.react-flow__edgelabel-renderer]:!pointer-events-none'
+          : '[&_.react-flow__pane]:!cursor-crosshair'
+        } [&_.react-flow__attribution]:!hidden [&_.react-flow__node]:!border-0 [&_.react-flow__node]:!bg-transparent [&_.react-flow__node]:!shadow-none [&_.react-flow__node]:!overflow-visible [&_.react-flow__handle]:!transition-all [&_.react-flow__handle:hover]:!scale-125 [&_.react-flow__handle-connecting]:!ring-4 [&_.react-flow__handle-connecting]:!ring-violet-200 dark:ring-violet-900/70`}
         onDragOver={event => {
           event.preventDefault()
           event.dataTransfer.dropEffect = 'copy'
@@ -2552,8 +2544,8 @@ export function WorkflowCanvas({
               <ReactFlow<StudioFlowNode, Edge>
                 nodes={visualNodes}
                 edges={graphEdges}
-                viewport={viewport}
-                onViewportChange={setViewport}
+                defaultViewport={START_VIEWPORT}
+                onMoveEnd={(_, next) => setZoom(current => current === next.zoom ? current : next.zoom)}
                 minZoom={0.25}
                 maxZoom={1.25}
                 fitView={false}
@@ -2634,11 +2626,12 @@ export function WorkflowCanvas({
                       : undefined,
                   })
                 }}
-                nodesDraggable
+                nodesDraggable={interactionMode === 'mouse'}
                 autoPanOnNodeDrag={false}
-                nodesConnectable
-                elementsSelectable
-                panOnDrag
+                nodesConnectable={interactionMode === 'mouse'}
+                elementsSelectable={interactionMode === 'mouse'}
+                selectionOnDrag={interactionMode === 'mouse'}
+                panOnDrag={interactionMode === 'hand'}
                 zoomOnScroll={false}
                 panOnScroll
                 zoomOnPinch
@@ -2671,12 +2664,14 @@ export function WorkflowCanvas({
                   )
                 }}
                 onEdgeClick={(_, edge) => {
+                  if (interactionMode === 'hand') return
                   closeContextMenu()
                   setSelectedNodeIds([])
                   setSelectedId(null)
                   setSelectedEdges([edge.id])
                 }}
                 onEdgeDoubleClick={(event, edge) => {
+                  if (interactionMode === 'hand') return
                   event.preventDefault()
                   renameEdge(edge.source, edge.target)
                 }}
@@ -2693,17 +2688,18 @@ export function WorkflowCanvas({
                     event.clientY,
                   )
                 }}
-                
-onPaneClick={() => {
-  closeContextMenu()
-  stickyNotesRef.current?.clearSelection()
-  setQuickAdd(null)
-  setSelectedId(null)
-  setSelectedNodeIds([])
-  setSelectedEdges([])
-}}
+
+                onPaneClick={() => {
+                  closeContextMenu()
+                  stickyNotesRef.current?.clearSelection()
+                  setQuickAdd(null)
+                  setSelectedId(null)
+                  setSelectedNodeIds([])
+                  setSelectedEdges([])
+                }}
 
                 onNodeClick={(_, node) => {
+                  if (interactionMode === 'hand') return
                   closeContextMenu()
                   stickyNotesRef.current?.clearSelection()
                   setSelectedEdges([])
@@ -2717,7 +2713,7 @@ onPaneClick={() => {
                   )
                 }}
                 onNodeDoubleClick={(_, node) => {
-                  if (Date.now() - draggedAt.current < 250) return
+                  if (interactionMode === 'hand' || Date.now() - draggedAt.current < 250) return
 
                   setSelectedId(node.id)
                   setJsonEditor(
@@ -2832,7 +2828,7 @@ onPaneClick={() => {
                 <CanvasStickyNotes
                   ref={stickyNotesRef}
                   scope={noteScope}
-                  zoom={viewport.zoom}
+                  zoom={zoom}
                   searchOpen={commandOpen}
                 />
                 <MiniMap
@@ -2855,6 +2851,33 @@ onPaneClick={() => {
         >
 
           <div className="flex flex-col items-center gap-0.5">
+            <button
+              type="button"
+              title="Mouse: select and move nodes (V)"
+              aria-label="Mouse: select and move nodes"
+              aria-pressed={interactionMode === 'mouse'}
+              onClick={() => setInteractionMode('mouse')}
+              className={`grid size-9 place-items-center rounded-full transition-colors ${interactionMode === 'mouse'
+                ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300'
+                : 'text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]'
+              }`}
+            >
+              <MousePointer2 size={20} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              title="Hand: drag to move canvas (H)"
+              aria-label="Hand: move canvas"
+              aria-pressed={interactionMode === 'hand'}
+              onClick={() => setInteractionMode('hand')}
+              className={`grid size-9 place-items-center rounded-full transition-colors ${interactionMode === 'hand'
+                ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300'
+                : 'text-[#202020] dark:text-[#f3f4f6] hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937]'
+              }`}
+            >
+              <Hand size={20} strokeWidth={2} />
+            </button>
+            <span aria-hidden="true" className="my-1 h-px w-6 bg-[#ededee] dark:bg-[#374151]" />
             <button
               type="button"
               title={libraryOpen ? 'Close Add Node' : 'Add Node'}
@@ -3156,7 +3179,7 @@ onPaneClick={() => {
               className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-30"
               title="Zoom in"
               aria-label="Zoom in"
-              disabled={viewport.zoom >= 1.25}
+              disabled={zoom >= 1.25}
               onClick={() => {
                 void flow.current?.zoomIn({ duration: 170 })
               }}
@@ -3169,7 +3192,7 @@ onPaneClick={() => {
               className="grid place-items-center rounded-full text-[#191919] dark:text-[#f3f4f6] transition-colors hover:bg-[#f4f4f5] dark:hover:bg-[#1f2937] disabled:opacity-30"
               title="Zoom out"
               aria-label="Zoom out"
-              disabled={viewport.zoom <= 0.25}
+              disabled={zoom <= 0.25}
               onClick={() => {
                 void flow.current?.zoomOut({ duration: 170 })
               }}

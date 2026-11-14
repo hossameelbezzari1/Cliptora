@@ -1,4 +1,3 @@
-
 """Authenticated, project-owned workflow definitions, media sources and runs.
 
 Connect to app.main using:
@@ -54,7 +53,7 @@ from app.workflows.Validation import execution_nodes, validate_workflow
 from app.workflows.Catalog import preset_templates, tool_catalog
 from app.helpers.Media import probe
 from app.workflows.Engine import run_graph
-from app.workflows.Reuse import collect_reusable_outputs
+from app.workflows.Reuse import STEP_TARGET_KEY, collect_reusable_outputs
 from app.workflows.Credentials import execution_owner
 
 _schema_lock = Lock()
@@ -598,11 +597,16 @@ class WorkflowService:
                 body.target_node_id,
             )
 
-            # Execute Step runs the target and its required dependency chain.
-            # Do NOT mark the target as strict checkpoint-only. Browser sessions,
-            # network requests and new workflows cannot be restored from absent
-            # artifacts; their upstream dependencies must execute normally.
-            # Engine-level checkpoint reuse remains available where safe.
+            # Execute Step is intentionally strict: saved compatible upstream
+            # outputs are restored, never silently re-executed. This marker is
+            # stored only in the run snapshot, NOT in the workflow definition.
+            if body.target_node_id is not None:
+                for step_node in nodes:
+                    if step_node["id"] == body.target_node_id:
+                        step_node["settings"] = {
+                            **step_node["settings"], STEP_TARGET_KEY: True,
+                        }
+                        break
 
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc

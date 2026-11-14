@@ -1,4 +1,3 @@
-
 import {
 
   useEffect,
@@ -154,16 +153,23 @@ function FieldToolbar({
 
   return (
 
-    <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+    <div className="relative flex min-h-9 min-w-0 flex-1 items-center">
 
-      <span className="min-w-0 text-[13px] font-medium text-[#303030] dark:text-[#f3f4f6]">
+      <span
+        title={label}
+        className={`block min-w-0 flex-1 overflow-hidden text-[13px] font-medium leading-5 text-[#303030] dark:text-[#f3f4f6]
+          ${menuOpen
+            ? 'truncate pr-[210px]'
+            : 'whitespace-normal break-words group-hover/field:truncate group-hover/field:pr-[210px] group-focus-within/field:truncate group-focus-within/field:pr-[210px] [@media(hover:none)]:truncate [@media(hover:none)]:pr-[210px]'
+          }`}
+      >
 
         {label}
 
       </span>
 
       <div
-        className={`flex items-center gap-1 transition-opacity duration-150
+        className={`absolute right-0 top-0 flex shrink-0 items-center gap-1 transition-opacity duration-150
           ${menuOpen
             ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none group-hover/field:opacity-100 group-hover/field:pointer-events-auto group-focus-within/field:opacity-100 group-focus-within/field:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto'
@@ -730,11 +736,8 @@ export function DynamicField({
 
       <div className="group/field min-w-0">
 
-        {toolbar}
-
-        {showExpression ? expressionControl : (
-
-          <div className="flex min-h-10 items-center gap-3">
+        <div className="flex min-h-10 min-w-0 items-center gap-3">
+          {!showExpression && (
 
             <button
 
@@ -782,16 +785,12 @@ export function DynamicField({
 
             </button>
 
-            <span className="text-[12px] text-[#777] dark:text-[#aab1bd]">
 
-              {effective ? 'Enabled' : 'Disabled'}
 
-            </span>
-
-          </div>
-
-        )}
-
+          )}
+          {toolbar}
+        </div>
+        {showExpression && <div className="mt-2">{expressionControl}</div>}
         {description}
 
       </div>

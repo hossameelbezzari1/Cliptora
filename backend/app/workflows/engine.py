@@ -42,6 +42,7 @@ def run_graph(
     from app.helpers.Transcript import get_input
     from app.workflows.Registry import executor as node_executor
     from app.workflows.Credentials import bind_for_node
+    from app.workflows.Reuse import STEP_TARGET_KEY
 
     ordered = validate_workflow(nodes)
 
@@ -52,6 +53,39 @@ def run_graph(
 
     total_nodes = len(ordered)
     by_node_id = {item["id"]: item for item in ordered}
+    step_targets = [
+        item["id"] for item in ordered
+        if (item.get("settings") or {}).get(STEP_TARGET_KEY) is True
+    ]
+    if len(step_targets) > 1:
+        raise ValueError("Execute Step must have exactly one target")
+    step_target = step_targets[0] if step_targets else None
+    if step_target is not None:
+        # Fail before executing any expensive or side-effectful upstream node.
+        required = {
+            item["id"] for item in ordered
+            if item["id"] != step_target
+        }
+        missing = required - set(reused or {})
+        # Declarative Browser Tool nodes do not have saved run artifacts.
+        declarative = {
+            source_id
+            for item in ordered if item["type"] == "ai.agent"
+            for source_id, port in (item.get("settings", {}).get("__cliptora_ui_target_handles") or {}).items()
+            if port == "tool" and source_id in by_node_id
+            and by_node_id[source_id]["type"] == "browser.playwright"
+        }
+        main_dependents = {
+            dep for item in ordered for dep in item["depends_on"]
+            if (item.get("settings", {}).get("__cliptora_ui_target_handles") or {}).get(dep) != "tool"
+        }
+        missing -= (declarative - main_dependents)
+        if missing:
+            raise ValueError(
+                "Execute Step stopped: compatible upstream results missing: "
+                + ", ".join(sorted(missing))
+                + ". Execute the missing nodes separately or run the workflow once."
+            )
     agent_tool_ids = {
         source_id
         for item in ordered if item["type"] == "ai.agent"
@@ -188,7 +222,13 @@ def run_graph(
         result = None
         cached = False
 
-        allow_cache = node.get("cache", True) and node_type != "ai.agent"
+        # Explicit Execute Step means "reuse saved results" even if an upstream
+        # node has caching disabled for normal full-workflow runs. It does NOT
+        # override the selected target: the target is always executed fresh.
+        upstream_step = step_target is not None and node_id != step_target
+        allow_cache = (upstream_step or node.get("cache", True)) and (
+            node_type != "ai.agent" or upstream_step
+        )
         reused_node = (
             (reused or {}).get(node_id)
             if allow_cache

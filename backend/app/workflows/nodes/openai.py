@@ -28,27 +28,9 @@ class OpenAINode(Node):
     family = 'openai'
     group = 'AI'
     icon = 'brand:openai'
-    operations = {'ai.openai': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'classify_violations', 'label': 'Classify Violations', 'icon': 'lucide:shield-alert'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}], 'icon': 'brand:openai', 'label': 'OpenAI', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gpt-5.5', 'prompt': ''}, 'credentials': ['openai']}, 'ai.chat_model': {'icon': 'lucide:brain-circuit', 'label': 'Chat Model', 'settings': {'provider': 'openai', 'model': 'gpt-5.5', 'reasoning_effort': 'medium', 'credential_id': None}, 'credentials': ['openai', 'gemini', 'ollama']}, 'ai.agent': {'icon': 'lucide:bot', 'label': 'AI Agent', 'settings': {'prompt_source': 'define_below', 'prompt': ''}, 'credentials': []}}
+    operations = {'ai.openai': {'actions': [{'id': 'message_model', 'label': 'Message Model', 'icon': 'lucide:message-square-text'}, {'id': 'classify_violations', 'label': 'Classify Violations', 'icon': 'lucide:shield-alert'}, {'id': 'analyze_image', 'label': 'Analyze Image', 'icon': 'lucide:image'}, {'id': 'generate_image', 'label': 'Generate Image', 'icon': 'lucide:image-plus'}, {'id': 'edit_image', 'label': 'Edit Image', 'icon': 'lucide:images'}], 'icon': 'brand:openai', 'label': 'OpenAI', 'settings': {'action': 'message_model', 'credential_id': None, 'model': 'gpt-5.5', 'prompt': ''}, 'credentials': ['openai']}, 'ai.chat_model': {'icon': 'lucide:brain-circuit', 'label': 'Chat Model', 'settings': {'provider': 'openai', 'model': 'gpt-5.5', 'reasoning_effort': 'medium', 'credential_id': None}, 'credentials': ['openai', 'gemini', 'ollama']}}
 
-    parameter_fields = {
-        'ai.openai': {'model': {'type':'string','widget':'model'}},
-        'ai.chat_model': {
-            'provider': {'type':'string','enum':['openai','gemini','ollama'],'title':'Provider'},
-            'model': {'type':'string','widget':'model'},
-            'reasoning_effort': {'type':'string','enum':['none','low','medium','high','xhigh','max']},
-        },
-        'ai.agent': {
-            'prompt_source': {'type':'string','enum':['define_below','connected_chat_trigger']},
-            'prompt': {'type':'string','widget':'textarea'},
-            'require_specific_output': {'type':'boolean','default':False},
-            'enable_fallback_model': {'type':'boolean','default':False},
-            'system_message': {'type':'string','widget':'textarea','group':'Advanced'},
-            'fallback_model': {'type':'string','group':'Advanced'},
-            'max_iterations': {'type':'integer','title':'Max Iterations','minimum':1,'maximum':30,'default':10,'group':'Advanced'},
-            'browser_snapshot_chars': {'type':'integer','title':'Browser Snapshot Characters','minimum':1000,'maximum':16000,'default':6500,'group':'Advanced'},
-            'allow_sensitive_actions': {'type':'boolean','title':'Allow External/Destructive Actions','default':False,'group':'Advanced'},
-        },
-    }
+    parameter_fields = {'ai.openai': {'model': {'type': 'string', 'widget': 'model'}}, 'ai.chat_model': {'provider': {'type': 'string', 'enum': ['openai', 'gemini', 'ollama'], 'title': 'Provider'}, 'model': {'type': 'string', 'widget': 'model'}, 'reasoning_effort': {'type': 'string', 'enum': ['none', 'low', 'medium', 'high', 'xhigh', 'max']}}}
     action_fields = {'ai.openai': {
         'message_model': {
             'prompt': {'type':'string','widget':'textarea'},
@@ -76,8 +58,6 @@ class OpenAINode(Node):
             if effort == 'none' and model in ('gpt-6.1-sol', 'gpt-6-astra'):
                 effort = 'medium'
             return {'chat_model': {'model': model, 'reasoning_effort': effort, 'provider': provider, 'credential_id': cfg.get('credential_id')}}
-        if operation == 'ai.agent':
-            return self.execute_ai_agent({**cfg, '_agent_tool_specs': node.get('_agent_tool_specs', {}), '_progress_callback': node.get('_progress_callback'), '_cancelled_callback': node.get('_cancelled_callback'), '_workdir': workdir}, outputs)
         if cfg.get('action', 'message_model') == 'message_model':
             return self.openai_chat(cfg, outputs)
         return self.openai_action(cfg, outputs)
@@ -138,126 +118,7 @@ class OpenAINode(Node):
         except (urllib.error.HTTPError, urllib.error.URLError, ValueError, KeyError, IndexError) as exc:
             raise RuntimeError(f'OpenAI request failed: {str(exc)[:200]}') from exc
 
-    @staticmethod
-    def _find_named_value(value: Any, name: str, depth: int=0) -> Any:
-        """Find a bounded field in upstream JSON without evaluating expressions."""
-        if depth > 8:
-            return None
-        if isinstance(value, dict):
-            if name in value:
-                return value[name]
-            for nested in value.values():
-                found = OpenAINode._find_named_value(nested, name, depth + 1)
-                if found is not None:
-                    return found
-        elif isinstance(value, list):
-            for nested in value[:100]:
-                found = OpenAINode._find_named_value(nested, name, depth + 1)
-                if found is not None:
-                    return found
-        return None
 
-    @staticmethod
-    def execute_ai_agent(cfg: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
-        raw_handles = cfg.get('__cliptora_ui_target_handles', {})
-        handles = raw_handles if isinstance(raw_handles, dict) else {}
-        model_ids = [source_id for source_id, handle in handles.items() if handle == 'chat_model' and source_id in outputs]
-        if not model_ids:
-            raise ValueError('AI Agent requires a Chat Model connection')
-        model_output = outputs[model_ids[0]]
-        model_cfg = model_output.get('chat_model', {}) if isinstance(model_output, dict) else {}
-        if not isinstance(model_cfg, dict):
-            raise ValueError('The connected Chat Model returned invalid configuration')
-        prompt_source = str(cfg.get('prompt_source', 'connected_chat_trigger'))
-        if prompt_source == 'connected_chat_trigger':
-            prompt_value = OpenAINode._find_named_value({key: value for key, value in outputs.items() if key not in model_ids}, 'chatInput')
-            if prompt_value is None:
-                raise ValueError('Connected Chat Trigger input is missing chatInput')
-            prompt = str(prompt_value).strip()
-        elif prompt_source == 'define_below':
-            prompt = str(cfg.get('prompt', '')).strip()
-        else:
-            raise ValueError('AI Agent prompt source must be connected_chat_trigger or define_below')
-        if not prompt:
-            raise ValueError('AI Agent prompt cannot be empty')
-        memory = {key: outputs[key] for key, handle in handles.items() if handle == 'memory' and key in outputs}
-        tools = {key: outputs[key] for key, handle in handles.items() if handle == 'tool' and key in outputs}
-        if memory:
-            prompt += '\n\nConversation memory:\n' + json.dumps(memory, ensure_ascii=False, separators=(',', ':'))
-        if tools:
-            prompt += '\n\nConnected tool results:\n' + json.dumps(tools, ensure_ascii=False, separators=(',', ':'))
-        request_cfg = {**model_cfg, 'prompt': prompt, 'system_prompt': str(cfg.get('system_message', 'You are a helpful AI agent.'))}
-        provider = str(model_cfg.get('provider') or 'openai').lower()
-        credential_id = model_cfg.get('credential_id')
-        if provider not in ('openai', 'gemini', 'ollama'):
-            raise ValueError('Connected Chat Model provider is unsupported')
-        if type(credential_id) is not int or credential_id < 1:
-            raise ValueError(f'Connect a {provider} credential in the Chat Model node')
-        from app.workflows.Credentials import bind_for_node
-
-        def invoke(selected_cfg: dict[str, Any]) -> dict[str, Any]:
-            # Rebind to the connected model's credential rather than the Agent's.
-            # The owner is inherited from the Workflow Engine's execution context.
-            model_node = {'type': 'ai.chat_model', 'settings': {
-                'provider': provider, 'credential_id': credential_id}}
-            with bind_for_node(model_node):
-                if provider == 'openai':
-                    return OpenAINode.openai_chat(selected_cfg, {})
-                if provider == 'gemini':
-                    from app.workflows.nodes.Gemini import GeminiNode
-                    return GeminiNode.message_model({'type': 'ai.gemini', 'settings': {
-                        'model': selected_cfg['model'],
-                        'prompt': selected_cfg['prompt'],
-                        'system_prompt': selected_cfg['system_prompt'],
-                        'output_mode': 'text'}}, {})
-                from app.workflows.nodes.Ollama import OllamaNode
-                return OllamaNode.ollama_action({
-                    'action': 'message_model', 'model': selected_cfg['model'],
-                    'prompt': selected_cfg['prompt'],
-                    'system_prompt': selected_cfg['system_prompt']}, {})
-
-        browser_specs = {
-            key: spec for key, spec in (cfg.get('_agent_tool_specs') or {}).items()
-            if spec.get('type') == 'browser.playwright'
-        }
-        if browser_specs:
-            if len(browser_specs) != 1:
-                raise ValueError('AI Agent currently supports one connected Playwright Browser tool')
-            from app.workflows.AgentBrowserRuntime import run_browser_agent
-            tool_id, spec = next(iter(browser_specs.items()))
-            result = run_browser_agent(
-                cfg=cfg,
-                request_cfg=request_cfg,
-                browser_node=spec,
-                model_invoke=invoke,
-                outputs=outputs,
-                workdir=Path(cfg['_workdir']),
-                progress=cfg.get('_progress_callback'),
-                cancelled=cfg.get('_cancelled_callback'),
-            )
-            result.setdefault('agent', {}).update({
-                'chat_model_node': model_ids[0],
-                'memory_inputs': list(memory),
-                'tool_inputs': list(tools),
-                'browser_tool_node': tool_id,
-            })
-            return result
-
-        try:
-            result = invoke(request_cfg)
-        except RuntimeError:
-            fallback = str(cfg.get('fallback_model', '')).strip()
-            if not cfg.get('enable_fallback_model') or not fallback:
-                raise
-            result = invoke({**request_cfg, 'model': fallback})
-            result['fallback_used'] = True
-        if cfg.get('require_specific_output'):
-            try:
-                result['structured_output'] = json.loads(str(result.get('text', '')))
-            except ValueError as exc:
-                raise ValueError('AI Agent required structured JSON output, but the model returned invalid JSON') from exc
-        result['agent'] = {'chat_model_node': model_ids[0], 'memory_inputs': list(memory), 'tool_inputs': list(tools)}
-        return result
 
     @staticmethod
     def openai_request(path: str, payload: dict[str, Any], timeout: int=120) -> dict[str, Any]:

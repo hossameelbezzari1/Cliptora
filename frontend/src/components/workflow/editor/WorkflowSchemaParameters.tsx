@@ -38,6 +38,8 @@ type SchemaField = FieldSchema & {
   widget?: 'textarea' | 'model' | 'messages' | 'upstream' | 'json'
   accepts?: string[]
   group?: string
+  optional?: boolean
+  default_visible?: boolean
   placeholder?: string
   options?: Array<{ value: string; label: string }>
   visible_if?: Record<string, unknown>
@@ -980,6 +982,13 @@ export function WorkflowSchemaParameters({
   const [toolPicker, setToolPicker] = useState(false)
   const [optionPicker, setOptionPicker] = useState(false)
   const [addedOptions, setAddedOptions] = useState<string[]>([])
+  const [hiddenDefaultOptions, setHiddenDefaultOptions] = useState<string[]>([])
+
+  useEffect(() => {
+    setAddedOptions([])
+    setHiddenDefaultOptions([])
+    setOptionPicker(false)
+  }, [node.id])
 
   const uploadRef = useRef<HTMLInputElement>(null)
   const modelRequest = useRef(0)
@@ -1284,27 +1293,31 @@ export function WorkflowSchemaParameters({
     name => !extraMain.has(name),
   )
 
+  // Python schema owns which fields are optional. Legacy Advanced fields
+  // remain optional for backward compatibility with existing workflows.
+  const isOptional = (name: string) =>
+    fields[name]?.optional === true || fields[name]?.group === 'Advanced'
+
   const otherMain = !isGeminiMessage
     ? names.filter(
-      name => fields[name]?.group !== 'Advanced' && !(isScheduleTrigger && name === 'rule'),
+      name => !isOptional(name) && !(isScheduleTrigger && name === 'rule'),
     )
     : []
 
   const optionNames = isGeminiMessage
     ? optionCandidates
-    : names.filter(
-      name => fields[name]?.group === 'Advanced',
-    )
+    : names.filter(isOptional)
 
   const chosenOptions = [
     ...new Set([
       ...addedOptions,
-      ...optionNames.filter(
-        name =>
-          settings[name] !== undefined &&
-          settings[name] !== null &&
-          settings[name] !== '' &&
-          settings[name] !== fields[name]?.default,
+      ...optionNames.filter(name => fields[name]?.default_visible === true && !hiddenDefaultOptions.includes(name)),
+      ...optionNames.filter(name =>
+        settings[name] !== undefined &&
+        settings[name] !== null &&
+        settings[name] !== '' &&
+        settings[name] !== fields[name]?.default &&
+        !hiddenDefaultOptions.includes(name),
       ),
     ]),
   ].filter(name => optionNames.includes(name))
@@ -1321,13 +1334,20 @@ export function WorkflowSchemaParameters({
     : []
 
   const addOption = (name: string) => {
+    setHiddenDefaultOptions(previous => previous.filter(item => item !== name))
     setAddedOptions(previous => [
       ...new Set([...previous, name]),
     ])
+    if (settings[name] === undefined && fields[name]?.default !== undefined) {
+      onChange(name, fields[name].default)
+    }
     setOptionPicker(false)
   }
 
   const removeOption = (name: string) => {
+    if (fields[name]?.default_visible) {
+      setHiddenDefaultOptions(previous => [...new Set([...previous, name])])
+    }
     setAddedOptions(previous =>
       previous.filter(item => item !== name),
     )
@@ -1770,22 +1790,9 @@ export function WorkflowSchemaParameters({
       )}
 
       {isScheduleTrigger && (
-        <WorkflowExpressionField
-          label="Trigger Interval"
-          type="select"
-          options={scheduleUnits.map(item => ({
-            value: item,
-            label: item.charAt(0).toUpperCase() + item.slice(1),
-          }))}
-          value={unit}
-          defaultValue="days"
-          onChange={next => {
-            const selected = scheduleUnit(next)
-
-            if (selected) {
-              setUnit(index, selected)
-            }
-          }}
+        <ScheduleRuleEditor
+          value={settings.rule ?? { interval: [] }}
+          onChange={next => onChange('rule', next)}
         />
       )}
 
@@ -1920,9 +1927,7 @@ export function WorkflowSchemaParameters({
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b border-[#ededee] pb-3 dark:border-[#414753]">
             <Label>
-              {isGeminiMessage
-                ? 'Options'
-                : 'Advanced Options'}
+              Options
             </Label>
 
             <button
@@ -1941,11 +1946,11 @@ export function WorkflowSchemaParameters({
           {chosenOptions.map(name => (
             <div
               key={`${action}:option:${name}`}
-              className="relative rounded-xl border border-[#e7e7e9] p-3 pr-12 dark:border-[#414753]"
+              className="group/option relative min-w-0 rounded-xl border border-[#e7e7e9] p-3 dark:border-[#414753]"
             >
               <button
                 type="button"
-                className={`${smallButton} absolute right-2 top-2`}
+                className={`${smallButton} absolute right-1 top-1 z-10 bg-white/95 opacity-0 shadow-sm transition-opacity group-hover/option:opacity-100 focus-visible:opacity-100 dark:bg-cl-dark-panel`}
                 aria-label={`Remove ${titleize(name)} option`}
                 onClick={() => removeOption(name)}
               >
