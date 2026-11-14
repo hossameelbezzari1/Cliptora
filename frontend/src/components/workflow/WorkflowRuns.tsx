@@ -18,6 +18,7 @@ import {
   HardDriveDownload,
   LoaderCircle,
   Maximize,
+  MonitorPlay,
   Play,
   RotateCcw,
   Scissors,
@@ -29,6 +30,8 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import NodeProgress from './editor/NodeProgress'
+import { WorkflowAudioPreview } from './WorkflowAudioPreview'
+import { WorkflowBrowserPreview } from './WorkflowBrowserPreview'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 
 type Dict = Record<string, unknown>
@@ -272,6 +275,8 @@ export function WorkflowRuns({
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
   const [viewport, setViewport] = useState({ width: 1000, height: 650 })
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
+  const [audioPanelOpen, setAudioPanelOpen] = useState(false)
+  const [browserPanelOpen, setBrowserPanelOpen] = useState(false)
   const [previewRunId, setPreviewRunId] = useState<number | null>(null)
   const [previewDetails, setPreviewDetails] = useState<unknown>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -315,6 +320,8 @@ export function WorkflowRuns({
   useEffect(() => {
     setPreviewRunId(null)
     setSelectedNode(null)
+    setAudioPanelOpen(false)
+    setBrowserPanelOpen(false)
   }, [studio.activeId])
 
   // Browsing history is always read-only. chooseRun() is only called from
@@ -547,6 +554,16 @@ export function WorkflowRuns({
   )}
 </div>
           <div className="flex flex-wrap items-center gap-2.5">
+            {previewRun && <button type="button" onClick={() => { setBrowserPanelOpen(value => !value); setAudioPanelOpen(false) }}
+              aria-expanded={browserPanelOpen} title="Watch browser screenshots captured while this execution runs"
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-medium transition ${browserPanelOpen ? 'border-violet-300 bg-violet-50 text-violet-800' : 'border-[#dfdfdf] bg-white hover:bg-[#f7f7f7] dark:border-[#484848] dark:bg-[#262626] dark:text-[#ddd]'}`}>
+              <MonitorPlay size={16} /> Browser Live
+            </button>}
+            {previewRun && <button type="button" onClick={() => { setAudioPanelOpen(value => !value); setBrowserPanelOpen(false) }}
+              aria-expanded={audioPanelOpen} title="Listen to audio generated in this run"
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-medium transition ${audioPanelOpen ? 'border-violet-300 bg-violet-50 text-violet-800' : 'border-[#dfdfdf] bg-white hover:bg-[#f7f7f7] dark:border-[#484848] dark:bg-[#262626] dark:text-[#ddd]'}`}>
+              <AudioLines size={16} /> Audio Previews
+            </button>}
             {previewRun && !isActivePreview && <button type="button" onClick={activatePreview} className="rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-100" title="Only activate this execution for existing run actions; nothing is applied to the timeline">Use this execution</button>}
             <button type="button" disabled={!previewRun || !canDebug || (!isActivePreview && !extra.debugInEditor && !extra.openRunInEditor)} title={!canDebug ? 'Connect an editor-navigation action in useWorkflowStudio' : 'Debug in editor'} onClick={openEditor} className="h-11 rounded-full border border-[#dfdfdf] bg-white px-4 text-[16px] shadow-sm transition-colors hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#484848] dark:bg-[#262626] dark:hover:bg-[#303030]">Debug in editor</button>
             <button type="button" aria-label="Retry execution" title="Retry execution" onClick={() => void retry()} disabled={!isActivePreview || !['failed', 'cancelled'].includes(previewRun?.state ?? '') || working} className="flex h-11 w-11 items-center justify-center rounded-full border border-[#dfdfdf] bg-white shadow-sm hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#484848] dark:bg-[#262626] dark:hover:bg-[#303030]"><RotateCcw size={20} /></button>
@@ -614,6 +631,22 @@ export function WorkflowRuns({
             </div>
           )}
 
+          {browserPanelOpen && previewRun && <div data-flow-node className="absolute bottom-16 right-5 z-30 flex h-[min(70vh,650px)] w-[min(860px,calc(100%-40px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#dedede] bg-white shadow-2xl dark:border-[#444] dark:bg-[#242424]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#eee] px-3 py-2 dark:border-[#444]">
+              <span className="text-[11px] font-medium text-[#777] dark:text-[#aaa]">Run #{previewRun.id} · Browser preview</span>
+              <button type="button" onClick={() => setBrowserPanelOpen(false)} aria-label="Close browser preview" className="rounded-md p-1 hover:bg-[#f2f2f2] dark:hover:bg-[#333]"><X size={16} /></button>
+            </div>
+            <WorkflowBrowserPreview projectId={studio.projectId} runId={previewRun.id} runState={previewRun.state} currentNode={previewRun.current_node} />
+          </div>}
+
+          {audioPanelOpen && previewRun && <div data-flow-node className="absolute bottom-20 right-5 z-30 flex h-[min(63vh,490px)] w-[min(390px,calc(100%-40px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#dedede] bg-white shadow-2xl dark:border-[#444] dark:bg-[#242424]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#eee] px-3 py-2 dark:border-[#444]">
+              <span className="text-[11px] font-medium text-[#777] dark:text-[#aaa]">Run #{previewRun.id}</span>
+              <button type="button" onClick={() => setAudioPanelOpen(false)} aria-label="Close audio previews" title="Close audio previews" className="rounded-md p-1 hover:bg-[#f2f2f2] dark:hover:bg-[#333]"><X size={16} /></button>
+            </div>
+            <WorkflowAudioPreview projectId={studio.projectId} runId={previewRun.id} />
+          </div>}
+
           {/* Node information is hidden until a node is clicked. */}
           {selectedNode && (
             <div data-flow-node className="absolute right-5 top-5 z-10 w-[280px] rounded-xl border border-[#ddd] bg-white p-4 shadow-xl">
@@ -663,3 +696,5 @@ export function WorkflowRuns({
     </section>
   )
 }
+
+

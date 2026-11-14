@@ -114,6 +114,24 @@ def _guard_route(route: Any, hosts: list[str]):
         route.abort()
 
 
+def _goto_with_retry(page: Any, url: str, timeout_ms: int, attempts: int = 2) -> None:
+    """Retry transient browser-network failures without hiding invalid URLs."""
+    attempts = max(1, min(3, attempts))
+    for attempt in range(1, attempts + 1):
+        try:
+            page.goto(url, wait_until="commit", timeout=timeout_ms)
+            return
+        except Exception as exc:
+            message = str(exc).lower()
+            transient = any(marker in message for marker in (
+                "err_timed_out", "timeout", "err_connection", "err_network_changed",
+                "err_name_not_resolved", "err_address_unreachable",
+            ))
+            if not transient or attempt >= attempts:
+                raise
+            page.wait_for_timeout(500 * attempt)
+
+
 def run_browser_agent(
     *,
     cfg: dict[str, Any],
@@ -243,7 +261,30 @@ Reassess the browser after each action. Make one action at a time."""
             context.route("**/*", lambda route: _guard_route(route, hosts))
             page = context.new_page()
             page.set_default_timeout(timeout_ms)
-            page.goto(url, wait_until="commit", timeout=navigation_ms)
+            try:
+                _goto_with_retry(page, url, navigation_ms)
+            except Exception as exc:
+                host = urlsplit(url).hostname or "configured host"
+                message = (
+                    f"Browser could not reach {host} after 2 attempts. "
+                    "Check the site's availability or choose another browser provider."
+                )
+                if live:
+                    live.finish('blocked', message)
+                result = {
+                    "text": message,
+                    "agent": {
+                        "status": "blocked",
+                        "reason": "navigation_unavailable",
+                        "iterations": 0,
+                        "steps": [],
+                        "last_url": url[:1500],
+                        "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                    },
+                }
+                if group_mode:
+                    result["voiceovers"] = []
+                return result
             if live:
                 live.update(status='running', message='Browser ready', url=page.url)
             active_groups = manifest["groups"] if group_mode else [None]
@@ -254,7 +295,29 @@ Reassess the browser after each action. Make one action at a time."""
                 if group_mode and (not 0.1 <= group_duration <= 3600):
                     raise ValueError(f"Invalid duration for group {group_id}")
                 if group_index:
-                    page.goto(url, wait_until="commit", timeout=navigation_ms)
+                    try:
+                        _goto_with_retry(page, url, navigation_ms)
+                    except Exception as exc:
+                        host = urlsplit(url).hostname or "configured host"
+                        message = (
+                            f"Browser could not reach {host} while starting group {group_id}. "
+                            "The completed voice-overs were preserved; retry when the site is available."
+                        )
+                        if live:
+                            live.finish('blocked', message)
+                        return {
+                            "text": message,
+                            "voiceovers": voiceovers,
+                            "agent": {
+                                "status": "blocked",
+                                "reason": "navigation_unavailable",
+                                "groups_completed": len(voiceovers),
+                                "iterations": 0,
+                                "steps": history,
+                                "last_url": url[:1500],
+                                "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                            },
+                        }
                 downloaded_file = None
                 group_prompt = starting_prompt
                 if group_mode:

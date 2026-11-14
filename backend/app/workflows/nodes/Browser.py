@@ -164,6 +164,7 @@ class BrowserAutomationNode(Node):
     operations = {
         PREFIX + "bot": _op("bot", "Browser Bot", "lucide:globe", {
             "url": "https://example.com", "browser": "chromium", "headless": True,
+            "dev_mode": False,
             "timeout_ms": 15000, "max_actions": 60,
             "allowed_hosts": ["example.com"], "actions": [],
             "attachments": {},
@@ -186,6 +187,7 @@ class BrowserAutomationNode(Node):
             "url": {"type": "string", "title": "Start URL", "expression": True},
             "browser": {"type": "string", "title": "Browser Engine", "enum": ["chromium", "firefox", "webkit"]},
             "headless": {"type": "boolean", "title": "Headless"},
+            "dev_mode": {"type": "boolean", "title": "Dev Mode", "description": "Live screenshots and per-command selector diagnostics."},
             "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "minimum": 1000, "maximum": 60000},
             "max_actions": {"type": "integer", "title": "Maximum Actions", "minimum": 1, "maximum": 100},
             "allowed_hosts": {"type": "array", "title": "Allowed HTTPS Hosts", "items": {"type": "string"}},
@@ -230,6 +232,7 @@ class BrowserAutomationNode(Node):
         if browser_name not in {"chromium", "firefox", "webkit"}:
             raise ValueError("Unsupported browser engine")
         headless = bool(cfg.get("headless", True))
+        dev_mode = bool(cfg.get("dev_mode", False))
         timeout = _positive(cfg.get("timeout_ms", 15000), "timeout_ms", 1000, 60000)
         max_actions = _positive(cfg.get("max_actions", 60), "max_actions", 1, 100)
         allowed = cfg.get("allowed_hosts", [])
@@ -304,7 +307,7 @@ class BrowserAutomationNode(Node):
         retry_delay = _positive(attached.get("error_handler", {}).get("retry_delay_ms", 500), "retry_delay_ms", 0, 10000)
         verification_wait = _positive(attached.get("verification", {}).get("wait_seconds", 120), "verification wait", 5, 300) if "verification" in attached else 0
         selected_tab = 0
-        live = BrowserLiveState(workdir, node['id'], 'playwright', len(actions)) if 'live_preview' in attached else None
+        live = BrowserLiveState(workdir, node['id'], 'playwright', len(actions)) if dev_mode or 'live_preview' in attached else None
 
         with sync_playwright() as playwright:
             engine = getattr(playwright, browser_name)
@@ -340,7 +343,17 @@ class BrowserAutomationNode(Node):
                 context.route("**/*", guard)
                 page = context.new_page()
                 page.set_default_timeout(timeout)
-                page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+                navigation_started = time.monotonic()
+                if live:
+                    live.command_started(0, 'open_page')
+                try:
+                    page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+                except Exception as exc:
+                    if live:
+                        live.command_failed(0, exc, time.monotonic() - navigation_started)
+                    raise
+                if live:
+                    live.command_finished(0, time.monotonic() - navigation_started)
                 if live:
                     live.update(status='running', message='Page loaded', url=page.url)
 
@@ -404,14 +417,15 @@ class BrowserAutomationNode(Node):
                 for index, action in enumerate(actions):
                     check_verification()
                     command = action["command"]
+                    target = action.get("target")
                     if live:
                         live.update(status='running', step=index, message=f'Executing {command}', url=page.url)
+                        live.command_started(index + 1, command, target)
                     detail = {"index": index + 1, "command": command, "status": "completed"}
                     started = time.monotonic()
                     last_error: Exception | None = None
                     for attempt in range(retries + 1):
                         try:
-                            target = action.get("target")
                             loc = _selector(page, target) if target is not None else None
                             text = _interpolate(str(action.get("value", "")), outputs)
                             if command == "navigate":
@@ -482,6 +496,8 @@ class BrowserAutomationNode(Node):
                                     raise ValueError("Browser download exceeds 250 MB")
                                 downloads.append({"file": filename, "bytes": size})
                             last_error = None
+                            if live and target is not None:
+                                live.element_found(index + 1)
                             break
                         except Exception as exc:
                             last_error = exc
@@ -489,13 +505,17 @@ class BrowserAutomationNode(Node):
                                 break
                             page.wait_for_timeout(retry_delay)
                     if last_error is not None:
-                        if "screenshot" in attached and attached["screenshot"].get("on_error", True):
+                        if live:
+                            live.command_failed(index + 1, last_error, time.monotonic() - started)
+                        if dev_mode or ("screenshot" in attached and attached["screenshot"].get("on_error", True)):
                             try: capture(f"error_{index+1}")
                             except Exception: pass
                         raise RuntimeError(f"Browser command {index+1} ({command}) failed: {type(last_error).__name__}") from last_error
                     detail["elapsed_seconds"] = round(time.monotonic()-started, 3)
                     log.append(detail)
-                    if attached.get("live_preview", {}).get("each_step"):
+                    if live:
+                        live.command_finished(index + 1, detail["elapsed_seconds"])
+                    if dev_mode or attached.get("live_preview", {}).get("each_step"):
                         capture(f"preview_{index+1}")
                     check_verification()
                     if live:

@@ -7,6 +7,8 @@ import type { WorkflowStudioState } from '../useWorkflowStudio'
 import { getNodeUI } from '../nodeRegistry'
 import { formatJSON, getObject, lightButton, titleize } from './WorkflowNodeFields'
 import NodeProgress from './NodeProgress'
+import { WorkflowAudioPreview } from '../WorkflowAudioPreview'
+import { WorkflowBrowserPreview } from '../WorkflowBrowserPreview'
 
 type JsonObject = Record<string, unknown>
 type DataView = 'schema' | 'table' | 'json'
@@ -164,7 +166,7 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
   const sourceMediaUrl = activeVideoSource
     ? (studio.previewMedia
       ? fileUrl(studio.previewMedia.id)
-      : `${import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1'}/workflows/${studio.projectId}/sources/${activeVideoSource.id}/stream`)
+      : `/api/v1/workflows/${studio.projectId}/sources/${activeVideoSource.id}/stream`)
     : undefined
   const CustomInput = selected ? getNodeUI(selected.type)?.Input : undefined
   const CustomOutput = selected ? getNodeUI(selected.type)?.Output : undefined
@@ -247,6 +249,23 @@ export function WorkflowNodeDataPanel({ side, studio, mobilePanel, inputValue, o
       <span>{itemCountLabel(value)}</span>
       <button type="button" onClick={() => void loadData()} aria-label="Refresh output data" title="Refresh" className="cursor-pointer hover:text-[#555] dark:hover:text-[#f3f4f6]"><RefreshCw size={14} className={loadingData ? 'animate-spin' : ''} /></button>
     </div>}
+
+    {!left && (selected?.type === 'ai.agent' || selected?.type === 'browser.playwright' || selected?.type === 'browser.bot' || selected?.type === 'browser.selenium') &&
+      <div className="h-[255px] shrink-0 border-b border-[#e4e4e6] bg-white dark:border-[#374151] dark:bg-cl-dark-panel">
+        <WorkflowBrowserPreview projectId={studio.projectId} runId={studio.run?.id}
+          runState={studio.run?.state} currentNode={studio.run?.current_node} compact />
+      </div>}
+
+    {!left && (selected?.type === 'ai.agent' || selected?.type === 'browser.playwright' || selected?.type === 'browser.bot' || selected?.type === 'audio.extract') &&
+      <div className="h-[215px] shrink-0 border-b border-[#e4e4e6] bg-white dark:border-[#374151] dark:bg-cl-dark-panel">
+        <WorkflowAudioPreview
+          projectId={studio.projectId}
+          runId={studio.run?.id}
+          defaultFilter={selected.type === 'audio.extract' ? 'extracted' : 'voiceover'}
+          compact
+          showFilters={false}
+        />
+      </div>}
 
     <div id={`cliptora-node-${side}-viewer`} role="tabpanel" aria-label={`${side.toUpperCase()} ${titleize(view)} view`}
       data-view={view} className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">

@@ -1,22 +1,36 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import { Check, Film, Maximize2, Play, Sparkles } from 'lucide-react'
 import { fileUrl } from '../../lib/api'
 import { btn } from './workflowUI'
 import { NodeProgress } from './editor/NodeProgress'
+import { WorkflowAudioPreview } from './WorkflowAudioPreview'
+import { WorkflowBrowserPreview } from './WorkflowBrowserPreview'
 
 export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) {
-  const { nodes, run, catalog, completedNodes, cancel, previewMedia, applyCutPlan } = studio
-  const [tab, setTab] = useState<'execution' | 'logs' | 'results'>('execution')
+  const { nodes, run, catalog, completedNodes, cancel, previewMedia, applyCutPlan, sources, sourceId } = studio
+  const [tab, setTab] = useState<'execution' | 'logs' | 'results' | 'audio' | 'browser'>('execution')
+  const [previewTab, setPreviewTab] = useState<'video' | 'browser'>('video')
+  const [videoError, setVideoError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const activeNode = nodes.find(node => node.id === run?.current_node)
   const results = Object.entries(run?.results ?? {})
+  const activeSource = sources.find(source => source.id === sourceId) ?? null
+  const sourceVideoUrl = previewMedia
+    ? fileUrl(previewMedia.id)
+    : activeSource
+      ? `/api/v1/workflows/${studio.projectId}/sources/${activeSource.id}/stream`
+      : null
+
+  useEffect(() => {
+    setVideoError(false)
+  }, [sourceVideoUrl])
 
   return (
     <section className="flex h-[245px] shrink-0 overflow-hidden border-t border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#252525] dark:text-[#f3f4f6] 2xl:h-[275px]">
       <div className="flex min-w-0 flex-[1.15] flex-col border-r border-[#e5e7eb] dark:border-[#374151]">
         <div className="flex h-10 shrink-0 items-center gap-3 border-b border-[#ededed] dark:border-[#374151] px-3">
-          {(['execution', 'logs', 'results'] as const).map(value => (
+          {(['execution', 'logs', 'results', 'audio', 'browser'] as const).map(value => (
             <button key={value} type="button" onClick={() => setTab(value)} className={`h-full border-b-2 px-2 text-[11px] font-semibold capitalize ${tab === value ? 'border-violet-200 dark:border-violet-600 text-violet-700 dark:text-violet-300' : 'border-transparent text-[#858585] dark:text-[#b8bec7] hover:text-[#444] dark:hover:text-[#f3f4f6]'}`}>{value}</button>
           ))}
           <span className="ml-auto text-[11px] text-[#858585] dark:text-[#b8bec7]">{run ? `Run #${run.id}` : 'No active run'}</span>
@@ -67,6 +81,9 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
           </div>
         )}
 
+        {tab === 'audio' && <WorkflowAudioPreview projectId={studio.projectId} runId={run?.id} />}
+        {tab === 'browser' && <WorkflowBrowserPreview projectId={studio.projectId} runId={run?.id} runState={run?.state} currentNode={run?.current_node} /> }
+
         {tab === 'results' && (
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {results.length ? results.map(([id, result]) => <div key={id} className="mb-2 rounded-lg border border-[#e8e8e8] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] p-3 text-[11px]"><p className="font-mono font-semibold text-[#333] dark:text-[#f3f4f6]">{id}</p><pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-[#666] dark:text-[#b8bec7]">{JSON.stringify(result, null, 2)}</pre></div>) : <p className="text-xs text-[#888] dark:text-[#b8bec7]">No node results yet.</p>}
@@ -75,17 +92,31 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
       </div>
 
       <div className="hidden min-w-0 flex-1 flex-col p-3 xl:flex">
-        <div className="mb-2 flex items-center justify-between">
-          <strong className="text-[11px]">Source preview</strong>
-          <button type="button" onClick={() => void videoRef.current?.requestFullscreen?.()} disabled={!previewMedia} title="Fullscreen video" className="rounded-md p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] disabled:opacity-40"><Maximize2 size={14} /></button>
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+          <div className="flex items-center gap-1 rounded-lg bg-[#f1f1f1] p-0.5 dark:bg-[#303641]">
+            {(['video', 'browser'] as const).map(mode =>
+              <button key={mode} type="button" onClick={() => setPreviewTab(mode)}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${previewTab === mode ? 'bg-white text-[#242424] shadow-sm dark:bg-[#454e5b] dark:text-white' : 'text-[#777] hover:text-[#333] dark:text-[#bec3cb]'}`}>
+                {mode === 'video' ? 'Source video' : 'Browser snapshots'}
+              </button>,
+            )}
+          </div>
+          {previewTab === 'video' && <button type="button" onClick={() => void videoRef.current?.requestFullscreen?.()} disabled={!sourceVideoUrl} title="Fullscreen video" className="rounded-md p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] disabled:opacity-40"><Maximize2 size={14} /></button>}
         </div>
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-[#f8fafc] dark:bg-[#101114]">
-          {previewMedia ? <video ref={videoRef} src={fileUrl(previewMedia.id)} controls preload="metadata" className="h-full w-full object-contain" /> : <div className="grid h-full place-content-center justify-items-center gap-2 text-[11px] text-[#4b5563] dark:text-[#9a9a9a]"><Film size={25} />Choose a video in Source settings</div>}
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] text-[#777] dark:text-[#b8bec7]"><Play size={12} />{run ? `${completedNodes} nodes ready · ${run.progress}%` : 'No execution yet'}</span>
-          {run?.state === 'completed' && <button type="button" onClick={() => void applyCutPlan()} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-violet-700 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-violet-50 dark:hover:bg-violet-800"><Check size={12} /> Apply cuts</button>}
-        </div>
+        {previewTab === 'browser' ? (
+          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-[#e8e8e8] dark:border-[#374151]">
+            <WorkflowBrowserPreview projectId={studio.projectId} runId={run?.id} runState={run?.state} currentNode={run?.current_node} />
+          </div>
+        ) : <>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-[#f8fafc] dark:bg-[#101114]">
+            {sourceVideoUrl ? <video key={sourceVideoUrl} ref={videoRef} src={sourceVideoUrl} controls playsInline preload="metadata" onError={() => setVideoError(true)} className="h-full w-full object-contain" /> : <div className="grid h-full place-content-center justify-items-center gap-2 text-[11px] text-[#4b5563] dark:text-[#9a9a9a]"><Film size={25} />Choose a video in Source settings</div>}
+            {videoError && <div role="alert" className="absolute inset-x-2 bottom-2 rounded-md bg-red-950/85 px-3 py-2 text-center text-[11px] text-white">This source could not be played. Re-select it in Source settings and retry.</div>}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] text-[#777] dark:text-[#b8bec7]"><Play size={12} />{run ? `${completedNodes} nodes ready · ${run.progress}%` : 'No execution yet'}</span>
+            {run?.state === 'completed' && <button type="button" onClick={() => void applyCutPlan()} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-violet-700 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-violet-50 dark:hover:bg-violet-800"><Check size={12} /> Apply cuts</button>}
+          </div>
+        </>}
       </div>
     </section>
   )

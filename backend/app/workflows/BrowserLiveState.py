@@ -35,6 +35,7 @@ class BrowserLiveState:
             'node_id': self.node_id, 'provider': provider,
             'status': 'starting', 'step': 0, 'total': total,
             'message': 'Opening browser', 'url': '', 'frames': [],
+            'commands': [],
             'started_at': self.started,
         }
         self.publish()
@@ -76,6 +77,55 @@ class BrowserLiveState:
         if len(frames) > 120:
             del frames[:-120]
         self.publish()
+
+    @staticmethod
+    def _target_label(target: Any) -> str:
+        if isinstance(target, str):
+            return target[:300]
+        if isinstance(target, dict):
+            return json.dumps(target, ensure_ascii=False, separators=(',', ':'))[:300]
+        return ''
+
+    def command_started(self, index: int, command: str, target: Any = None) -> None:
+        row = {
+            'index': index,
+            'command': str(command)[:60],
+            'status': 'running',
+            'target': self._target_label(target),
+            'element_status': 'searching' if target is not None else 'not_required',
+            'started_at': time.time(),
+        }
+        commands = self.state['commands']
+        commands[:] = [item for item in commands if item.get('index') != index]
+        commands.append(row)
+        if len(commands) > 100:
+            del commands[:-100]
+        self.publish()
+
+    def element_found(self, index: int) -> None:
+        row = next((item for item in self.state['commands'] if item.get('index') == index), None)
+        if row is not None:
+            row['element_status'] = 'found'
+            self.publish()
+
+    def command_finished(self, index: int, elapsed_seconds: float) -> None:
+        row = next((item for item in self.state['commands'] if item.get('index') == index), None)
+        if row is not None:
+            row['status'] = 'completed'
+            row['elapsed_seconds'] = max(0, round(float(elapsed_seconds), 3))
+            row['finished_at'] = time.time()
+            self.publish()
+
+    def command_failed(self, index: int, error: BaseException, elapsed_seconds: float) -> None:
+        row = next((item for item in self.state['commands'] if item.get('index') == index), None)
+        if row is not None:
+            row['status'] = 'failed'
+            if row.get('element_status') == 'searching':
+                row['element_status'] = 'not_found'
+            row['error'] = f'{type(error).__name__}: {error}'[:300]
+            row['elapsed_seconds'] = max(0, round(float(elapsed_seconds), 3))
+            row['finished_at'] = time.time()
+            self.publish()
 
     def finish(self, status: str, message: str = '') -> None:
         self.update(status=status, message=message or status)

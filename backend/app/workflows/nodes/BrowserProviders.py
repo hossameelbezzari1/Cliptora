@@ -28,6 +28,7 @@ def _definition(label: str, engine: str) -> dict:
             "url": "https://example.com",
             "browser": engine,
             "headless": True,
+            "dev_mode": False,
             "timeout_ms": 15000,
             "max_actions": 60,
             "allowed_hosts": ["example.com"],
@@ -42,7 +43,16 @@ def _definition(label: str, engine: str) -> dict:
 def _fields() -> dict:
     return {
         "url": {"type": "string", "title": "Start URL", "expression": True},
-        "headless": {"type": "boolean", "title": "Headless"},
+        "headless": {
+            "type": "boolean",
+            "title": "Run in background (headless)",
+            "description": "Turn this off to open a visible browser window, like Selenium.",
+        },
+        "dev_mode": {
+            "type": "boolean",
+            "title": "Dev Mode",
+            "description": "Show live screenshots and per-command selector diagnostics.",
+        },
         "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "minimum": 1000, "maximum": 60000},
         "max_actions": {"type": "integer", "title": "Max Commands", "minimum": 1, "maximum": 100},
         "allowed_hosts": {"type": "array", "title": "Allowed HTTPS Hosts", "items": {"type": "string"}},
@@ -137,6 +147,7 @@ class BrowserProvidersNode(Node):
         timeout = timeout_ms / 1000
         url = _public_url(_interpolate(str(cfg.get("url", "")), outputs), hosts)
         headless = bool(cfg.get("headless", True))
+        dev_mode = bool(cfg.get("dev_mode", False))
 
         if engine == "chrome":
             opts = webdriver.ChromeOptions()
@@ -163,7 +174,7 @@ class BrowserProvidersNode(Node):
         project_id = workdir.parent.parent.name
         run_id = workdir.name
         url_base = f"/api/v1/workflows/{project_id}/runs/{run_id}/browser-artifacts"
-        live = BrowserLiveState(workdir, node['id'], 'selenium', len(actions)) if 'live_preview' in attached else None
+        live = BrowserLiveState(workdir, node['id'], 'selenium', len(actions)) if dev_mode or 'live_preview' in attached else None
 
         def ensure_url() -> None:
             actual = driver.current_url
@@ -251,7 +262,17 @@ class BrowserProvidersNode(Node):
 
         try:
             driver.set_page_load_timeout(timeout)
-            driver.get(url)
+            navigation_started = time.monotonic()
+            if live:
+                live.command_started(0, 'open_page')
+            try:
+                driver.get(url)
+            except Exception as exc:
+                if live:
+                    live.command_failed(0, exc, time.monotonic() - navigation_started)
+                raise
+            if live:
+                live.command_finished(0, time.monotonic() - navigation_started)
             ensure_url()
             if live:
                 live.update(status='running', url=driver.current_url, message='Page loaded')
@@ -260,9 +281,10 @@ class BrowserProvidersNode(Node):
                 ensure_url()
                 check_verification()
                 cmd = action["command"]
+                target = action.get("target")
                 if live:
                     live.update(status='running', step=index-1, message=f'Executing {cmd}', url=driver.current_url)
-                target = action.get("target")
+                    live.command_started(index, cmd, target)
                 value = _interpolate(str(action.get("value", "")), outputs)
                 started = time.monotonic()
                 retries = _positive(attached.get("error_handler", {}).get("retries", 0), "retries", 0, 3)
@@ -322,16 +344,22 @@ class BrowserProvidersNode(Node):
                         else:
                             raise ValueError(f"Unsupported Selenium command: {cmd}")
                         ensure_url()
+                        if live and target is not None:
+                            live.element_found(index)
                         break
                     except Exception as exc:
                         if attempt == retries:
-                            if attached.get("screenshot", {}).get("on_error"):
+                            if live:
+                                live.command_failed(index, exc, time.monotonic() - started)
+                            if dev_mode or attached.get("screenshot", {}).get("on_error"):
                                 try: capture(f"error_{index}")
                                 except Exception: pass
                             raise RuntimeError(f"Selenium action {index} ({cmd}) failed") from exc
                         time.sleep(_positive(attached.get("error_handler", {}).get("retry_delay_ms", 500), "retry_delay_ms", 0, 10000) / 1000)
                 log.append({"index": index, "command": cmd, "status": "completed", "elapsed_seconds": round(time.monotonic()-started, 3)})
-                if attached.get("live_preview", {}).get("each_step"):
+                if live:
+                    live.command_finished(index, log[-1]["elapsed_seconds"])
+                if dev_mode or attached.get("live_preview", {}).get("each_step"):
                     capture(f"preview_{index}")
                 check_verification()
                 if live:

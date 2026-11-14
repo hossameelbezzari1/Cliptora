@@ -749,6 +749,59 @@ class WorkflowService:
             headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
         )
 
+    def run_audio_previews(self, project_id: int, run_id: int,
+                           db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        """List playable run-owned audio, including in-progress browser downloads."""
+        from app.services.WorkflowAudioPreview import scan_run_audio
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowRun, run_id, user.id, project_id)
+        workspace = project_dir(user.id, project_id) / "runs" / str(run_id)
+        return [info for info, _ in scan_run_audio(workspace)]
+
+    def stream_run_audio(self, project_id: int, run_id: int, file_id: str,
+                         download: bool = False,
+                         db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        """Stream a run-owned audio identified by its opaque inventory ID."""
+        from app.services.WorkflowAudioPreview import AUDIO_TYPES, get_audio_by_id
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowRun, run_id, user.id, project_id)
+        workspace = project_dir(user.id, project_id) / "runs" / str(run_id)
+        matched = get_audio_by_id(workspace, file_id)
+        if matched is None:
+            raise HTTPException(404, "Audio preview is unavailable")
+        _, path = matched
+        return FileResponse(
+            path,
+            media_type=AUDIO_TYPES[path.suffix.lower()],
+            filename=path.name,
+            content_disposition_type="attachment" if download else "inline",
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        )
+
+    def run_browser_preview(self, project_id: int, run_id: int,
+                            db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        """Read browser screenshots only from the authorized execution's folders."""
+        from app.services.WorkflowBrowserPreview import scan_browser_frames, read_browser_live_status
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowRun, run_id, user.id, project_id)
+        workspace = project_dir(user.id, project_id) / "runs" / str(run_id)
+        frames = [info for info, _ in scan_browser_frames(workspace)]
+        return {"frames": frames, "total": len(frames), "live": read_browser_live_status(workspace)}
+
+    def stream_browser_frame(self, project_id: int, run_id: int, frame_id: str,
+                             db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        from app.services.WorkflowBrowserPreview import FRAME_TYPES, find_browser_frame
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowRun, run_id, user.id, project_id)
+        workspace = project_dir(user.id, project_id) / "runs" / str(run_id)
+        matched = find_browser_frame(workspace, frame_id)
+        if matched is None:
+            raise HTTPException(404, "Browser screenshot not found")
+        _, path = matched
+        return FileResponse(path, media_type=FRAME_TYPES[path.suffix.lower()],
+                            content_disposition_type="inline",
+                            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
     def rendered_video(self, project_id: int, run_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
         owner(db, WorkflowRun, run_id, user.id, project_id)
@@ -772,3 +825,5 @@ class WorkflowService:
         return FileResponse(path, media_type="video/mp4", filename=f"cliptora_run_{run_id}.mp4")
 
 from app.http.resources.WorkflowResource import WorkflowResource
+
+

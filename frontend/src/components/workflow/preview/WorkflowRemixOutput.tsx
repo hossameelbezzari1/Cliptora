@@ -15,8 +15,6 @@ type Clip = {
 type Group = { group_id: string; label: string; title?: string; clips: Clip[] }
 type Manifest = { version: number; groups: Group[] }
 
-type PlayItem = Clip & { group: string; name: string; index: number }
-
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -36,6 +34,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
     }))), [groups])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [videoError, setVideoError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const sequenceRef = useRef(false)
   const shouldPlay = useRef(false)
@@ -48,6 +47,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
     shouldPlay.current = false
     sequenceRef.current = false
     setPlaying(false)
+    setVideoError(false)
     setSelectedIndex(0)
     if (videoRef.current && clips.length) {
       videoRef.current.pause()
@@ -107,9 +107,14 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
       <span className="text-[#777] dark:text-[#b8bec7]">{seconds(total)} total</span>
     </div>
     <div className="relative overflow-hidden rounded-lg bg-black aspect-video">
-      {mediaUrl ? <video ref={videoRef} src={mediaUrl} playsInline preload="metadata"
+      {mediaUrl ? <video ref={videoRef} src={mediaUrl} controls playsInline preload="metadata"
         className="h-full w-full object-contain"
         style={{ transform: `scale(${selected?.transforms?.zoom ?? 1})` }}
+        onLoadedMetadata={() => {
+          const active = clips[selectedIndexRef.current]
+          if (active && videoRef.current) videoRef.current.currentTime = active.source_start
+        }}
+        onError={() => { setVideoError(true); setPlaying(false); shouldPlay.current = false }}
         onSeeked={() => {
           if (shouldPlay.current) {
             void videoRef.current?.play().catch(() => {
@@ -129,12 +134,22 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
       /> : <div className="absolute inset-0 grid place-content-center px-3 text-center text-xs text-white/75">
         Select this video from the Media Library to enable playback preview.
       </div>}
+      {videoError && <div role="alert" className="absolute inset-x-2 bottom-2 rounded-md bg-red-950/85 px-3 py-2 text-center text-xs text-white">The source video could not be played.</div>}
     </div>
     <div className="flex items-center justify-between gap-2">
-      <button type="button" disabled={!mediaUrl || !clips.length} onClick={() => go(0, true)}
+      <button type="button" disabled={!mediaUrl || !clips.length || videoError} onClick={() => {
+        if (playing) {
+          videoRef.current?.pause()
+          shouldPlay.current = false
+          sequenceRef.current = false
+          setPlaying(false)
+        } else {
+          go(selectedIndexRef.current, true)
+        }
+      }}
         className="flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
         {playing ? <Pause size={13} /> : <Play size={13} />}
-        Play montage
+        {playing ? 'Pause' : 'Play montage'}
       </button>
       <div className="flex items-center gap-1">
         <button title="Previous clip" type="button" className="rounded-md p-1.5 hover:bg-[#eee] dark:hover:bg-[#374151]" onClick={() => go(Math.max(0, selectedIndex - 1), false)}><ChevronLeft size={17} /></button>

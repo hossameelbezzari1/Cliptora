@@ -80,6 +80,21 @@ class WorkflowController:
         return self.service.audio_file(project_id=project_id, run_id=run_id, node_id=node_id,
                                        track=track, download=download, db=db, user=user)
 
+    def run_audio_previews(self, project_id: int, run_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.run_audio_previews(project_id=project_id, run_id=run_id, db=db, user=user)
+
+    def stream_run_audio(self, project_id: int, run_id: int, file_id: str,
+                         download: bool = False, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.stream_run_audio(project_id=project_id, run_id=run_id, file_id=file_id,
+                                             download=download, db=db, user=user)
+
+    def run_browser_preview(self, project_id: int, run_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.run_browser_preview(project_id=project_id, run_id=run_id, db=db, user=user)
+
+    def stream_browser_frame(self, project_id: int, run_id: int, frame_id: str,
+                             db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.stream_browser_frame(project_id=project_id, run_id=run_id, frame_id=frame_id, db=db, user=user)
+
     def rendered_video(self, project_id: int, run_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.rendered_video(project_id=project_id, run_id=run_id, db=db, user=user)
 
@@ -108,4 +123,10 @@ router.add_api_route('/{project_id}/runs/{run_id}/cancel', controller.cancel_run
 router.add_api_route('/{project_id}/runs/{run_id}/retry', controller.retry_run, methods=["POST"], status_code=202)
 router.add_api_route('/{project_id}/runs/{run_id}/artifacts/{node_id}', controller.artifact, methods=["GET"])
 router.add_api_route('/{project_id}/runs/{run_id}/audio/{node_id}/{track}', controller.audio_file, methods=["GET"])
+router.add_api_route('/{project_id}/runs/{run_id}/audios', controller.run_audio_previews, methods=["GET"])
+router.add_api_route('/{project_id}/runs/{run_id}/audios/{file_id}', controller.stream_run_audio, methods=["GET"])
+router.add_api_route('/{project_id}/runs/{run_id}/browser-preview', controller.run_browser_preview, methods=["GET"])
+router.add_api_route('/{project_id}/runs/{run_id}/browser-preview/{frame_id}', controller.stream_browser_frame, methods=["GET"])
 router.add_api_route('/{project_id}/runs/{run_id}/video', controller.rendered_video, methods=["GET"])
+
+
