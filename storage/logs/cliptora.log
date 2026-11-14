@@ -4332,3 +4332,138 @@ NameError: name 'total_duration' is not defined
 [2026-11-13 20:53:10] INFO     cliptora.http: [request:4b79ed18ce6a] GET /workflows/{project_id}/runs -> 200 (84.46 ms)
 [2026-11-13 20:53:10] INFO     cliptora.http: [request:e76586c749e9] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (46.14 ms)
 [2026-11-13 20:53:11] INFO     cliptora.http: [request:d62e0c30c702] GET /workflows/{project_id}/runs -> 200 (122.49 ms)
+[2026-11-13 20:53:12] INFO     cliptora.http: [request:cce8394b8600] GET /workflows/{project_id}/runs -> 200 (248.68 ms)
+[2026-11-13 20:53:12] INFO     cliptora.http: [request:5c8d9632b150] GET /workflows/{project_id}/runs/{run_id} -> 200 (74.98 ms)
+[2026-11-13 20:53:13] INFO     cliptora.http: [request:a44769368cc0] GET /workflows/{project_id}/runs -> 200 (188.23 ms)
+[2026-11-13 20:53:14] INFO     cliptora.http: [request:767478f9a221] GET /workflows/{project_id}/runs/{run_id} -> 200 (52.60 ms)
+[2026-11-13 20:53:15] INFO     cliptora.http: [request:bfe12d642d57] GET /workflows/{project_id}/runs -> 200 (95.96 ms)
+[2026-11-13 20:53:15] INFO     cliptora.http: [request:5c058310c127] GET /workflows/{project_id}/runs -> 200 (110.39 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:44ae8f42ac5c] GET /workflows/{project_id}/runs/{run_id} -> 200 (101.64 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:a7f449dd81ff] POST /workflows/{project_id}/runs -> 202 (5188.29 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:582b61189f86] GET /workflows/{project_id}/runs -> 200 (98.47 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:66e792f795b2] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (131.78 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:b9f658463ce7] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (114.99 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:3522691088df] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (116.09 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:0f4f152728ad] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (127.51 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:77934b68cd64] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (112.08 ms)
+[2026-11-13 20:53:16] INFO     cliptora.http: [request:48376f27f809] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (84.68 ms)
+[2026-11-13 20:53:17] INFO     cliptora.http: [request:d6271f89ebf2] GET /workflows/{project_id}/runs/{run_id} -> 200 (68.58 ms)
+[2026-11-13 20:53:17] INFO     cliptora.http: [request:ce1b8b534c3a] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (79.56 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:227b5914a220] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (205.40 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:13bc491b4a03] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (210.11 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:cfa449baa1d4] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (222.24 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:7d123adbbb16] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (217.01 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:b790d445bca1] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (223.68 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:606299a79bf0] GET /workflows/{project_id}/runs -> 200 (255.11 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:cc8f0f81b4a1] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (103.23 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:26d0b6904ee6] GET /workflows/{project_id}/runs -> 200 (137.49 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:b4bcd5ecf688] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (130.38 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:729fde3f54bd] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (52.58 ms)
+[2026-11-13 20:53:21] INFO     cliptora.http: [request:8704899382cb] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (41.75 ms)
+[2026-11-13 20:53:22] INFO     cliptora.http: [request:49c86d5c9fad] GET /workflows/{project_id}/runs -> 200 (60.52 ms)
+[2026-11-13 20:53:23] INFO     cliptora.http: [request:53cface69ffe] GET /workflows/{project_id}/runs -> 200 (56.34 ms)
+[2026-11-13 20:53:24] INFO     cliptora.http: [request:14e4cc9e776c] GET /workflows/{project_id}/runs -> 200 (60.21 ms)
+[2026-11-13 20:53:25] INFO     cliptora.http: [request:07f9e5f87ed6] GET /workflows/{project_id}/runs -> 200 (59.99 ms)
+[2026-11-13 20:55:58] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=video_remix_render | node_type=video.remix_render | attempt=1 | retry_limit=1 | error_type=NameError | error=name 'total_duration' is not defined
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 420, in run_graph
+    candidate = node_executor(
+        node_type
+    )(
+        execution_node,
+    ...<2 lines>...
+        workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 145, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 60, in execute
+    result = self.execute_operation(
+        operation, node, outputs, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\VideoRemix.py", line 477, in execute_operation
+    return self._render(
+           ~~~~~~~~~~~~^
+        manifest,
+        ^^^^^^^^^
+    ...<3 lines>...
+        node.get('_progress_callback'),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\VideoRemix.py", line 642, in _render
+    total_seconds=total_duration,
+                  ^^^^^^^^^^^^^^
+NameError: name 'total_duration' is not defined
+[2026-11-13 20:55:58] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=video_remix_render | node_type=video.remix_render | attempt=2 | retry_limit=1 | error_type=NameError | error=name 'total_duration' is not defined
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 420, in run_graph
+    candidate = node_executor(
+        node_type
+    )(
+        execution_node,
+    ...<2 lines>...
+        workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 145, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 60, in execute
+    result = self.execute_operation(
+        operation, node, outputs, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\VideoRemix.py", line 477, in execute_operation
+    return self._render(
+           ~~~~~~~~~~~~^
+        manifest,
+        ^^^^^^^^^
+    ...<3 lines>...
+        node.get('_progress_callback'),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\VideoRemix.py", line 642, in _render
+    total_seconds=total_duration,
+                  ^^^^^^^^^^^^^^
+NameError: name 'total_duration' is not defined
+[2026-11-13 20:55:58] ERROR    cliptora.workflows.engine: Workflow node permanently failed | node_id=video_remix_render | node_type=video.remix_render | attempts=2 | elapsed_seconds=0.24 | error=Node video_remix_render failed after 2 attempt(s): name 'total_duration' is not defined
+[2026-11-13 20:55:58] INFO     cliptora.http: [request:3adf7c13c611] POST /workflows/{project_id}/runs -> 202 (293120.96 ms)
+[2026-11-13 21:03:41] INFO     cliptora.http: [request:5dc5173f426a] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (46.03 ms)
+[2026-11-13 21:03:43] INFO     cliptora.http: [request:7e2f05961fd7] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (64.12 ms)
+[2026-11-13 21:03:49] INFO     cliptora.http: [request:9c3a46272e2f] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (56.52 ms)
+[2026-11-13 21:03:51] INFO     cliptora.http: [request:1de6e1030266] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (57.68 ms)
+[2026-11-13 21:03:57] INFO     cliptora.http: [request:2d341e0775d6] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (56.95 ms)
+[2026-11-13 21:03:59] INFO     cliptora.http: [request:5b077bd7d97a] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (49.39 ms)
+[2026-11-13 21:04:03] INFO     cliptora.http: [request:b2623eaff5fb] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (54.88 ms)
+[2026-11-13 21:04:08] INFO     cliptora.http: [request:1711b0b74d8e] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (44.91 ms)
+[2026-11-13 21:04:13] INFO     cliptora.http: [request:a0f7616fef5b] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (50.40 ms)
+[2026-11-13 21:04:16] INFO     cliptora.http: [request:79e6b651cb6f] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (54.81 ms)
+[2026-11-13 21:07:40] INFO     cliptora.http: [request:ebfb6ae0bbf7] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (53.82 ms)
+[2026-11-13 21:07:50] INFO     cliptora.http: [request:45a37cea2e68] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (53.84 ms)
+[2026-11-13 21:07:54] INFO     cliptora.http: [request:4e2649a73134] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (69.53 ms)
+[2026-11-13 21:08:01] INFO     cliptora.http: [request:d86f33b4f740] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (60.96 ms)
+[2026-11-13 21:08:19] INFO     cliptora.http: [request:bcb056339b7d] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (55.23 ms)
+[2026-11-13 21:08:25] INFO     cliptora.http: [request:8518ffee3ee8] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (57.24 ms)
+[2026-11-13 21:08:28] INFO     cliptora.http: [request:cceee71ecf18] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (56.08 ms)
+[2026-11-13 21:08:31] INFO     cliptora.http: [request:3f8495d2b307] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (59.92 ms)
+[2026-11-13 21:08:33] INFO     cliptora.http: [request:a1e4096c5e67] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (51.13 ms)
+[2026-11-13 21:08:34] INFO     cliptora.http: [request:18829ef6bdf9] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (59.02 ms)
+[2026-11-13 21:08:37] INFO     cliptora.http: [request:707e81e61d7e] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (49.52 ms)
+[2026-11-13 21:08:41] INFO     cliptora.http: [request:382e1efc3885] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (49.42 ms)
+[2026-11-13 21:08:45] INFO     cliptora.http: [request:5dcfbfccf707] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (49.62 ms)
+[2026-11-13 21:08:51] INFO     cliptora.http: [request:139d51ed6f07] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (48.81 ms)
+[2026-11-13 21:08:54] INFO     cliptora.http: [request:c50fb99f1b81] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (50.98 ms)
+[2026-11-13 21:08:58] INFO     cliptora.http: [request:831b7de5cf8d] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (57.09 ms)
+[2026-11-13 21:09:01] INFO     cliptora.http: [request:0f49e87f98fd] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (54.72 ms)
+[2026-11-13 21:09:09] INFO     cliptora.http: [request:7894c2bde188] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (56.29 ms)
+[2026-11-13 21:10:08] INFO     cliptora.http: [request:c3640524ba34] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (53.92 ms)
+[2026-11-13 21:10:14] INFO     cliptora.http: [request:aa6c5062606d] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (44.97 ms)
+[2026-11-13 21:10:24] INFO     cliptora.http: [request:dc6b8cde20e3] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (56.82 ms)
