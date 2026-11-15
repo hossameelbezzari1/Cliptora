@@ -6,6 +6,7 @@ video.remix_render calls FFmpeg; preview operations never transcode media.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import random
@@ -86,6 +87,108 @@ def _highlights(outputs: dict[str, Any], path: str) -> list[dict]:
     return value
 
 
+
+def _normalize_timed_words(value: Any) -> list[dict[str, Any]]:
+    """Normalize original Whisper word timings in source-video seconds.
+
+    The word's midpoint is its unique owner when intervals are subdivided. This
+    prevents a word from being narrated twice on two neighboring clips.
+    """
+    if not isinstance(value, list):
+        raise ValueError('Word timings must be a words[] array from Transcribe Every Word')
+    normalized: list[dict[str, Any]] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise ValueError(f'Invalid timed word #{index + 1}')
+        word = str(item.get('text') or item.get('word') or '').strip()
+        if not word:
+            continue
+        start = _num(item.get('start'), f'Word #{index + 1} start')
+        end = _num(item.get('end'), f'Word #{index + 1} end')
+        if end <= start:
+            raise ValueError(f'Word #{index + 1} has nonpositive duration')
+        normalized.append({
+            'id': item.get('id', index + 1),
+            'text': word,
+            'start': start,
+            'end': end,
+        })
+    normalized.sort(key=lambda item: (item['start'], item['end']))
+    return normalized
+
+
+def _connected_timed_words(outputs: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """Read a directly connected Whisper output, without inventing missing data."""
+    candidates = [item['words'] for item in outputs.values()
+                  if isinstance(item, dict) and isinstance(item.get('words'), list)]
+    if not candidates:
+        return None
+    if any(candidate != candidates[0] for candidate in candidates[1:]):
+        raise ValueError('Multiple different word-timing sources: connect one Transcribe Every Word output')
+    return _normalize_timed_words(candidates[0])
+
+
+def _interval_words(words: list[dict[str, Any]], left: float, right: float) -> list[dict[str, Any]]:
+    """Assign every word to at most one adjoining interval using its midpoint."""
+    return [word for word in words
+            if left <= (word['start'] + word['end']) / 2 < right]
+
+
+def _spoken_text(words: list[dict[str, Any]]) -> str:
+    text = ' '.join(word['text'] for word in words)
+    if len(text) > 5000:
+        raise ValueError('Clip narration exceeds 5000 characters; split the clip further')
+    return text
+
+
+def _word_aligned_edges(start: float, end: float, count: int,
+                        words: list[dict[str, Any]], minimum: float,
+                        maximum: float) -> tuple[list[float], int]:
+    """Prefer breaks between Whisper words while preserving clip duration bounds.
+
+    If there is no feasible word break, keep the time-based split instead of
+    silently generating a clip outside the configured duration range.
+    """
+    if count <= 1:
+        return [start, end], 0
+    duration = end - start
+    typical = duration / count
+    effective_min = min(minimum, typical)
+    effective_max = max(maximum, typical)
+    ordered = _interval_words(words, start, end)
+    choices: list[float] = []
+    for previous, following in zip(ordered, ordered[1:]):
+        # In a pause the midpoint is a safe, natural cut position. When Whisper
+        # words overlap, put the boundary between their word midpoints.
+        if previous['end'] <= following['start']:
+            candidate = (previous['end'] + following['start']) / 2
+        else:
+            candidate = (
+                (previous['start'] + previous['end']) / 2
+                + (following['start'] + following['end']) / 2
+            ) / 2
+        if start < candidate < end:
+            choices.append(candidate)
+    edges = [start]
+    unsnapped = 0
+    for boundary_index in range(1, count):
+        remaining = count - boundary_index
+        lower = max(edges[-1] + effective_min, end - remaining * effective_max)
+        upper = min(edges[-1] + effective_max, end - remaining * effective_min)
+        ideal = start + duration * boundary_index / count
+        if lower > upper + 1e-7:
+            raise ValueError('Impossible clip duration bounds during word alignment')
+        options = [value for value in choices if lower - 1e-8 <= value <= upper + 1e-8
+                   and value > edges[-1] + 1e-8]
+        if options:
+            chosen = min(options, key=lambda value: (abs(value - ideal), value))
+        else:
+            unsnapped += 1
+            chosen = min(max(ideal, lower), upper)
+        edges.append(chosen)
+    edges.append(end)
+    return edges, unsnapped
+
 def _manifest(outputs: dict[str, Any], path: str) -> dict:
     value = _extract(outputs, path, 'clip_manifest')
     if not isinstance(value, dict) or value.get('version') != 1 or not isinstance(value.get('groups'), list):
@@ -107,6 +210,137 @@ def _manifest(outputs: dict[str, Any], path: str) -> dict:
             if b <= a:
                 raise ValueError('Clip end must be greater than start')
     return result
+
+
+def _inspect_preview_audio(path: Path) -> float:
+    """Cheap decode sanity check. Never transcodes or writes to the MP3."""
+    try:
+        completed = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'a:0',
+             '-show_entries', 'stream=codec_name:format=duration',
+             '-of', 'json', str(path)],
+            capture_output=True, text=True, timeout=20, check=True,
+        )
+        info = json.loads(completed.stdout)
+        streams = info.get('streams') or []
+        if not streams or streams[0].get('codec_name') != 'mp3':
+            raise ValueError('not an MP3 audio stream')
+        length = _num((info.get('format') or {}).get('duration'),
+                      'Probed audio duration', 0.001, 86400)
+        return length
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError,
+            TypeError, KeyError, ValueError) as exc:
+        raise ValueError('MP3 failed FFprobe verification') from exc
+
+
+def _preview_timeline(manifest: dict, workdir: Path, cfg: dict) -> dict[str, Any]:
+    """Build a browser-playable schedule. Never return filesystem paths in it.
+
+    Each voice is checked against this exact run and its clip instance ID.
+    The authenticated /audios/{file_id} endpoint already resolves the ID from
+    the run's owned media folder; the browser never receives an arbitrary path.
+    """
+    workspace = Path(workdir).resolve()
+    allowed = (run_media_dir(workspace) / 'audio' / 'voiceovers').resolve()
+    project_id = workspace.parent.parent.name
+    run_id = workspace.name
+    if not project_id.isdecimal() or not run_id.isdecimal():
+        raise ValueError('Preview requires a standard CLIPTORA run workspace')
+
+    timeline: list[dict[str, Any]] = []
+    missing: list[str] = []
+    invalid: list[dict[str, str]] = []
+    position = 0.0
+    voiced = 0
+    silent = 0
+    for group in manifest['groups']:
+        for clip in group['clips']:
+            ident = str(clip['instance_id'])
+            length = _num(clip['source_end'], 'Clip end') - _num(clip['source_start'], 'Clip start')
+            script = str(clip.get('selected_text') or '').strip()
+            event: dict[str, Any] = {
+                'instance_id': ident,
+                'group_id': str(group.get('group_id') or ''),
+                'label': str(clip.get('label') or ident)[:120],
+                'timeline_start': round(position, 6),
+                'timeline_end': round(position + length, 6),
+                'duration': round(length, 6),
+                'source_start': round(float(clip['source_start']), 6),
+                'source_end': round(float(clip['source_end']), 6),
+                'selected_text': script,
+                'transforms': copy.deepcopy(clip.get('transforms') or {}),
+                'voiceover': None,
+                'voiceover_status': 'silent' if not script else 'missing',
+            }
+            position += length
+            voice = clip.get('voiceover')
+            if not isinstance(voice, dict):
+                if script:
+                    missing.append(ident)
+                else:
+                    silent += 1
+            else:
+                try:
+                    if str(voice.get('instance_id') or ident) != ident:
+                        raise ValueError('voiceover instance_id does not match this clip')
+                    raw = voice.get('path')
+                    if not isinstance(raw, str) or not raw:
+                        raise ValueError('voiceover has no MP3 file path')
+                    candidate = Path(raw)
+                    if candidate.is_symlink() or candidate.suffix.casefold() != '.mp3':
+                        raise ValueError('voiceover is not a regular MP3')
+                    resolved = candidate.resolve()
+                    if resolved.parent != allowed or not resolved.is_file() or resolved.stat().st_size <= 100:
+                        raise ValueError('voiceover MP3 is missing or outside this run')
+                    seconds = _num(voice.get('duration'), 'Voice-over duration', 0.001, 86400)
+                    verified_seconds = _inspect_preview_audio(resolved)
+                    if abs(verified_seconds - seconds) > 0.15:
+                        raise ValueError('voiceover duration metadata disagrees with MP3')
+                    if verified_seconds > length + 0.12:
+                        raise ValueError(f'voiceover {verified_seconds:.2f}s exceeds clip {length:.2f}s')
+                    file_id = hashlib.sha256(str(resolved).encode('utf-8')).hexdigest()[:24]
+                    event['voiceover'] = {
+                        'instance_id': ident,
+                        'url': f'/api/v1/workflows/{project_id}/runs/{run_id}/audios/{file_id}',
+                        'duration': round(seconds, 6),
+                        'filename': resolved.name,
+                        'mime_type': 'audio/mpeg',
+                    }
+                    event['voiceover_status'] = 'ready'
+                    voiced += 1
+                except (ValueError, OSError, TypeError) as exc:
+                    invalid.append({'instance_id': ident, 'reason': str(exc)[:200]})
+                    event['voiceover_status'] = 'invalid'
+                    if not script:
+                        silent += 1
+            timeline.append(event)
+
+    group_voiceovers = sum(isinstance(group.get('voiceover'), dict) for group in manifest['groups'])
+    issues: list[str] = []
+    if missing:
+        issues.append(f'{len(missing)} narrated clips have no MP3')
+    if invalid:
+        issues.append(f'{len(invalid)} voice-over files failed validation')
+    if group_voiceovers:
+        issues.append('Legacy per-group voiceovers are not supported in per-clip browser preview')
+
+    source_audio = bool(cfg.get('include_audio', True))
+    original_volume = _num(cfg.get('original_audio_volume', 0.18), 'Original audio volume', 0, 1)
+    return {
+        'mode': 'browser',
+        'requires_ffmpeg': False,
+        'duration': round(position, 6),
+        'clips': len(timeline),
+        'voiced_clips': voiced,
+        'silent_clips': silent,
+        'missing_voiceovers': missing,
+        'invalid_voiceovers': invalid,
+        'issues': issues,
+        'ready': not issues,
+        'include_original_audio': source_audio,
+        'original_audio_volume': original_volume,
+        'timeline': timeline,
+    }
 
 
 def _stats(manifest: dict) -> dict:
@@ -189,13 +423,13 @@ class VideoRemixNode(Node):
     operations = {
         PREFIX + 'validate': _op.__func__('validate', 'lucide:shield-check', 'Validate Highlights', {'strict_text_match': False}),
         PREFIX + 'cut': _op.__func__('cut', 'lucide:scissors', 'Cut Highlights', {'padding': 0}),
-        PREFIX + 'split': _op.__func__('split', 'lucide:split', 'Split Clips', {'min_seconds': 2.0, 'max_seconds': 3.0, 'remainder_policy': 'allow_short'}),
+        PREFIX + 'split': _op.__func__('split', 'lucide:split', 'Split Clips', {'min_seconds': 2.0, 'max_seconds': 3.0, 'remainder_policy': 'allow_short', 'require_word_timings': True, 'align_boundaries_to_words': True}),
         PREFIX + 'duplicate': _op.__func__('duplicate', 'lucide:copy', 'Duplicate Clips', {'min_duplicates': 1, 'max_duplicates': 2, 'seed': 42}),
         PREFIX + 'shuffle': _op.__func__('shuffle', 'lucide:shuffle', 'Shuffle Clips', {'seed': 42, 'avoid_adjacent_identical': True}),
         PREFIX + 'zoom': _op.__func__('zoom', 'lucide:zoom-in', 'Zoom & Reframe', {'min_zoom_percent': 10.0, 'max_zoom_percent': 20.0, 'seed': 42}),
         PREFIX + 'merge': _op.__func__('merge', 'lucide:combine', 'Merge Clips', {}),
         PREFIX + 'attach_voice': _op.__func__('attach_voice', 'lucide:audio-lines', 'Attach Voice-over to Groups', {}),
-        PREFIX + 'preview': _op.__func__('preview', 'lucide:monitor-play', 'Preview Montage', {}),
+        PREFIX + 'preview': _op.__func__('preview', 'lucide:monitor-play', 'Preview Montage', {'include_audio': True, 'original_audio_volume': 0.18, 'require_clip_voiceovers': False}),
         PREFIX + 'render': _op.__func__('render', 'lucide:film', 'Render Remix MP4', {'include_audio': True, 'original_audio_volume': 0.18, 'require_group_voiceovers': False, 'require_clip_voiceovers': False}),
     }
 
@@ -208,6 +442,8 @@ class VideoRemixNode(Node):
         'min_seconds': {'type': 'number', 'title': 'Min Clip (seconds)', 'minimum': 0.1, 'maximum': 60, 'expression': True},
         'max_seconds': {'type': 'number', 'title': 'Max Clip (seconds)', 'minimum': 0.1, 'maximum': 60, 'expression': True},
         'remainder_policy': {'type': 'string', 'title': 'Short Remainders', 'enum': ['allow_short', 'keep', 'skip', 'error']},
+        'require_word_timings': {'type': 'boolean', 'title': 'Require Word Timings for Narrated Splits'},
+        'align_boundaries_to_words': {'type': 'boolean', 'title': 'Prefer Cuts Between Spoken Words'},
     })
 
     parameter_fields[PREFIX + 'duplicate'].update({
@@ -220,6 +456,13 @@ class VideoRemixNode(Node):
         'min_zoom_percent': {'type': 'number', 'title': 'Minimum Zoom Increase (%)', 'minimum': 0, 'maximum': 200},
         'max_zoom_percent': {'type': 'number', 'title': 'Maximum Zoom Increase (%)', 'minimum': 0, 'maximum': 200},
         'seed': {'type': 'integer', 'title': 'Random Seed'},
+    })
+
+    parameter_fields[PREFIX + 'preview'].update({
+        'include_audio': {'type': 'boolean', 'title': 'Include Original Audio'},
+        'original_audio_volume': {'type': 'number', 'title': 'Original Audio Volume with Voice-over',
+                                  'minimum': 0, 'maximum': 1, 'default': 0.18},
+        'require_clip_voiceovers': {'type': 'boolean', 'title': 'Require Voice-over for Every Clip with Text'},
     })
 
     parameter_fields[PREFIX + 'render'].update({
@@ -243,17 +486,15 @@ class VideoRemixNode(Node):
         if action == 'validate':
             candidates = _highlights(outputs, path)
             strict = bool(cfg.get('strict_text_match', False))
-            words = []
-            for value in outputs.values():
-                if isinstance(value, dict) and isinstance(value.get('words'), list):
-                    words = value['words']
-                    break
-            if strict and not words:
-                raise ValueError('Strict text matching requires Transcribe Every Word connected')
+            direct_words = _connected_timed_words(outputs)
+            if strict and direct_words is None:
+                raise ValueError(
+                    'Strict text matching requires a direct connection from '
+                    'Transcribe Every Word to Validate Highlights'
+                )
 
             validated, rejected = [], []
             known_duration = None
-
             if source is not None and source.is_file():
                 try:
                     details = subprocess.run(
@@ -269,37 +510,44 @@ class VideoRemixNode(Node):
                 try:
                     if not isinstance(entry, dict):
                         raise ValueError('Not a highlight object')
-
                     a = _num(entry.get('start'), 'highlight start')
                     b = _num(entry.get('end'), 'highlight end')
-
                     if b <= a:
                         raise ValueError('End must follow start')
-
                     if known_duration is not None and b > known_duration + 0.05:
                         raise ValueError('Highlight ends beyond source video')
 
-                    if strict:
-                        selected = re.sub(r'\W+', ' ', str(entry.get('selected_text') or '').lower()).strip()
-                        transcript = ' '.join(
-                            str(w.get('text') or '')
-                            for w in words
-                            if isinstance(w, dict)
-                            and float(w.get('end', -1)) > a
-                            and float(w.get('start', 1e10)) < b
+                    # Attach the *source* timed words to this highlight, so Cut
+                    # and Split can keep them even when Whisper is not connected
+                    # directly to those later nodes.
+                    if direct_words is not None:
+                        timed_words = _interval_words(direct_words, a, b)
+                    elif isinstance(entry.get('timed_words'), list):
+                        timed_words = _interval_words(
+                            _normalize_timed_words(entry['timed_words']), a, b
                         )
-                        normalized = re.sub(r'\W+', ' ', transcript.lower()).strip()
+                    else:
+                        timed_words = None
 
-                        if not selected or selected != normalized:
+                    if strict:
+                        selected = re.sub(
+                            r'\W+', ' ', str(entry.get('selected_text') or '').casefold()
+                        ).strip()
+                        spoken = re.sub(
+                            r'\W+', ' ', _spoken_text(timed_words or []).casefold()
+                        ).strip()
+                        if not selected or selected != spoken:
                             raise ValueError('Selected text does not match timed transcript')
 
-                    validated.append({
+                    item = {
                         **entry,
                         'start': a,
                         'end': b,
                         'duration': round(b - a, 3),
-                    })
-
+                    }
+                    if timed_words is not None:
+                        item['timed_words'] = timed_words
+                    validated.append(item)
                 except (ValueError, TypeError) as exc:
                     rejected.append({'index': index, 'reason': str(exc)})
 
@@ -309,49 +557,79 @@ class VideoRemixNode(Node):
                 'stats': {
                     'valid': len(validated),
                     'rejected': len(rejected),
+                    'word_timings_available': direct_words is not None
+                    or any(isinstance(item.get('timed_words'), list) for item in validated),
                 },
             }
 
         if action == 'cut':
             candidates = _highlights(outputs, path)
+            direct_words = _connected_timed_words(outputs)
             padding = _num(cfg.get('padding', 0), 'padding', 0, 30)
             groups = []
+            warnings = []
 
             for index, entry in enumerate(candidates):
                 if not isinstance(entry, dict):
                     raise ValueError('Invalid highlight entry')
-
-                start = _num(entry.get('start'), 'highlight start')
-                end = _num(entry.get('end'), 'highlight end')
-
-                if end <= start:
+                selected_start = _num(entry.get('start'), 'highlight start')
+                selected_end = _num(entry.get('end'), 'highlight end')
+                if selected_end <= selected_start:
                     raise ValueError('Highlight end must be greater than start')
-
-                start = max(0, start - padding)
-                end = end + padding
-
-                gid = f'group_{index+1:04d}'
+                start = max(0, selected_start - padding)
+                end = selected_end + padding
+                gid = f'group_{index + 1:04d}'
                 cid = f'{gid}_clip_0001'
 
-                groups.append({
+                if isinstance(entry.get('timed_words'), list):
+                    timed_words = _interval_words(
+                        _normalize_timed_words(entry['timed_words']),
+                        selected_start, selected_end,
+                    )
+                elif direct_words is not None:
+                    timed_words = _interval_words(direct_words, selected_start, selected_end)
+                else:
+                    timed_words = None
+
+                original_text = str(entry.get('selected_text') or entry.get('text') or '').strip()
+                if timed_words is not None and not timed_words and original_text:
+                    raise ValueError(
+                        f'{gid}: this highlight contains narration text but no '
+                        'Whisper words in its source time range. Check source video, '
+                        'word offsets and highlight start/end times.'
+                    )
+                selected_text = _spoken_text(timed_words) if timed_words is not None else original_text[:5000]
+                if timed_words is None and original_text:
+                    warnings.append(
+                        f'{gid}: no word timings attached; connect Transcribe Every Word '
+                        'to Validate Highlights (or Cut Highlights) before splitting narrated clips'
+                    )
+
+                group = {
                     'group_id': gid,
                     'label': _label(index),
-                    'title': str(entry.get('title') or f'Highlight {index+1}')[:160],
-                    'selected_text': str(entry.get('selected_text') or entry.get('text') or '')[:8000],
+                    'title': str(entry.get('title') or f'Highlight {index + 1}')[:160],
+                    'selected_text': selected_text,
+                    'word_timing_status': 'available' if timed_words is not None else 'missing',
                     'clips': [{
                         'clip_id': cid,
                         'original_clip_id': cid,
                         'instance_id': cid,
                         'label': f'{_label(index)}1',
-                        'source_start': round(start, 3),
-                        'source_end': round(end, 3),
+                        'selected_text': selected_text,
+                        'text_source': 'whisper_words' if timed_words is not None else 'highlight_text',
+                        'source_start': round(start, 6),
+                        'source_end': round(end, 6),
                         'duration': round(end - start, 3),
                         'order': 0,
                         'transforms': {},
                     }],
-                })
+                }
+                if timed_words is not None:
+                    group['timed_words'] = timed_words
+                groups.append(group)
 
-            return _finish({'version': 1, 'groups': groups})
+            return _finish({'version': 1, 'groups': groups}, warnings=warnings)
 
         manifest = _manifest(outputs, path)
         warnings = []
@@ -359,36 +637,36 @@ class VideoRemixNode(Node):
         if action == 'split':
             low = _num(cfg.get('min_seconds', 2), 'Minimum clip seconds', 0.1, 60)
             high = _num(cfg.get('max_seconds', 3), 'Maximum clip seconds', 0.1, 60)
-
             if high < low:
                 raise ValueError('Max clip duration cannot be less than min')
 
             policy = str(cfg.get('remainder_policy') or 'allow_short')
             if policy not in {'allow_short', 'keep', 'skip', 'error'}:
                 raise ValueError('Invalid remainder policy')
-
-            timed_words = next((value.get('words') for value in outputs.values()
-                                if isinstance(value, dict) and isinstance(value.get('words'), list)), [])
-
-            def interval_text(left: float, right: float, fallback: str, only: bool) -> str:
-                pieces = []
-                for word in timed_words:
-                    if not isinstance(word, dict):
-                        continue
-                    try:
-                        midpoint = (float(word.get('start')) + float(word.get('end'))) / 2
-                    except (TypeError, ValueError):
-                        continue
-                    if left <= midpoint < right:
-                        value = str(word.get('text') or '').strip()
-                        if value:
-                            pieces.append(value)
-                if pieces:
-                    return ' '.join(pieces)[:5000]
-                return fallback[:5000] if only else ''
+            require_words = bool(cfg.get('require_word_timings', True))
+            align_edges = bool(cfg.get('align_boundaries_to_words', True))
+            direct_words = _connected_timed_words(outputs)
+            split_stats = {'clips_with_text': 0, 'clips_without_text': 0,
+                           'missing_timing_sources': 0, 'non_word_aligned_boundaries': 0}
 
             for group in manifest['groups']:
-                split = []
+                split: list[dict] = []
+                # Persisted timed words come from Cut Highlights. A direct
+                # Whisper connection is also supported, but not required here.
+                if isinstance(group.get('timed_words'), list):
+                    group_words = _normalize_timed_words(group['timed_words'])
+                elif direct_words is not None:
+                    group_words = direct_words
+                    group['timed_words'] = _interval_words(
+                        direct_words,
+                        min(clip['source_start'] for clip in group['clips'])
+                        if group['clips'] else 0,
+                        max(clip['source_end'] for clip in group['clips'])
+                        if group['clips'] else 0,
+                    )
+                    group['word_timing_status'] = 'available'
+                else:
+                    group_words = None
 
                 for clip in group['clips']:
                     duration = clip['source_end'] - clip['source_start']
@@ -397,35 +675,76 @@ class VideoRemixNode(Node):
 
                     if minimum_count <= maximum_count and maximum_count >= 1:
                         count = max(1, minimum_count)
-
                     elif policy == 'skip':
                         warnings.append(
                             f'Skipped {clip["instance_id"]}: cannot split within duration bounds'
                         )
                         continue
-
                     elif policy == 'error':
                         raise ValueError(
                             f'Cannot split {clip["instance_id"]} into {low}-{high}s clips'
                         )
-
                     elif policy == 'keep':
+                        if group_words is not None:
+                            existing_words = _interval_words(
+                                group_words, clip['source_start'], clip['source_end']
+                            )
+                            clip['selected_text'] = _spoken_text(existing_words)
+                            clip['text_source'] = 'whisper_words'
                         split.append(clip)
                         warnings.append(
                             f'Kept {clip["instance_id"]}: outside duration bounds'
                         )
+                        if str(clip.get('selected_text') or '').strip():
+                            split_stats['clips_with_text'] += 1
+                        else:
+                            split_stats['clips_without_text'] += 1
                         continue
-
                     else:
                         count = max(1, minimum_count)
                         warnings.append(
                             f'{clip["instance_id"]}: allowed short section outside minimum duration'
                         )
 
-                    for i in range(count):
-                        left = clip['source_start'] + duration * i / count
-                        right = clip['source_start'] + duration * (i + 1) / count
+                    own_words = (
+                        _interval_words(group_words, clip['source_start'], clip['source_end'])
+                        if group_words is not None else None
+                    )
+                    has_narration = bool(str(clip.get('selected_text') or
+                                             group.get('selected_text') or '').strip())
+                    if count > 1 and own_words is None and has_narration:
+                        split_stats['missing_timing_sources'] += 1
+                        if require_words:
+                            raise ValueError(
+                                f'Cannot produce correct per-clip text for {clip["instance_id"]}: '
+                                'Whisper word timings are missing. Connect Transcribe Every '
+                                'Word to Validate Highlights (or Cut Highlights), then rerun '
+                                'Validate → Cut → Split.'
+                            )
+                        warnings.append(
+                            f'{clip["instance_id"]}: no word timings; split clips will '
+                            'have no narration rather than repeat an entire group script'
+                        )
 
+                    if align_edges and own_words is not None:
+                        edges, not_aligned = _word_aligned_edges(
+                            clip['source_start'], clip['source_end'], count,
+                            own_words, low, high,
+                        )
+                        split_stats['non_word_aligned_boundaries'] += not_aligned
+                        if not_aligned:
+                            warnings.append(
+                                f'{clip["instance_id"]}: {not_aligned} split boundaries '
+                                'could not be placed between Whisper words'
+                            )
+                    else:
+                        edges = [
+                            clip['source_start'] + duration * i / count
+                            for i in range(count + 1)
+                        ]
+
+                    for i in range(count):
+                        left, right = edges[i], edges[i + 1]
                         new = copy.deepcopy(clip)
                         new['clip_id'] = f'{clip["clip_id"]}_s{i+1:03d}'
                         new['original_clip_id'] = new['clip_id']
@@ -434,14 +753,32 @@ class VideoRemixNode(Node):
                         new['label'] = f"{group.get('label', group['group_id'])}{len(split)+1}"
                         new['source_start'] = round(left, 6)
                         new['source_end'] = round(right, 6)
-                        new['selected_text'] = interval_text(
-                            left, right,
-                            str(clip.get('selected_text') or group.get('selected_text') or ''),
-                            count == 1,
-                        )
+                        if own_words is not None:
+                            selected_words = _interval_words(own_words, left, right)
+                            new['selected_text'] = _spoken_text(selected_words)
+                            new['text_source'] = 'whisper_words'
+                            new['word_start_id'] = selected_words[0]['id'] if selected_words else None
+                            new['word_end_id'] = selected_words[-1]['id'] if selected_words else None
+                        elif count == 1:
+                            new['selected_text'] = str(clip.get('selected_text') or
+                                                       group.get('selected_text') or '')[:5000]
+                            new['text_source'] = 'highlight_text'
+                        else:
+                            new['selected_text'] = ''
+                            new['text_source'] = 'missing_word_timings'
+                        # Splitting invalidates any earlier audio generated for a parent.
+                        new.pop('voiceover', None)
+                        new.pop('voiceover_status', None)
+                        new.pop('voiceover_error', None)
+                        if new['selected_text']:
+                            split_stats['clips_with_text'] += 1
+                        else:
+                            split_stats['clips_without_text'] += 1
                         split.append(new)
 
                 group['clips'] = split
+
+            return _finish(manifest, warnings=warnings, split_stats=split_stats)
 
         elif action == 'duplicate':
             minimum = _int(cfg.get('min_duplicates', 1), 'Min duplicates', 0, 200)
@@ -533,12 +870,11 @@ class VideoRemixNode(Node):
             output = _finish(manifest, cut_plan=plan)
 
             if action == 'preview':
-                output['preview'] = {
-                    'mode': 'browser',
-                    'requires_ffmpeg': False,
-                    'duration': output['stats']['duration'],
-                    'clips': len(plan),
-                }
+                schedule = _preview_timeline(manifest, workdir, cfg)
+                if cfg.get('require_clip_voiceovers') and not schedule['ready']:
+                    raise ValueError('Preview cannot verify all clip voiceovers: '
+                                     + '; '.join(schedule['issues']))
+                output['preview'] = schedule
 
             return output
 
@@ -588,6 +924,14 @@ class VideoRemixNode(Node):
                 f'{len(missing_clip_voiceovers)} clips with text have no voice-over: {sample}. '
                 'Regenerate the missing clip audio before rendering.'
             )
+
+        if any(isinstance(clip.get('voiceover'), dict)
+               for group in manifest['groups'] for clip in group['clips']):
+            preflight = _preview_timeline(manifest, workdir, cfg)
+            if preflight['invalid_voiceovers']:
+                raise ValueError('Invalid clip voiceovers: ' + ', '.join(
+                    item['instance_id'] + ': ' + item['reason']
+                    for item in preflight['invalid_voiceovers'][:5]))
 
         ffprobe = subprocess.run(
             [
@@ -888,3 +1232,267 @@ class VideoRemixNode(Node):
                 ),
             },
         )
+
+# CLIPTORA - Continuous Group Narration Preview
+# Append after the VideoRemixNode class.
+
+_original_remix_preview_timeline = _preview_timeline
+
+
+def _preview_timeline(
+    manifest: dict,
+    workdir: Path,
+    cfg: dict,
+) -> dict[str, Any]:
+    """
+    Continuous audio for a whole remix group.
+
+    Example:
+        Group A = A1, A2, A3, A1, A5, A4
+
+    The group has one MP3, while the video clips
+    are split, duplicated and shuffled.
+    """
+
+    has_group_voice = any(
+        isinstance(group.get("voiceover"), dict)
+        for group in manifest["groups"]
+    )
+
+    if not has_group_voice:
+        return _original_remix_preview_timeline(
+            manifest, workdir, cfg
+        )
+
+    workspace = Path(workdir).resolve()
+
+    folder = (
+        run_media_dir(workspace)
+        / "audio"
+        / "voiceovers"
+    ).resolve()
+
+    project_id = workspace.parent.parent.name
+    run_id = workspace.name
+
+    if (
+        not project_id.isdecimal()
+        or not run_id.isdecimal()
+    ):
+        raise ValueError(
+            "Invalid workflow workspace for audio preview"
+        )
+
+    items = []
+    missing = []
+    invalid = []
+    issues = []
+
+    position = 0.0
+    voiced = 0
+    silent = 0
+    group_voices = 0
+
+    for group in manifest["groups"]:
+        group_start = position
+        group_id = str(group.get("group_id") or "")
+        clips = group["clips"]
+
+        group_seconds = sum(
+            float(clip["source_end"])
+            - float(clip["source_start"])
+            for clip in clips
+        )
+
+        source_voice = group.get("voiceover")
+        playable = None
+        problem = None
+
+        if isinstance(source_voice, dict):
+            group_voices += 1
+
+            try:
+                value = str(
+                    source_voice.get("path") or ""
+                )
+                candidate = Path(value)
+
+                if (
+                    not value
+                    or candidate.is_symlink()
+                    or candidate.suffix.lower() != ".mp3"
+                ):
+                    raise ValueError(
+                        "Group voiceover is not an MP3 file"
+                    )
+
+                resolved = candidate.resolve()
+
+                if (
+                    resolved.parent != folder
+                    or not resolved.is_file()
+                ):
+                    raise ValueError(
+                        "Group voiceover is missing "
+                        "or outside this run"
+                    )
+
+                duration = _inspect_preview_audio(
+                    resolved
+                )
+
+                expected = _num(
+                    source_voice.get("duration"),
+                    "Group voiceover duration",
+                    0.001,
+                    86400,
+                )
+
+                if abs(duration - expected) > 0.15:
+                    raise ValueError(
+                        "Group voiceover duration "
+                        "metadata mismatch"
+                    )
+
+                if duration > group_seconds + 0.12:
+                    raise ValueError(
+                        "Group voiceover is longer "
+                        "than its montage clips"
+                    )
+
+                audio_id = hashlib.sha256(
+                    str(resolved).encode("utf8")
+                ).hexdigest()[:24]
+
+                playable = {
+                    "url": (
+                        f"/api/v1/workflows/{project_id}"
+                        f"/runs/{run_id}/audios/{audio_id}"
+                    ),
+                    "duration": round(duration, 5),
+                    "filename": resolved.name,
+                    "mime_type": "audio/mpeg",
+                    "playback_mode": "group",
+                    "group_id": group_id,
+                    "timeline_start": round(
+                        group_start, 6
+                    ),
+                }
+
+            except (
+                ValueError, OSError, TypeError
+            ) as exc:
+                problem = str(exc)[:250]
+
+        for clip in clips:
+            identity = str(clip["instance_id"])
+
+            seconds = (
+                float(clip["source_end"])
+                - float(clip["source_start"])
+            )
+
+            script = str(
+                clip.get("selected_text") or ""
+            ).strip()
+
+            event = {
+                "instance_id": identity,
+                "group_id": group_id,
+                "label": str(
+                    clip.get("label") or identity
+                )[:120],
+                "timeline_start": round(
+                    position, 6
+                ),
+                "timeline_end": round(
+                    position + seconds, 6
+                ),
+                "duration": round(seconds, 6),
+                "source_start": round(
+                    float(clip["source_start"]), 6
+                ),
+                "source_end": round(
+                    float(clip["source_end"]), 6
+                ),
+                "selected_text": script,
+                "transforms": copy.deepcopy(
+                    clip.get("transforms") or {}
+                ),
+                "voiceover": None,
+                "voiceover_status": (
+                    "missing" if script else "silent"
+                ),
+            }
+
+            position += seconds
+
+            clip_voice = clip.get("voiceover")
+
+            if isinstance(clip_voice, dict):
+                invalid.append({
+                    "instance_id": identity,
+                    "reason": (
+                        "Do not mix group "
+                        "and clip narration"
+                    ),
+                })
+                event["voiceover_status"] = "invalid"
+
+            elif source_voice is not None:
+                if playable is None:
+                    invalid.append({
+                        "instance_id": identity,
+                        "reason": (
+                            problem
+                            or "Invalid group voiceover"
+                        ),
+                    })
+                    event["voiceover_status"] = "invalid"
+
+                else:
+                    event["voiceover"] = dict(playable)
+                    event["voiceover_status"] = "ready"
+                    voiced += 1
+
+            elif script:
+                missing.append(identity)
+
+            else:
+                silent += 1
+
+            items.append(event)
+
+    if missing:
+        issues.append(
+            f"{len(missing)} narrated clips have no audio"
+        )
+
+    if invalid:
+        issues.append(
+            f"{len(invalid)} clips have invalid narration"
+        )
+
+    return {
+        "mode": "browser",
+        "requires_ffmpeg": False,
+        "duration": round(position, 6),
+        "clips": len(items),
+        "voiced_clips": voiced,
+        "silent_clips": silent,
+        "group_voiceovers": group_voices,
+        "missing_voiceovers": missing,
+        "invalid_voiceovers": invalid,
+        "issues": issues,
+        "ready": not issues,
+        "include_original_audio": bool(
+            cfg.get("include_audio", True)
+        ),
+        "original_audio_volume": _num(
+            cfg.get("original_audio_volume", 0.18),
+            "Original audio volume",
+            0,
+            1,
+        ),
+        "timeline": items,
+    }

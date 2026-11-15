@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from app.workflows.nodes.Browser import COMMANDS, _public_url, _selector
+from app.workflows.nodes.Browser import (
+    COMMANDS, _action_timeout, _public_url, _selector, _wait_state,
+)
 
 
 _AUDIO_TARGET_RE = re.compile(r"data-act\s*=\s*['\"](mp3|wav)['\"]", re.IGNORECASE)
@@ -283,6 +285,7 @@ class BrowserDevSession:
         if command not in COMMANDS:
             raise ValueError("Unsupported browser command")
         started = time.monotonic()
+        action_timeout = _action_timeout(action, self.timeout_ms)
         target = action.get("target")
         result: dict[str, Any] = {
             "key": command_key,
@@ -299,26 +302,26 @@ class BrowserDevSession:
             value = str(action.get("value", ""))
             if command == "navigate":
                 destination = _public_url(str(action.get("url") or value), self.allowed_hosts)
-                page.goto(destination, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                page.goto(destination, wait_until="domcontentloaded", timeout=action_timeout)
             elif command in TARGET_COMMANDS:
                 if locator is None:
                     raise ValueError(f"{command} requires a target")
                 if command != "wait":
-                    locator.wait_for(state="attached", timeout=self.timeout_ms)
+                    locator.wait_for(state="attached", timeout=action_timeout)
                 result["element_status"] = "found"
-                if command == "click": locator.click(timeout=self.timeout_ms)
-                elif command == "double_click": locator.dblclick(timeout=self.timeout_ms)
-                elif command == "fill": locator.fill(value, timeout=self.timeout_ms)
-                elif command == "type": locator.press_sequentially(value, delay=int(action.get("delay_ms", 0)), timeout=self.timeout_ms)
-                elif command == "press": locator.press(value, timeout=self.timeout_ms)
-                elif command == "hover": locator.hover(timeout=self.timeout_ms)
+                if command == "click": locator.click(timeout=action_timeout)
+                elif command == "double_click": locator.dblclick(timeout=action_timeout)
+                elif command == "fill": locator.fill(value, timeout=action_timeout)
+                elif command == "type": locator.press_sequentially(value, delay=int(action.get("delay_ms", 0)), timeout=action_timeout)
+                elif command == "press": locator.press(value, timeout=action_timeout)
+                elif command == "hover": locator.hover(timeout=action_timeout)
                 elif command == "wait":
-                    locator.wait_for(state=str(action.get("state", "visible")), timeout=self.timeout_ms)
+                    locator.wait_for(state=_wait_state(action), timeout=action_timeout)
                     result["element_status"] = "found"
-                elif command == "select": locator.select_option(value, timeout=self.timeout_ms)
-                elif command == "check": locator.check(timeout=self.timeout_ms)
-                elif command == "uncheck": locator.uncheck(timeout=self.timeout_ms)
-                elif command == "extract_text": result["value"] = locator.inner_text(timeout=self.timeout_ms)[:10000]
+                elif command == "select": locator.select_option(value, timeout=action_timeout)
+                elif command == "check": locator.check(timeout=action_timeout)
+                elif command == "uncheck": locator.uncheck(timeout=action_timeout)
+                elif command == "extract_text": result["value"] = locator.inner_text(timeout=action_timeout)[:10000]
                 elif command == "download":
                     self.download_dir.mkdir(parents=True, exist_ok=True)
                     # Track which files existed before this exact command.
@@ -326,8 +329,8 @@ class BrowserDevSession:
                         entry.name for entry in self.download_dir.iterdir()
                         if entry.is_file()
                     }
-                    with page.expect_download(timeout=self.timeout_ms) as info:
-                        locator.click(timeout=self.timeout_ms)
+                    with page.expect_download(timeout=action_timeout) as info:
+                        locator.click(timeout=action_timeout)
                     item = info.value
                     failure = item.failure()
                     if failure:
@@ -381,7 +384,7 @@ class BrowserDevSession:
                 page.mouse.wheel(0, int(action.get("pixels", 600)))
             elif command == "mouse_move":
                 if locator is not None:
-                    locator.hover(timeout=self.timeout_ms)
+                    locator.hover(timeout=action_timeout)
                     result["element_status"] = "found"
                 else:
                     page.mouse.move(float(action["x"]), float(action["y"]))
@@ -395,15 +398,15 @@ class BrowserDevSession:
             elif command == "screenshot":
                 self.download_dir.mkdir(parents=True, exist_ok=True)
                 destination = self.download_dir / f"dev-{int(time.time() * 1000)}.png"
-                (locator if locator is not None else page).screenshot(path=str(destination), timeout=self.timeout_ms)
+                (locator if locator is not None else page).screenshot(path=str(destination), timeout=action_timeout)
                 result["value"] = destination.name
-            elif command == "back": page.go_back(wait_until="domcontentloaded", timeout=self.timeout_ms)
-            elif command == "forward": page.go_forward(wait_until="domcontentloaded", timeout=self.timeout_ms)
-            elif command == "reload": page.reload(wait_until="domcontentloaded", timeout=self.timeout_ms)
+            elif command == "back": page.go_back(wait_until="domcontentloaded", timeout=action_timeout)
+            elif command == "forward": page.go_forward(wait_until="domcontentloaded", timeout=action_timeout)
+            elif command == "reload": page.reload(wait_until="domcontentloaded", timeout=action_timeout)
             elif command == "new_tab":
                 page = context.new_page()
                 if action.get("url"):
-                    page.goto(_public_url(str(action["url"]), self.allowed_hosts), wait_until="domcontentloaded", timeout=self.timeout_ms)
+                    page.goto(_public_url(str(action["url"]), self.allowed_hosts), wait_until="domcontentloaded", timeout=action_timeout)
             elif command == "switch_tab":
                 page = context.pages[int(action.get("tab", 0))]
 

@@ -1,3 +1,4 @@
+
 """CLIPTORA: Playwright and Selenium browser provider nodes.
 
 Keep the existing Browser.py tool nodes (browser.commands, browser.mouse, etc.).
@@ -21,23 +22,36 @@ from app.workflows.nodes.Browser import (
 
 
 def _definition(label: str, engine: str) -> dict:
-    return {
-        "label": label,
-        "icon": "lucide:globe",
-        "settings": {
-            "url": "https://example.com",
-            "browser": engine,
-            "headless": True,
-            "dev_mode": False,
+    settings = {
+        "url": "https://example.com",
+        "browser": engine,
+        "headless": True,
+        "dev_mode": False,
+        "timeout_ms": 15000,
+        "max_actions": 60,
+        "allowed_hosts": ["example.com"],
+        "actions": [],
+        "attachments": {},
+    }
+    if engine == "chromium":
+        # Only Playwright supports the per-clip batch voice-over pipeline.
+        # It stays opt-in so other browser workflows keep working unchanged.
+        settings.update({
             "batch_voiceovers_per_clip": False,
             "batch_voiceover_limit": 100,
             "batch_script_selector": "#studio-script",
-            "timeout_ms": 15000,
-            "max_actions": 60,
-            "allowed_hosts": ["example.com"],
-            "actions": [],
-            "attachments": {},
-        },
+            "batch_resume": True,
+            "batch_force_regenerate": False,
+            "batch_retries": 2,
+            "batch_generation_timeout_ms": 180000,
+            "batch_max_speedup": 2.0,
+            "batch_allow_partial": False,
+            "batch_cache_salt": "",
+        })
+    return {
+        "label": label,
+        "icon": "lucide:globe",
+        "settings": settings,
         "input_types": ["json"],
         "output_types": ["json"],
     }
@@ -56,24 +70,86 @@ def _fields() -> dict:
             "title": "Dev Mode",
             "description": "Show live screenshots and per-command selector diagnostics.",
         },
-        "batch_voiceovers_per_clip": {
-            "type": "boolean",
-            "title": "Generate Voice-over per Clip",
-            "description": "Reuse one browser and run Browser Commands once for every clip that has text.",
-        },
-        "batch_voiceover_limit": {
-            "type": "integer", "title": "Maximum Voice-over Clips",
-            "minimum": 1, "maximum": 200,
-        },
-        "batch_script_selector": {
-            "type": "string", "title": "TTS Script Selector",
-            "description": "The fill command matching this selector receives each clip's text.",
-        },
         "timeout_ms": {"type": "integer", "title": "Action Timeout (ms)", "minimum": 1000, "maximum": 60000},
         "max_actions": {"type": "integer", "title": "Max Commands", "minimum": 1, "maximum": 100},
         "allowed_hosts": {"type": "array", "title": "Allowed HTTPS Hosts", "items": {"type": "string"}},
         "actions": {"type": "array", "title": "Built-in Commands", "items": {"type": "object"}},
         "attachments": {"type": "object", "title": "Attached Node IDs"},
+    }
+
+
+def _batch_fields() -> dict:
+    """Playwright-only per-clip settings consumed by ClipVoiceoverBatch.py."""
+    return {
+        "batch_voiceovers_per_clip": {
+            "type": "boolean",
+            "title": "Generate Voice-over per Clip",
+            "description": (
+                "Enable deterministic TTS for each clip with text. "
+                "Requires one clip_manifest, Browser Commands, and Browser Download."
+            ),
+        },
+        "batch_voiceover_limit": {
+            "type": "integer", "title": "Maximum Voice-over Clips",
+            "minimum": 1, "maximum": 200,
+            "description": "Maximum number of clips in one batch, including silent clips.",
+        },
+        "batch_script_selector": {
+            "type": "string", "title": "TTS Script Selector",
+            "description": (
+                "The Browser Commands fill action matching this selector "
+                "will receive the text of the current clip."
+            ),
+        },
+        "batch_resume": {
+            "type": "boolean", "title": "Resume Completed Clip Audio",
+            "description": (
+                "Reuse verified MP3 files when the clip text, actions, timing, "
+                "and voice configuration have not changed."
+            ),
+        },
+        "batch_force_regenerate": {
+            "type": "boolean", "title": "Force Regenerate All Clip Audio",
+            "description": "Ignore saved MP3 checkpoints and generate all nonempty clips again.",
+        },
+        "batch_retries": {
+            "type": "integer", "title": "Retry Attempts per Clip",
+            "minimum": 0, "maximum": 5,
+            "description": (
+                "Retries after a failed clip. A connected Browser Error Handler "
+                "can override this value."
+            ),
+        },
+        "batch_generation_timeout_ms": {
+            "type": "integer", "title": "Voice Generation Timeout (ms)",
+            "minimum": 5000, "maximum": 300000,
+            "description": (
+                "Maximum time to detect a new Take after clicking Generate. "
+                "Separate from the normal per-action timeout."
+            ),
+        },
+        "batch_max_speedup": {
+            "type": "number", "title": "Maximum Narration Speed-up",
+            "minimum": 1, "maximum": 4,
+            "description": (
+                "Maximum allowed FFmpeg audio speed-up when narration exceeds "
+                "the clip duration. Longer narration fails instead of being cut."
+            ),
+        },
+        "batch_allow_partial": {
+            "type": "boolean", "title": "Allow Partial Batch Results",
+            "description": (
+                "When disabled, fail the workflow if a clip with text has no "
+                "valid MP3. Silent clips without text are allowed."
+            ),
+        },
+        "batch_cache_salt": {
+            "type": "string", "title": "Voice Cache Version / Salt",
+            "description": (
+                "Change this when an external voice setting changes without "
+                "changing Browser Commands, to invalidate cached audio."
+            ),
+        },
     }
 
 
@@ -130,8 +206,15 @@ class BrowserProvidersNode(Node):
         "browser.selenium": _definition("Selenium Browser", "chrome"),
     }
     parameter_fields = {
-        "browser.playwright": {**_fields(), "browser": {"type": "string", "title": "Engine", "enum": ["chromium", "firefox", "webkit"]}},
-        "browser.selenium": {**_fields(), "browser": {"type": "string", "title": "Engine", "enum": ["chrome", "firefox", "edge"]}},
+        "browser.playwright": {
+            **_fields(),
+            **_batch_fields(),
+            "browser": {"type": "string", "title": "Engine", "enum": ["chromium", "firefox", "webkit"]},
+        },
+        "browser.selenium": {
+            **_fields(),
+            "browser": {"type": "string", "title": "Engine", "enum": ["chrome", "firefox", "edge"]},
+        },
     }
 
     def execute_operation(self, operation, node, outputs, source, workdir):
@@ -411,3 +494,4 @@ def _xpath_literal(value: str) -> str:
     if '"' not in value:
         return f'"{value}"'
     return "concat(" + ', "\'", '.join(f"'{part}'" for part in value.split("'")) + ")"
+

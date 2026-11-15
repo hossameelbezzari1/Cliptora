@@ -1,33 +1,59 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WorkflowStudioState } from './useWorkflowStudio'
 import { Check, Film, Maximize2, Play, Sparkles } from 'lucide-react'
-import { fileUrl } from '../../lib/api'
+import { api, fileUrl } from '../../lib/api'
 import { btn } from './workflowUI'
 import { NodeProgress } from './editor/NodeProgress'
 import { WorkflowAudioPreview } from './WorkflowAudioPreview'
 import { WorkflowBrowserPreview } from './WorkflowBrowserPreview'
+import { WorkflowRemixPreview, type RemixPreviewData } from './WorkflowRemixPreview'
 
 export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) {
-  const { nodes, run, catalog, completedNodes, cancel, previewMedia, applyCutPlan, sources, sourceId } = studio
+  const { nodes, run, catalog, completedNodes, cancel, previewMedia, applyCutPlan } = studio
   const [tab, setTab] = useState<'execution' | 'logs' | 'results' | 'audio' | 'browser'>('execution')
-  const [previewTab, setPreviewTab] = useState<'video' | 'browser'>('video')
-  const [videoError, setVideoError] = useState(false)
+  const [previewTab, setPreviewTab] = useState<'video' | 'montage' | 'browser'>('video')
   const videoRef = useRef<HTMLVideoElement>(null)
   const activeNode = nodes.find(node => node.id === run?.current_node)
   const results = Object.entries(run?.results ?? {})
-  const activeSource = sources.find(source => source.id === sourceId) ?? null
-  const sourceVideoUrl = previewMedia
-    ? fileUrl(previewMedia.id)
-    : activeSource
-      ? `/api/v1/workflows/${studio.projectId}/sources/${activeSource.id}/stream`
-      : null
+  const includesBrowser = nodes.some(node => node.type === 'ai.agent' || node.type.startsWith('browser.'))
+  // Workflow run summaries contain counts, not the actual cut_plan/voiceover paths.
+  // Read the authorized JSON artifact of the completed Preview Montage node.
+  const previewNodeId = [...nodes].reverse().find(node =>
+    node.type === 'video.remix_preview' && run?.results?.[node.id]?.state === 'completed'
+  )?.id
+  const [remixPreview, setRemixPreview] = useState<RemixPreviewData | null>(null)
+  const [remixError, setRemixError] = useState('')
 
   useEffect(() => {
-    setVideoError(false)
-  }, [sourceVideoUrl])
+    let active = true
+    setRemixPreview(null)
+    setRemixError('')
+    if (run?.id == null || !previewNodeId) return () => { active = false }
+    const fetchPreview = async () => {
+      try {
+        const artifact = await api<{ preview?: RemixPreviewData }>(
+          `/workflows/${studio.projectId}/runs/${run.id}/artifacts/${previewNodeId}`
+        )
+        if (!active) return
+        if (artifact.preview?.mode !== 'browser' || !Array.isArray(artifact.preview.timeline)) {
+          setRemixError('This run has no timed montage preview; rerun Preview Montage.')
+          return
+        }
+        setRemixPreview(artifact.preview)
+        setPreviewTab('montage')
+      } catch (exc) {
+        if (active) setRemixError(exc instanceof Error ? exc.message : 'Cannot load montage preview')
+      }
+    }
+    void fetchPreview()
+    return () => { active = false }
+  }, [run?.id, previewNodeId, studio.projectId])
+  useEffect(() => {
+    if (run?.id && includesBrowser) setPreviewTab('browser')
+  }, [run?.id, includesBrowser])
 
   return (
-    <section className="flex h-[245px] shrink-0 overflow-hidden border-t border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#252525] dark:text-[#f3f4f6] 2xl:h-[275px]">
+    <section className={`flex shrink-0 overflow-hidden border-t border-[#e5e7eb] dark:border-[#374151] bg-white dark:bg-cl-dark-panel text-[#252525] dark:text-[#f3f4f6] ${previewTab === 'montage' && remixPreview ? 'h-[340px] 2xl:h-[380px]' : 'h-[245px] 2xl:h-[275px]'}`}>
       <div className="flex min-w-0 flex-[1.15] flex-col border-r border-[#e5e7eb] dark:border-[#374151]">
         <div className="flex h-10 shrink-0 items-center gap-3 border-b border-[#ededed] dark:border-[#374151] px-3">
           {(['execution', 'logs', 'results', 'audio', 'browser'] as const).map(value => (
@@ -94,23 +120,29 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
       <div className="hidden min-w-0 flex-1 flex-col p-3 xl:flex">
         <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
           <div className="flex items-center gap-1 rounded-lg bg-[#f1f1f1] p-0.5 dark:bg-[#303641]">
-            {(['video', 'browser'] as const).map(mode =>
+            {(['video', 'montage', 'browser'] as const).filter(mode => mode !== 'montage' || remixPreview !== null).map(mode =>
               <button key={mode} type="button" onClick={() => setPreviewTab(mode)}
                 className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${previewTab === mode ? 'bg-white text-[#242424] shadow-sm dark:bg-[#454e5b] dark:text-white' : 'text-[#777] hover:text-[#333] dark:text-[#bec3cb]'}`}>
-                {mode === 'video' ? 'Source video' : 'Browser snapshots'}
+                {mode === 'video' ? 'Source video' : mode === 'montage' ? 'Montage Preview' : 'Live Browser'}
               </button>,
             )}
           </div>
-          {previewTab === 'video' && <button type="button" onClick={() => void videoRef.current?.requestFullscreen?.()} disabled={!sourceVideoUrl} title="Fullscreen video" className="rounded-md p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] disabled:opacity-40"><Maximize2 size={14} /></button>}
+          {previewTab === 'video' && <button type="button" onClick={() => void videoRef.current?.requestFullscreen?.()} disabled={!previewMedia} title="Fullscreen video" className="rounded-md p-1 text-[#777] dark:text-[#b8bec7] hover:bg-[#f4f4f4] dark:hover:bg-[#1f2937] disabled:opacity-40"><Maximize2 size={14} /></button>}
         </div>
+        {remixError && <p role="alert" className="mb-1 shrink-0 text-[10px] text-red-600">{remixError}</p>}
         {previewTab === 'browser' ? (
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-[#e8e8e8] dark:border-[#374151]">
             <WorkflowBrowserPreview projectId={studio.projectId} runId={run?.id} runState={run?.state} currentNode={run?.current_node} />
           </div>
+        ) : previewTab === 'montage' && remixPreview ? (
+          <WorkflowRemixPreview
+            key={`${run?.id}-${previewNodeId}`}
+            preview={remixPreview}
+            sourceUrl={previewMedia ? fileUrl(previewMedia.id) : null}
+          />
         ) : <>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-[#f8fafc] dark:bg-[#101114]">
-            {sourceVideoUrl ? <video key={sourceVideoUrl} ref={videoRef} src={sourceVideoUrl} controls playsInline preload="metadata" onError={() => setVideoError(true)} className="h-full w-full object-contain" /> : <div className="grid h-full place-content-center justify-items-center gap-2 text-[11px] text-[#4b5563] dark:text-[#9a9a9a]"><Film size={25} />Choose a video in Source settings</div>}
-            {videoError && <div role="alert" className="absolute inset-x-2 bottom-2 rounded-md bg-red-950/85 px-3 py-2 text-center text-[11px] text-white">This source could not be played. Re-select it in Source settings and retry.</div>}
+            {previewMedia ? <video ref={videoRef} src={fileUrl(previewMedia.id)} controls preload="metadata" className="h-full w-full object-contain" /> : <div className="grid h-full place-content-center justify-items-center gap-2 text-[11px] text-[#4b5563] dark:text-[#9a9a9a]"><Film size={25} />Choose a video in Source settings</div>}
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] text-[#777] dark:text-[#b8bec7]"><Play size={12} />{run ? `${completedNodes} nodes ready · ${run.progress}%` : 'No execution yet'}</span>
@@ -121,3 +153,5 @@ export function WorkflowBottomDeck({ studio }: { studio: WorkflowStudioState }) 
     </section>
   )
 }
+
+

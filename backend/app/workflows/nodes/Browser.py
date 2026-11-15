@@ -41,6 +41,7 @@ COMMANDS = frozenset({
     "wait", "select", "check", "uncheck", "extract_text", "screenshot",
     "back", "forward", "reload", "download", "new_tab", "switch_tab",
 })
+WAIT_STATES = frozenset({"visible", "hidden", "attached", "detached"})
 
 
 def _op(name: str, label: str, icon: str, defaults: dict) -> dict:
@@ -61,6 +62,21 @@ def _positive(value: Any, name: str, low: int, high: int) -> int:
     if v < low or v > high:
         raise ValueError(f"{name} must be between {low} and {high}")
     return v
+
+
+def _action_timeout(action: dict, default: int) -> int:
+    """Per-command budget, so one slow step does not need a huge global timeout."""
+    value = action.get("timeout_ms")
+    if value is None:
+        return default
+    return _positive(value, "action timeout_ms", 100, 600000)
+
+
+def _wait_state(action: dict) -> str:
+    state = str(action.get("state", "visible")).strip().lower()
+    if state not in WAIT_STATES:
+        raise ValueError(f"Unsupported wait state: {state}")
+    return state
 
 
 def _public_url(url: str, allowed_hosts: list[str]) -> str:
@@ -440,37 +456,38 @@ class BrowserAutomationNode(Node):
                         live.command_started(index + 1, command, target)
                     detail = {"index": index + 1, "command": command, "status": "completed"}
                     started = time.monotonic()
+                    action_timeout = _action_timeout(action, timeout)
                     last_error: Exception | None = None
                     for attempt in range(retries + 1):
                         try:
                             loc = _selector(page, target) if target is not None else None
                             text = _interpolate(str(action.get("value", "")), outputs)
                             if command == "navigate":
-                                page.goto(_public_url(_interpolate(str(action.get("url", "")), outputs), hosts), wait_until="domcontentloaded", timeout=timeout)
+                                page.goto(_public_url(_interpolate(str(action.get("url", "")), outputs), hosts), wait_until="domcontentloaded", timeout=action_timeout)
                             elif command in {"click", "double_click", "hover", "fill", "type", "press", "select", "check", "uncheck", "wait", "extract_text"}:
                                 if loc is None:
                                     raise ValueError(f"{command} requires target")
-                                if command == "click": loc.click(timeout=timeout)
-                                elif command == "double_click": loc.dblclick(timeout=timeout)
-                                elif command == "hover": loc.hover(timeout=timeout)
-                                elif command == "fill": loc.fill(text, timeout=timeout)
+                                if command == "click": loc.click(timeout=action_timeout)
+                                elif command == "double_click": loc.dblclick(timeout=action_timeout)
+                                elif command == "hover": loc.hover(timeout=action_timeout)
+                                elif command == "fill": loc.fill(text, timeout=action_timeout)
                                 elif command == "type":
                                     if "keyboard" not in attached:
                                         raise ValueError("Connect Keyboard Controller to use type")
                                     delay = _positive(attached["keyboard"].get("typing_delay_ms", 0), "typing_delay_ms", 0, 250)
-                                    loc.press_sequentially(text, delay=delay, timeout=timeout)
-                                elif command == "press": loc.press(text, timeout=timeout)
-                                elif command == "select": loc.select_option(text, timeout=timeout)
-                                elif command == "check": loc.check(timeout=timeout)
-                                elif command == "uncheck": loc.uncheck(timeout=timeout)
-                                elif command == "wait": loc.wait_for(state=str(action.get("state", "visible")), timeout=timeout)
+                                    loc.press_sequentially(text, delay=delay, timeout=action_timeout)
+                                elif command == "press": loc.press(text, timeout=action_timeout)
+                                elif command == "select": loc.select_option(text, timeout=action_timeout)
+                                elif command == "check": loc.check(timeout=action_timeout)
+                                elif command == "uncheck": loc.uncheck(timeout=action_timeout)
+                                elif command == "wait": loc.wait_for(state=_wait_state(action), timeout=action_timeout)
                                 elif command == "extract_text":
-                                    extracted[str(action.get("key", f"text_{index+1}"))[:80]] = loc.inner_text(timeout=timeout)[:10000]
+                                    extracted[str(action.get("key", f"text_{index+1}"))[:80]] = loc.inner_text(timeout=action_timeout)[:10000]
                             elif command == "mouse_move":
                                 if "mouse" not in attached:
                                     raise ValueError("Connect Mouse Controller to use mouse_move")
                                 if loc is not None:
-                                    bounds = loc.bounding_box(timeout=timeout)
+                                    bounds = loc.bounding_box(timeout=action_timeout)
                                     if bounds is None: raise ValueError("Target is not visible")
                                     smooth_move(bounds["x"]+bounds["width"]/2, bounds["y"]+bounds["height"]/2)
                                 else:
@@ -486,14 +503,14 @@ class BrowserAutomationNode(Node):
                                 page.mouse.wheel(0, _positive(action.get("pixels", 600), "pixels", -5000, 5000))
                             elif command == "screenshot":
                                 capture(f"step_{index+1}", loc)
-                            elif command == "back": page.go_back(wait_until="domcontentloaded", timeout=timeout)
-                            elif command == "forward": page.go_forward(wait_until="domcontentloaded", timeout=timeout)
-                            elif command == "reload": page.reload(wait_until="domcontentloaded", timeout=timeout)
+                            elif command == "back": page.go_back(wait_until="domcontentloaded", timeout=action_timeout)
+                            elif command == "forward": page.go_forward(wait_until="domcontentloaded", timeout=action_timeout)
+                            elif command == "reload": page.reload(wait_until="domcontentloaded", timeout=action_timeout)
                             elif command == "new_tab":
                                 page = context.new_page()
                                 selected_tab = len(context.pages) - 1
                                 if action.get("url"):
-                                    page.goto(_public_url(_interpolate(str(action["url"]), outputs), hosts), wait_until="domcontentloaded", timeout=timeout)
+                                    page.goto(_public_url(_interpolate(str(action["url"]), outputs), hosts), wait_until="domcontentloaded", timeout=action_timeout)
                             elif command == "switch_tab":
                                 selected_tab = _positive(action.get("tab", 0), "tab", 0, len(context.pages)-1)
                                 page = context.pages[selected_tab]
@@ -501,8 +518,8 @@ class BrowserAutomationNode(Node):
                                 if "download" not in attached:
                                     raise ValueError("Connect Browser Download to use download command")
                                 if loc is None: raise ValueError("Download requires button target")
-                                with page.expect_download(timeout=timeout) as info:
-                                    loc.click(timeout=timeout)
+                                with page.expect_download(timeout=action_timeout) as info:
+                                    loc.click(timeout=action_timeout)
                                 item = info.value
                                 filename = _safe_filename(f"{index+1}_{item.suggested_filename}", ".bin")
                                 destination = artifacts / filename
@@ -527,7 +544,14 @@ class BrowserAutomationNode(Node):
                         if dev_mode or ("screenshot" in attached and attached["screenshot"].get("on_error", True)):
                             try: capture(f"error_{index+1}")
                             except Exception: pass
-                        raise RuntimeError(f"Browser command {index+1} ({command}) failed: {type(last_error).__name__}") from last_error
+                        context = []
+                        if target is not None:
+                            context.append(f"target={target!r}")
+                        if command == "wait":
+                            context.append(f"state={action.get('state', 'visible')!r}")
+                            context.append(f"timeout_ms={action_timeout}")
+                        suffix = f" ({', '.join(context)})" if context else ""
+                        raise RuntimeError(f"Browser command {index+1} ({command}){suffix} failed: {type(last_error).__name__}") from last_error
                     detail["elapsed_seconds"] = round(time.monotonic()-started, 3)
                     log.append(detail)
                     if live:

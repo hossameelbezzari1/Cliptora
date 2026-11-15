@@ -23,7 +23,7 @@ AUDIO_TYPES = {
     '.aac': 'audio/aac',
     '.opus': 'audio/ogg',
 }
-MAX_AUDIO_FILES = 160
+MAX_AUDIO_FILES = 320
 MAX_BYTES = 260 * 1024 * 1024
 GROUP_PATTERN = re.compile(r'group[_-]([0-9]{1,8})', re.I)
 
