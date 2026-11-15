@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+
 import hashlib
 import base64
 import ipaddress
@@ -13,122 +14,325 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+
 from pathlib import Path
 from typing import Any, Callable
-from app.workflows.ModelConstants import (OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS,
-    OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS)
+
+from app.workflows.ModelConstants import (
+    OPENAI_TEXT_MODELS,
+    OPENAI_IMAGE_MODELS,
+    OPENAI_MODERATION_MODELS,
+    OPENAI_REASONING_EFFORTS,
+    GEMINI_TEXT_MODELS,
+    GEMINI_IMAGE_MODELS,
+)
 
 from app.workflows.Catalog import NODE_TYPES
+
 MAX_NODES = 100
 
 
 def validate_workflow(nodes: list[dict]) -> list[dict]:
     if not isinstance(nodes, list) or not 1 <= len(nodes) <= MAX_NODES:
         raise ValueError(f"Workflow must have 1 to {MAX_NODES} nodes")
+
     by_id: dict[str, dict] = {}
+
     for node in nodes:
         if not isinstance(node, dict):
             raise ValueError("Each node must be an object")
+
         ident, kind = node.get("id"), node.get("type")
-        if not isinstance(ident, str) or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{0,47}", ident):
+
+        if not isinstance(ident, str) or not re.fullmatch(
+            r"[a-zA-Z][a-zA-Z0-9_-]{0,47}", ident
+        ):
             raise ValueError("Invalid node id")
+
         if ident in by_id:
             raise ValueError(f"Duplicate node: {ident}")
+
         if kind not in NODE_TYPES:
             raise ValueError(f"Unknown or unauthorized node: {kind}")
+
         deps = node.get("depends_on", [])
-        if not isinstance(deps, list) or len(deps) > MAX_NODES or any(not isinstance(d, str) for d in deps) or len(deps) != len(set(deps)):
+        if (
+            not isinstance(deps, list)
+            or len(deps) > MAX_NODES
+            or any(not isinstance(d, str) for d in deps)
+            or len(deps) != len(set(deps))
+        ):
             raise ValueError(f"Invalid dependencies for {ident}")
-        if node.get("when", "always") not in ("always", "has_video", "has_transcript", "ai_enabled", "condition_true", "condition_false", "route_0", "route_1", "route_2", "route_3", "route_4", "route_fallback"):
+
+        if node.get("when", "always") not in (
+            "always", "has_video", "has_transcript", "ai_enabled",
+            "condition_true", "condition_false",
+            "route_0", "route_1", "route_2", "route_3",
+            "route_4", "route_fallback",
+        ):
             raise ValueError(f"Invalid condition for {ident}")
+
         settings = node.get("settings", {})
+
         def contains_secret(value):
-            forbidden={'api_key','apiKey','api_token','secret','client_secret','password','access_token','refresh_token'}
-            if isinstance(value,dict):
-                return any(str(k) in forbidden or contains_secret(v) for k,v in value.items())
-            if isinstance(value,list):return any(contains_secret(v) for v in value)
+            forbidden = {
+                "api_key", "apiKey", "api_token", "secret",
+                "client_secret", "password", "access_token", "refresh_token",
+            }
+            if isinstance(value, dict):
+                return any(
+                    str(k) in forbidden or contains_secret(v)
+                    for k, v in value.items()
+                )
+            if isinstance(value, list):
+                return any(contains_secret(v) for v in value)
             return False
+
         if contains_secret(settings):
-            raise ValueError('Workflow settings cannot store API keys or secrets; select a credential_id')
-        credential_ref=settings.get('credential_id') if isinstance(settings,dict) else None
-        if credential_ref is not None and (type(credential_ref) is not int or credential_ref<1):
-            raise ValueError('credential_id must be a positive integer')
+            raise ValueError(
+                "Workflow settings cannot store API keys or secrets; "
+                "select a credential_id"
+            )
+
+        credential_ref = (
+            settings.get("credential_id")
+            if isinstance(settings, dict)
+            else None
+        )
+        if credential_ref is not None and (
+            type(credential_ref) is not int or credential_ref < 1
+        ):
+            raise ValueError("credential_id must be a positive integer")
+
         if not isinstance(settings, dict):
             raise ValueError(f"Settings must be an object for {ident}")
+
         try:
-            encoded_settings = json.dumps(settings, ensure_ascii=False, allow_nan=False)
+            encoded_settings = json.dumps(
+                settings, ensure_ascii=False, allow_nan=False
+            )
         except (TypeError, ValueError, OverflowError, RecursionError) as exc:
-            raise ValueError(f"Settings must contain finite, JSON-compatible data for {ident}") from exc
+            raise ValueError(
+                f"Settings must contain finite, JSON-compatible data for {ident}"
+            ) from exc
+
         if len(encoded_settings.encode("utf-8")) > 200_000:
             raise ValueError(f"Settings too large for {ident}")
+
         position = node.get("position", {})
         if not isinstance(position, dict):
             raise ValueError(f"Invalid canvas position for {ident}")
+
         try:
-            x, y = float(position.get("x", 0)), float(position.get("y", 0))
+            x = float(position.get("x", 0))
+            y = float(position.get("y", 0))
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Invalid canvas position for {ident}") from exc
-        if not math.isfinite(x) or not math.isfinite(y) or abs(x) > 100_000 or abs(y) > 100_000:
+
+        if (
+            not math.isfinite(x)
+            or not math.isfinite(y)
+            or abs(x) > 100_000
+            or abs(y) > 100_000
+        ):
             raise ValueError(f"Invalid canvas position for {ident}")
+
         retry_limit = node.get("retry_limit", 1)
         if type(retry_limit) is not int or not 0 <= retry_limit <= 5:
-            raise ValueError(f"Retry limit for {ident} must be between 0 and 5")
+            raise ValueError(
+                f"Retry limit for {ident} must be between 0 and 5"
+            )
+
         if not isinstance(node.get("cache", True), bool):
-            raise ValueError(f"Cache setting for {ident} must be boolean")
-        by_id[ident] = {"id": ident, "type": kind, "depends_on": deps, "settings": settings,
-                        "when": node.get("when", "always"), "retry_limit": retry_limit,
-                        "cache": node.get("cache", True), "position": {"x": round(x, 2), "y": round(y, 2)}}
+            raise ValueError(
+                f"Cache setting for {ident} must be boolean"
+            )
+
+        by_id[ident] = {
+            "id": ident,
+            "type": kind,
+            "depends_on": deps,
+            "settings": settings,
+            "when": node.get("when", "always"),
+            "retry_limit": retry_limit,
+            "cache": node.get("cache", True),
+            "position": {"x": round(x, 2), "y": round(y, 2)},
+        }
+
+    from app.workflows.ItemExecution import execution_settings
+    from app.workflows.TypeEngine import _check_schema
+
     for ident, node in by_id.items():
-        if ident in node["depends_on"] or any(d not in by_id for d in node["depends_on"]):
-            raise ValueError(f"Missing or self dependency for {ident}")
-        typed = node["settings"].get("__cliptora_ui_target_handles", {})
+        try:
+            execution_settings(
+                node["settings"], node["type"], node["depends_on"]
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid item execution on {ident}: {exc}"
+            ) from exc
+
+        settings = node["settings"]
+        type_mode = settings.get("type_validation_mode", "legacy")
+
+        if type_mode not in {"legacy", "strict"}:
+            raise ValueError(
+                f"Invalid Type Validation Mode for {ident}"
+            )
+
+        if type_mode == "strict":
+            path = settings.get("type_input_path", "")
+            if not isinstance(path, str):
+                raise ValueError(
+                    f"Type Input Path for {ident} must be a string"
+                )
+            if (
+                path
+                and path.split(".", 1)[0].split("[", 1)[0]
+                not in node["depends_on"]
+            ):
+                raise ValueError(
+                    f"Type Input Path for {ident} requires a connected source"
+                )
+
+            for field in ("type_input_schema", "type_output_schema"):
+                schema = settings.get(field) or {}
+                if not isinstance(schema, dict):
+                    raise ValueError(
+                        f"{field} must be an object for {ident}"
+                    )
+                if schema:
+                    _check_schema(schema)
+
+        if node["type"] in {
+            "data.inspect_type",
+            "data.convert_type",
+            "data.validate_type",
+        }:
+            path = settings.get("input_path", "")
+            if (
+                not isinstance(path, str)
+                or path.split(".", 1)[0].split("[", 1)[0]
+                not in node["depends_on"]
+            ):
+                raise ValueError(
+                    f"Type node {ident} requires a connected Input Data path"
+                )
+
+        if (
+            ident in node["depends_on"]
+            or any(d not in by_id for d in node["depends_on"])
+        ):
+            raise ValueError(
+                f"Missing or self dependency for {ident}"
+            )
+
+        typed = settings.get("__cliptora_ui_target_handles", {})
         if not isinstance(typed, dict):
-            raise ValueError(f"Invalid typed connections for {ident}")
+            raise ValueError(
+                f"Invalid typed connections for {ident}"
+            )
+
         for source_id, port in typed.items():
-            if not isinstance(source_id, str) or source_id not in node["depends_on"]:
-                raise ValueError(f"Typed connection must reference a dependency of {ident}")
-            if node["type"] != "ai.agent" or port not in ("chat_model", "memory", "tool"):
-                raise ValueError(f"Unsupported typed connection on {ident}")
+            if (
+                not isinstance(source_id, str)
+                or source_id not in node["depends_on"]
+            ):
+                raise ValueError(
+                    f"Typed connection must reference a dependency of {ident}"
+                )
+
+            if node["type"] != "ai.agent" or port not in (
+                "chat_model", "memory", "tool"
+            ):
+                raise ValueError(
+                    f"Unsupported typed connection on {ident}"
+                )
+
             source_type = by_id[source_id]["type"]
+
             if port == "chat_model" and source_type != "ai.chat_model":
-                raise ValueError(f"Chat Model port of {ident} requires ai.chat_model")
+                raise ValueError(
+                    f"Chat Model port of {ident} requires ai.chat_model"
+                )
+
             if port == "memory" and "memory" not in source_type:
-                raise ValueError(f"Memory port of {ident} requires a memory node")
-            if port == "tool" and (source_type in ("ai.chat_model", "ai.agent") or "trigger" in source_type):
-                raise ValueError(f"Tool port of {ident} requires an executable tool")
+                raise ValueError(
+                    f"Memory port of {ident} requires a memory node"
+                )
+
+            if port == "tool" and (
+                source_type in ("ai.chat_model", "ai.agent")
+                or "trigger" in source_type
+            ):
+                raise ValueError(
+                    f"Tool port of {ident} requires an executable tool"
+                )
+
         if list(typed.values()).count("chat_model") > 1:
-            raise ValueError(f"AI Agent {ident} accepts only one Chat Model")
+            raise ValueError(
+                f"AI Agent {ident} accepts only one Chat Model"
+            )
+
     ordered: list[dict] = []
     pending = dict(by_id)
+
     while pending:
-        ready = [node for node in pending.values() if all(d not in pending for d in node["depends_on"])]
+        ready = [
+            node
+            for node in pending.values()
+            if all(d not in pending for d in node["depends_on"])
+        ]
+
         if not ready:
-            raise ValueError("Workflow has a dependency cycle")
+            raise ValueError(
+                "Workflow has a dependency cycle"
+            )
+
         for node in ready:
             ordered.append(node)
             del pending[node["id"]]
+
+    from app.workflows.LoopSubgraph import validate_subgraphs
+    validate_subgraphs(ordered)
+
     return ordered
 
 
-def execution_nodes(nodes: list[dict[str, Any]], target_node_id: str | None) -> list[dict[str, Any]]:
+def execution_nodes(
+    nodes: list[dict[str, Any]],
+    target_node_id: str | None,
+) -> list[dict[str, Any]]:
     """Return the full validated graph, or one node and its transitive dependencies."""
     validated = validate_workflow(nodes)
+
     if target_node_id is None:
         return validated
+
     by_id = {node["id"]: node for node in validated}
+
     if target_node_id not in by_id:
-        raise ValueError("Target node does not exist in this workflow")
+        raise ValueError(
+            "Target node does not exist in this workflow"
+        )
+
     required: set[str] = set()
 
     def include(node_id: str) -> None:
         if node_id in required:
             return
+
         required.add(node_id)
+
         for dependency in by_id[node_id]["depends_on"]:
             include(dependency)
 
     include(target_node_id)
-    return [node for node in validated if node["id"] in required]
+
+    return [
+        node for node in validated
+        if node["id"] in required
+    ]
 
 
 class WorkflowValidator:

@@ -43,8 +43,16 @@ def run_graph(
     from app.workflows.Registry import executor as node_executor
     from app.workflows.Credentials import bind_for_node
     from app.workflows.Reuse import STEP_TARGET_KEY
+    from app.workflows.ItemExecution import (
+        execution_settings, run_item_execution, describe_collections,
+    )
 
     ordered = validate_workflow(nodes)
+    from app.workflows.LoopSubgraph import (
+        CONTROLLERS, body_members, run_loop_controller,
+    )
+    loop_membership = body_members(ordered)
+    prepared_body_outputs: dict[str, dict] = {}
 
     workspace.mkdir(parents=True, exist_ok=True)
 
@@ -110,6 +118,30 @@ def run_graph(
         node_type = node["type"]
         node_started_at = datetime.now(timezone.utc).isoformat()
         node_started_clock = time.monotonic()
+
+        # The controller has executed this body node once per item. Publish
+        # the aggregated result here without running it a second time.
+        if node_id in loop_membership:
+            result = prepared_body_outputs.get(node_id)
+            if result is None:
+                raise RuntimeError(
+                    f"Loop body {node_id} was not produced by its controller "
+                    f"{loop_membership[node_id]}"
+                )
+            outputs[node_id] = result
+            artifact = workspace / f"{node_id}.json"
+            temporary = workspace / f".{node_id}.loop.tmp"
+            temporary.write_text(json.dumps(result, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+            temporary.replace(artifact)
+            summary[node_id] = {
+                "state": "completed", "type": node_type, "stage": "completed",
+                "message": f"Executed in loop {loop_membership[node_id]}",
+                "cached": False, "progress": 100, "artifact": True,
+                "item_execution": result.get("item_execution", {}),
+                "collections": describe_collections(result),
+            }
+            update(int(100 * (index + 1) / total_nodes), node_id, summary)
+            continue
 
         deps = {
             key: outputs[key]
@@ -404,7 +436,7 @@ def run_graph(
             })
 
         # Replaying an agent browser session can repeat external actions.
-        effective_retry_limit = 0 if node_type == "ai.agent" else node.get("retry_limit", 1)
+        effective_retry_limit = 0 if node_type == "ai.agent" or node_type in CONTROLLERS else node.get("retry_limit", 1)
         attempts = 0
         last_error: Exception | None = None
 
@@ -456,15 +488,30 @@ def run_graph(
                         if port == "tool" and source_id in by_node_id
                     }
 
+                mode = execution_settings(
+                    node.get("settings") or {}, node_type, node["depends_on"]
+                )["mode"]
                 with bind_for_node(execution_node):
-                    candidate = node_executor(
-                        node_type
-                    )(
-                        execution_node,
-                        deps,
-                        source,
-                        workspace,
-                    )
+                    if node_type in CONTROLLERS:
+                        candidate, body_outputs = run_loop_controller(
+                            execution_node, ordered, outputs, source, workspace,
+                            cancelled, node_progress_callback,
+                        )
+                        prepared_body_outputs.update(body_outputs)
+                    elif mode == "once":
+                        candidate = node_executor(node_type)(
+                            execution_node, deps, source, workspace,
+                        )
+                    else:
+                        def invoke_item(item_node: dict, item_deps: dict) -> dict:
+                            return node_executor(node_type)(
+                                item_node, item_deps, source, workspace,
+                            )
+
+                        candidate = run_item_execution(
+                            execution_node, deps, source, workspace,
+                            invoke_item, cancelled, node_progress_callback,
+                        )
 
                 if not isinstance(candidate, dict):
                     raise ValueError(
@@ -570,6 +617,11 @@ def run_graph(
             )
 
         outputs[node_id] = result
+        if node_type in CONTROLLERS:
+            stored = result.get("body_outputs")
+            if not isinstance(stored, dict):
+                raise ValueError(f"Loop {node_id} must expose aggregated body_outputs")
+            prepared_body_outputs.update(stored)
 
         previous_progress = summary.get(
             node_id,
@@ -644,6 +696,11 @@ def run_graph(
                     result[key]
                 )
 
+        # Arrays in a node output are Elements, not execution iterations.
+        # Report both separately for Workflow Runs and the UI data picker.
+        public["collections"] = describe_collections(result)
+        if isinstance(result.get("item_execution"), dict):
+            public["item_execution"] = result["item_execution"]
         if "render" in result:
             public["render"] = result["render"]
 
@@ -682,3 +739,26 @@ class WorkflowEngine:
             update,
             cancelled,
         )
+        
+def _safe_type_discovery(value: dict) -> dict:
+    """Discover run-output structure without changing node execution semantics."""
+    try:
+        from app.workflows.TypeEngine import describe
+
+        info = describe(value)
+
+        if len(json.dumps(info, ensure_ascii=False)) <= 64_000:
+            return info
+
+        return {
+            "version": 1,
+            "schema_id": info["schema_id"],
+            "collections": info["collections"],
+            "schema_truncated": True,
+        }
+
+    except (TypeError, ValueError, RecursionError):
+        return {
+            "version": 1,
+            "schema_skipped": True,
+        }
