@@ -11,6 +11,9 @@ type Clip = {
   source_start: number
   source_end: number
   transforms?: { zoom?: number }
+  selected_text?: string
+  voiceover_status?: 'generated' | 'skipped_no_text' | 'failed'
+  voiceover?: { url?: string; filename?: string; duration?: number }
 }
 type Group = { group_id: string; label: string; title?: string; clips: Clip[] }
 type Manifest = { version: number; groups: Group[] }
@@ -36,6 +39,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
   const [playing, setPlaying] = useState(false)
   const [videoError, setVideoError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const sequenceRef = useRef(false)
   const shouldPlay = useRef(false)
   const selectedIndexRef = useRef(0)
@@ -52,6 +56,12 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
     if (videoRef.current && clips.length) {
       videoRef.current.pause()
       videoRef.current.currentTime = clips[0].source_start
+      videoRef.current.volume = clips[0].voiceover?.url ? 0.18 : 1
+    }
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = clips[0]?.voiceover?.url ?? ''
+      audioRef.current.load()
     }
   }, [mediaUrl, result.clip_manifest])
 
@@ -64,6 +74,13 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
     selectedIndexRef.current = index
     if (!player) return
     player.pause()
+    const audio = audioRef.current
+    if (audio) {
+      audio.pause()
+      audio.src = clips[index].voiceover?.url ?? ''
+      audio.load()
+    }
+    player.volume = clips[index].voiceover?.url ? 0.18 : 1
     const target = clips[index].source_start
     if (Math.abs(player.currentTime - target) < 0.04 && autoplay) {
       void player.play().catch(() => { shouldPlay.current = false; setPlaying(false) })
@@ -76,6 +93,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
   const advance = () => {
     if (!sequenceRef.current) {
       videoRef.current?.pause()
+      audioRef.current?.pause()
       shouldPlay.current = false
       setPlaying(false)
       return
@@ -83,6 +101,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
     const next = selectedIndexRef.current + 1
     if (next >= clips.length) {
       videoRef.current?.pause()
+      audioRef.current?.pause()
       shouldPlay.current = false
       sequenceRef.current = false
       setPlaying(false)
@@ -117,14 +136,28 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
         onError={() => { setVideoError(true); setPlaying(false); shouldPlay.current = false }}
         onSeeked={() => {
           if (shouldPlay.current) {
-            void videoRef.current?.play().catch(() => {
+            void videoRef.current?.play().then(() => {
+              const audio = audioRef.current
+              if (audio?.src) {
+                audio.currentTime = 0
+                void audio.play().catch(() => undefined)
+              }
+            }).catch(() => {
               setPlaying(false)
               shouldPlay.current = false
             })
           }
         }}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
+        onPlay={() => {
+          setPlaying(true)
+          const audio = audioRef.current
+          const active = clips[selectedIndexRef.current]
+          if (audio?.src && active && videoRef.current) {
+            audio.currentTime = Math.max(0, videoRef.current.currentTime - active.source_start)
+            void audio.play().catch(() => undefined)
+          }
+        }}
+        onPause={() => { setPlaying(false); audioRef.current?.pause() }}
         onTimeUpdate={() => {
           const index = selectedIndexRef.current
           const active = clips[index]
@@ -135,6 +168,7 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
         Select this video from the Media Library to enable playback preview.
       </div>}
       {videoError && <div role="alert" className="absolute inset-x-2 bottom-2 rounded-md bg-red-950/85 px-3 py-2 text-center text-xs text-white">The source video could not be played.</div>}
+      <audio ref={audioRef} preload="auto" className="hidden" />
     </div>
     <div className="flex items-center justify-between gap-2">
       <button type="button" disabled={!mediaUrl || !clips.length || videoError} onClick={() => {
@@ -169,6 +203,9 @@ export function WorkflowRemixOutput({ value, mediaUrl }: WorkflowNodeOutputProps
               <span className="block font-semibold">{clip.name}{clip.duplicate_of ? ' â†»' : ''}</span>
               <span className="block opacity-70">{seconds(clip.source_end - clip.source_start)}</span>
               <span className="block opacity-60">{seconds(clip.source_start)}â€“{seconds(clip.source_end)}</span>
+              <span className={`mt-0.5 block text-[9px] ${clip.voiceover_status === 'generated' ? 'text-emerald-600 dark:text-emerald-400' : clip.voiceover_status === 'failed' ? 'text-red-600 dark:text-red-400' : 'opacity-55'}`}>
+                {clip.voiceover_status === 'generated' ? 'Voice ready' : clip.voiceover_status === 'failed' ? 'Voice failed' : clip.voiceover_status === 'skipped_no_text' ? 'No text' : 'No voice'}
+              </span>
             </button>)}
           </div>
         </section>

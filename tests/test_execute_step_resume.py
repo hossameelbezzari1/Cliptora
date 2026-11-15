@@ -107,6 +107,53 @@ class ExecuteStepTests(unittest.TestCase):
         result = reuse.collect_reusable_outputs(nodes, [self.prev], self.new, None)
         self.assertEqual(result['browser']['result']['agent_tool'], 'browser.playwright')
 
+    def test_changed_browser_helper_is_rebuilt_from_current_settings(self):
+        old = [
+            node('commands', kind='browser.commands', settings={
+                'actions': [{'command': 'click', 'target': '#old'}],
+            }),
+            node('browser', ['commands'], kind='browser.playwright'),
+        ]
+        self.make_old_run(old, {
+            'commands': {
+                'attachment_type': 'commands',
+                'config': old[0]['settings'],
+                'status': 'configured',
+            },
+        })
+        current_actions = [{'command': 'fill', 'target': '#studio-script', 'value': 'hello'}]
+        current = [
+            node('commands', kind='browser.commands', settings={'actions': current_actions}),
+            node('browser', ['commands'], kind='browser.playwright', settings={
+                reuse.STEP_TARGET_KEY: True,
+            }),
+        ]
+
+        result = reuse.collect_reusable_outputs(current, [self.prev], self.new, None)
+
+        self.assertEqual(set(result), {'commands'})
+        self.assertIsNone(result['commands']['run_id'])
+        self.assertEqual(result['commands']['result']['config']['actions'], current_actions)
+
+    def test_browser_helper_with_dependencies_remains_strict(self):
+        old = [
+            node('input'),
+            node('commands', ['input'], kind='browser.commands', settings={'actions': []}),
+            node('browser', ['commands'], kind='browser.playwright'),
+        ]
+        self.make_old_run(old, {
+            'input': {'value': 1},
+            'commands': {'attachment_type': 'commands', 'config': {'actions': []}},
+        })
+        current = [
+            node('input'),
+            node('commands', ['input'], kind='browser.commands', settings={'actions': [{'command': 'click', 'target': '#new'}]}),
+            node('browser', ['commands'], kind='browser.playwright', settings={reuse.STEP_TARGET_KEY: True}),
+        ]
+
+        with self.assertRaisesRegex(ValueError, r'commands: node configuration changed'):
+            reuse.collect_reusable_outputs(current, [self.prev], self.new, None)
+
 if __name__ == '__main__': unittest.main()
 
 class EngineStrictTests(unittest.TestCase):

@@ -14,7 +14,9 @@ class BrowserLiveStateTests(unittest.TestCase):
             root = Path(folder)
             workdir = root / '1' / '2' / 'runs' / '3'
             workdir.mkdir(parents=True)
-            with patch('app.workflows.MediaStorage.media_root', return_value=root / 'media'):
+            media_dir = root / 'media'
+            with patch('app.workflows.BrowserLiveState.run_media_dir', return_value=media_dir), \
+                 patch('app.services.WorkflowBrowserPreview.run_media_dir', return_value=media_dir):
                 live = BrowserLiveState(workdir, 'browser', 'playwright', 2)
                 live.command_started(1, 'fill', '#studio-script')
                 live.element_found(1)
@@ -41,12 +43,39 @@ class BrowserLiveStateTests(unittest.TestCase):
             root = Path(folder)
             workdir = root / '1' / '2' / 'runs' / '3'
             workdir.mkdir(parents=True)
-            with patch('app.workflows.MediaStorage.media_root', return_value=root / 'media'):
+            media_dir = root / 'media'
+            with patch('app.workflows.BrowserLiveState.run_media_dir', return_value=media_dir):
                 live = BrowserLiveState(workdir, 'browser', 'selenium', 1)
                 live.command_started(1, 'click', 'x' * 1000)
-            state_path = next((root / 'media').rglob('*.json'))
+            state_path = next(media_dir.rglob('*.json'))
             state = json.loads(state_path.read_text(encoding='utf-8'))
             self.assertEqual(len(state['commands'][0]['target']), 300)
+
+    def test_publish_retries_temporary_windows_file_lock(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            workdir = root / '1' / '2' / 'runs' / '3'
+            workdir.mkdir(parents=True)
+            media_dir = root / 'media'
+            from app.workflows import BrowserLiveState as live_module
+            real_replace = live_module.os.replace
+            calls = 0
+
+            def flaky_replace(source, destination):
+                nonlocal calls
+                calls += 1
+                if calls == 1:
+                    raise PermissionError('temporarily locked')
+                return real_replace(source, destination)
+
+            with patch('app.workflows.BrowserLiveState.run_media_dir', return_value=media_dir), \
+                 patch('app.workflows.BrowserLiveState.os.replace', side_effect=flaky_replace), \
+                 patch('app.workflows.BrowserLiveState.time.sleep') as sleep:
+                BrowserLiveState(workdir, 'browser', 'playwright', 1)
+
+            self.assertEqual(calls, 2)
+            sleep.assert_called_once()
+            self.assertTrue(next(media_dir.rglob('.live-preview.json')).is_file())
 
 
 if __name__ == '__main__':

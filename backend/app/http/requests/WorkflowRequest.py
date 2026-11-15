@@ -13,3 +13,11 @@ class StartRun(BaseModel):
     workflow_id: int = Field(ge=1)
     source_id: int | None = Field(default=None, ge=1)
     target_node_id: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,47}$")
+
+class BrowserDevStart(BaseModel):
+    browser_node_id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,47}$")
+
+class BrowserDevCommand(BaseModel):
+    browser_node_id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,47}$")
+    commands_node_id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,47}$")
+    command_index: int = Field(ge=0, le=99)

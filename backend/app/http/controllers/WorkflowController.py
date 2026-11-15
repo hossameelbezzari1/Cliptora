@@ -44,6 +44,18 @@ class WorkflowController:
     def delete_definition(self, project_id: int, definition_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.delete_definition(project_id=project_id, definition_id=definition_id, db=db, user=user)
 
+    def start_browser_dev(self, project_id: int, definition_id: int, body: BrowserDevStart, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.start_browser_dev(project_id=project_id, definition_id=definition_id, body=body, db=db, user=user)
+
+    def browser_dev_status(self, project_id: int, definition_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.browser_dev_status(project_id=project_id, definition_id=definition_id, db=db, user=user)
+
+    def execute_browser_dev_command(self, project_id: int, definition_id: int, body: BrowserDevCommand, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.execute_browser_dev_command(project_id=project_id, definition_id=definition_id, body=body, db=db, user=user)
+
+    def close_browser_dev(self, project_id: int, definition_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
+        return self.service.close_browser_dev(project_id=project_id, definition_id=definition_id, db=db, user=user)
+
     def sources(self, project_id: int, db: Session=Depends(wf_db), user: User=Depends(current_user)):
         return self.service.sources(project_id=project_id, db=db, user=user)
 
@@ -112,6 +124,10 @@ router.add_api_route('/{project_id}/definitions/{definition_id}/duplicate', cont
 router.add_api_route('/{project_id}/definitions/{definition_id}/versions', controller.definition_versions, methods=["GET"])
 router.add_api_route('/{project_id}/definitions/{definition_id}/versions/{version}/restore', controller.restore_version, methods=["POST"])
 router.add_api_route('/{project_id}/definitions/{definition_id}', controller.delete_definition, methods=["DELETE"], status_code=204)
+router.add_api_route('/{project_id}/definitions/{definition_id}/browser-dev/start', controller.start_browser_dev, methods=["POST"])
+router.add_api_route('/{project_id}/definitions/{definition_id}/browser-dev', controller.browser_dev_status, methods=["GET"])
+router.add_api_route('/{project_id}/definitions/{definition_id}/browser-dev/command', controller.execute_browser_dev_command, methods=["POST"])
+router.add_api_route('/{project_id}/definitions/{definition_id}/browser-dev', controller.close_browser_dev, methods=["DELETE"])
 router.add_api_route('/{project_id}/sources', controller.sources, methods=["GET"])
 router.add_api_route('/{project_id}/sources', controller.upload_source, methods=["POST"], status_code=201)
 router.add_api_route('/{project_id}/sources/from-media/{media_id}', controller.source_from_media, methods=["POST"], status_code=201)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Camera, CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, Maximize2, MonitorPlay, RefreshCw, Search, X, XCircle } from 'lucide-react'
+import { Camera, CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, Maximize2, MonitorPlay, Radio, RefreshCw, Search, X, XCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 
 export type BrowserPreviewFrame = {

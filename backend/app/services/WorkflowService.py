@@ -55,6 +55,7 @@ from app.helpers.Media import probe
 from app.workflows.Engine import run_graph
 from app.workflows.Reuse import STEP_TARGET_KEY, collect_reusable_outputs
 from app.workflows.Credentials import execution_owner
+from app.workflows.BrowserDevSession import browser_dev_sessions
 
 _schema_lock = Lock()
 
@@ -351,7 +352,7 @@ def enqueue_run(row: WorkflowRun, background: BackgroundTasks, db: Session) -> N
         background.add_task(RunWorkflowJob().execute, row.id)
 
 from app.models import WorkflowDefinition, WorkflowSource, WorkflowRun, WorkflowVersion
-from app.http.requests.WorkflowRequest import DefinitionBody, StartRun
+from app.http.requests.WorkflowRequest import BrowserDevCommand, BrowserDevStart, DefinitionBody, StartRun
 from app.repositories.WorkflowRepository import WorkflowRepository
 
 
@@ -416,6 +417,90 @@ class WorkflowService:
         snapshot(db, row)
         db.commit()
         return view_definition(row)
+
+    @staticmethod
+    def _browser_dev_nodes(row: WorkflowDefinition, browser_node_id: str):
+        nodes = validate_workflow(json.loads(row.nodes_json))
+        by_id = {node["id"]: node for node in nodes}
+        browser_node = by_id.get(browser_node_id)
+        if browser_node is None or browser_node["type"] != "browser.playwright":
+            raise HTTPException(422, "Select a Playwright Browser node")
+        return by_id, browser_node
+
+    def start_browser_dev(self, project_id: int, definition_id: int, body: BrowserDevStart,
+                          db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        authorize(db, project_id, user.id)
+        row = owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+        _, browser_node = self._browser_dev_nodes(row, body.browser_node_id)
+        cfg = browser_node.get("settings") or {}
+        from app.workflows.nodes.Browser import _positive, _public_url
+        hosts = cfg.get("allowed_hosts")
+        if not isinstance(hosts, list) or not hosts or any(not isinstance(item, str) for item in hosts):
+            raise HTTPException(422, "Configure allowed HTTPS hosts first")
+        normalized_hosts = [item.casefold().rstrip(".") for item in hosts]
+        try:
+            url = _public_url(str(cfg.get("url", "")), normalized_hosts)
+            timeout_ms = _positive(cfg.get("timeout_ms", 15000), "timeout_ms", 1000, 60000)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        browser_name = str(cfg.get("browser", "chromium"))
+        if browser_name not in {"chromium", "firefox", "webkit"}:
+            raise HTTPException(422, "Unsupported Playwright browser engine")
+        session = browser_dev_sessions.start(
+            (user.id, project_id, definition_id),
+            session_id=uuid.uuid4().hex,
+            url=url,
+            browser_name=browser_name,
+            timeout_ms=timeout_ms,
+            allowed_hosts=normalized_hosts,
+            download_dir=project_dir(user.id, project_id) / "browser-dev" / str(definition_id),
+        )
+        try:
+            return session.wait_ready(timeout_ms / 1000 + 15)
+        except (RuntimeError, TimeoutError) as exc:
+            browser_dev_sessions.close((user.id, project_id, definition_id))
+            raise HTTPException(422, str(exc)) from exc
+
+    def browser_dev_status(self, project_id: int, definition_id: int,
+                           db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+        session = browser_dev_sessions.get((user.id, project_id, definition_id))
+        return session.state() if session is not None else {"status": "inactive", "history": []}
+
+    def execute_browser_dev_command(self, project_id: int, definition_id: int, body: BrowserDevCommand,
+                                    db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        authorize(db, project_id, user.id)
+        row = owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+        by_id, browser_node = self._browser_dev_nodes(row, body.browser_node_id)
+        commands_node = by_id.get(body.commands_node_id)
+        if (
+            commands_node is None
+            or commands_node["type"] != "browser.commands"
+            or commands_node["id"] not in browser_node["depends_on"]
+        ):
+            raise HTTPException(422, "Browser Commands must be connected to this Playwright Browser")
+        actions = (commands_node.get("settings") or {}).get("actions")
+        if not isinstance(actions, list) or body.command_index >= len(actions):
+            raise HTTPException(422, "Browser command does not exist")
+        action = actions[body.command_index]
+        if not isinstance(action, dict):
+            raise HTTPException(422, "Browser command is invalid")
+        session = browser_dev_sessions.get((user.id, project_id, definition_id))
+        if session is None:
+            raise HTTPException(409, "Start Developer Browser from the Playwright node first")
+        try:
+            result = session.execute(action, f"{body.commands_node_id}:{body.command_index}")
+        except (RuntimeError, TimeoutError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"session": session.state(), "result": result}
+
+    def close_browser_dev(self, project_id: int, definition_id: int,
+                          db: Session = Depends(wf_db), user: User = Depends(current_user)):
+        authorize(db, project_id, user.id)
+        owner(db, WorkflowDefinition, definition_id, user.id, project_id)
+        result = browser_dev_sessions.close((user.id, project_id, definition_id))
+        return result or {"status": "inactive", "history": []}
 
     def duplicate_definition(self, project_id: int, definition_id: int, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)

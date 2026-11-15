@@ -34,6 +34,20 @@ REUSABLE_TYPES = frozenset({
     "audio.transcribe",
 })
 
+BROWSER_CONFIGURATION_TYPES = frozenset({
+    "browser.commands",
+    "browser.mouse",
+    "browser.keyboard",
+    "browser.inspector",
+    "browser.screenshot",
+    "browser.gemini_vision",
+    "browser.verification",
+    "browser.error_handler",
+    "browser.download",
+    "browser.live_preview",
+    "browser.close",
+})
+
 
 def signature(node: dict) -> dict:
     """Compare executable configuration, ignoring step-only metadata.
@@ -544,6 +558,28 @@ def collect_reusable_outputs(
 
     if target_id is not None:
         by_id = {node["id"]: node for node in current_nodes}
+
+        # Browser helper nodes are side-effect-free configuration providers.
+        # Rebuild direct helpers from CURRENT settings so editing a command or
+        # selector does not force users to execute each helper before running
+        # the actual Playwright/Selenium step.
+        target = by_id[target_id]
+        if target["type"] in ("browser.playwright", "browser.selenium", "browser.bot"):
+            for node_id in target["depends_on"]:
+                helper = by_id.get(node_id)
+                if (
+                    helper is None
+                    or helper["type"] not in BROWSER_CONFIGURATION_TYPES
+                    or helper["depends_on"]
+                ):
+                    continue
+                kind = helper["type"].removeprefix("browser.")
+                selected[node_id] = ({
+                    "attachment_type": kind,
+                    "config": dict(helper.get("settings") or {}),
+                    "status": "configured",
+                }, new_dir, None)
+
         main_consumers = {
             dependency
             for node in current_nodes

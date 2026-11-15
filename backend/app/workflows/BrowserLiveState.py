@@ -43,12 +43,25 @@ class BrowserLiveState:
     def publish(self) -> None:
         # Atomic replace avoids a reader observing partial JSON.
         destination = self.folder / _FILE
-        temporary = self.folder / f'.live-preview.{os.getpid()}.tmp'
+        temporary = self.folder / f'.live-preview.{os.getpid()}.{time.time_ns()}.tmp'
         payload = dict(self.state)
         payload['updated_at'] = time.time()
         data = json.dumps(payload, ensure_ascii=False, allow_nan=False)
         temporary.write_text(data, encoding='utf-8')
-        os.replace(temporary, destination)
+        try:
+            for attempt in range(5):
+                try:
+                    os.replace(temporary, destination)
+                    return
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    # Windows virus scanners and concurrent preview readers can
+                    # briefly hold the destination open. The unique temp file
+                    # remains valid while we retry the atomic replacement.
+                    time.sleep(0.02 * (attempt + 1))
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def update(self, *, status: str | None = None, step: int | None = None,
                message: str | None = None, url: str | None = None) -> None:

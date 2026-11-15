@@ -74,10 +74,19 @@ def _public_url(url: str, allowed_hosts: list[str]) -> str:
         raise ValueError(f"Browser host not allowlisted: {host}")
     if p.port not in (None, 443):
         raise ValueError("Browser only permits port 443")
-    try:
-        addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-    except socket.gaierror as exc:
-        raise ValueError("Could not resolve browser destination") from exc
+    addresses = []
+    last_dns_error: socket.gaierror | None = None
+    for attempt in range(3):
+        try:
+            addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+            last_dns_error = None
+            break
+        except socket.gaierror as exc:
+            last_dns_error = exc
+            if attempt < 2:
+                time.sleep(0.25 * (attempt + 1))
+    if last_dns_error is not None:
+        raise ValueError("Could not resolve browser destination after 3 attempts") from last_dns_error
     if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
         raise ValueError("Browser blocks local and private network destinations")
     return url.strip()
@@ -284,6 +293,14 @@ class BrowserAutomationNode(Node):
         for action in actions:
             if not isinstance(action, dict) or action.get("command") not in COMMANDS:
                 raise ValueError("Invalid browser action in commands list")
+
+        if cfg.get("batch_voiceovers_per_clip") is True:
+            from app.workflows.ClipVoiceoverBatch import run_clip_voiceover_batch
+            return run_clip_voiceover_batch(
+                node=node, outputs=outputs, workdir=Path(workdir), actions=actions,
+                attached=attached, browser_name=browser_name, headless=headless,
+                timeout=timeout, hosts=hosts, url=url,
+            )
 
         try:
             from playwright.sync_api import sync_playwright
