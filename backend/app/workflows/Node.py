@@ -52,11 +52,68 @@ class Node(ABC):
         source: Path | None,
         workdir: Path,
     ) -> dict[str, Any]:
+        """Execute once or apply the shared item loop declared by the node.
+
+        Concrete nodes only implement :meth:`execute_operation`.  Execution
+        modes are part of the base node contract so the workflow engine and
+        individual node families never need their own for-each/batch branch.
+        """
         if operation not in self.operations:
             raise ValueError(
                 f"Unknown {self.family} operation: {operation}"
             )
 
+        from .ItemExecution import execution_settings, run_item_execution
+
+        options = execution_settings(
+            node.get("settings") or {},
+            operation,
+            node.get("depends_on") or [],
+        )
+        if options["mode"] == "once":
+            return self._execute_once(
+                operation, node, outputs, source, workdir
+            )
+
+        cancelled = node.get("_cancelled_callback")
+        if not callable(cancelled):
+            cancelled = lambda: False
+
+        progress = node.get("_progress_callback")
+        if not callable(progress):
+            progress = None
+
+        def invoke_item(
+            item_node: dict[str, Any],
+            item_outputs: dict[str, Any],
+        ) -> dict[str, Any]:
+            return self._execute_once(
+                operation,
+                item_node,
+                item_outputs,
+                source,
+                workdir,
+            )
+
+        return run_item_execution(
+            node,
+            outputs,
+            source,
+            workdir,
+            invoke_item,
+            cancelled,
+            progress,
+        )
+
+    def _execute_once(
+        self,
+        operation: str,
+        node: dict[str, Any],
+        outputs: dict[str, Any],
+        source: Path | None,
+        workdir: Path,
+    ) -> dict[str, Any]:
+        """Run one concrete operation with the shared type contract."""
         # Legacy nodes behave exactly as before. Typed validation is opt-in.
         # Contracts are structural: new node families can declare schemas without
         # changing the engine or registering hardcoded Python types.

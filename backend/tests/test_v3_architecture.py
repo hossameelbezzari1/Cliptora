@@ -44,6 +44,36 @@ def test_node_rules_and_logic():
         validate_workflow([{'id':'x','type':'ai.gemini','settings':{'credential_id':'abc'}}])
 
 
+def test_base_node_owns_for_each_execution(tmp_path):
+    class EchoNode(Node):
+        family = 'test'
+        group = 'Test'
+        operations = {'test.echo': {'label': 'Echo'}}
+
+        def execute_operation(self, operation, node, outputs, source, workdir):
+            return {'value': outputs['input']['value']}
+
+    definition = EchoNode.definition('test.echo')
+    result = definition.execute(
+        {
+            'id': 'echo',
+            'type': 'test.echo',
+            'depends_on': ['input'],
+            'cache': False,
+            'settings': {
+                'execution_mode': 'for_each',
+                'execution_input_path': 'input.items',
+            },
+        },
+        {'input': {'items': [{'value': 'a'}, {'value': 'b'}]}},
+        None,
+        tmp_path,
+    )
+
+    assert [item['data']['value'] for item in result['items']] == ['a', 'b']
+    assert result['item_execution']['mode'] == 'for_each'
+
+
 def test_highlights_cut_plan_and_storyboard():
     words=[{'id':i,'text':f'w{i}','start':i-1.,'end':float(i)} for i in range(1,13)]
     clips=execute('ai.highlights',{'mode':'manual','target_duration':5,'highlights':[{'start_word_id':1,'end_word_id':11,'score':99,'reason':'test'}]},{'words':{'words':words}})

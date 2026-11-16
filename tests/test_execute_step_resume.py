@@ -55,6 +55,25 @@ class ExecuteStepTests(unittest.TestCase):
         self.assertEqual(set(result), {'video', 'merge'})
         self.assertEqual(result['merge']['result']['groups'], [1, 2])
 
+    def test_full_run_reuses_schedule_trigger_chain(self):
+        nodes = [
+            node('schedule', kind='core.schedule_trigger'),
+            node('probe', ['schedule'], kind='media.probe'),
+            node('audio', ['probe'], kind='audio.extract'),
+            node('transcript', ['audio'], kind='audio.transcribe'),
+        ]
+        artifacts = {
+            'schedule': {'trigger': {'status': 'received'}},
+            'probe': {'probe': {'duration': 10}},
+            'audio': {'audio_path': 'audio.wav'},
+            'transcript': {'words': [{'text': 'done'}]},
+        }
+        self.make_old_run(nodes, artifacts)
+
+        result = reuse.collect_reusable_outputs(nodes, [self.prev], self.new, None)
+
+        self.assertEqual(set(result), {'schedule', 'probe', 'audio', 'transcript'})
+
     def test_strict_missing_upstream_fails_without_running(self):
         nodes = [node('video'), node('merge', ['video']),
                  node('agent', ['merge'], kind='ai.agent', settings={reuse.STEP_TARGET_KEY: True})]

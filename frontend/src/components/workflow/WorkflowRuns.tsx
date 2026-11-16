@@ -340,7 +340,7 @@ export function WorkflowRuns({
       ? previewDetails as (typeof runs)[number]
       : previewSummary ?? null)
   const isActivePreview = Boolean(run && previewRun && run.id === previewRun.id)
-  const previewResults = asDict(asDict(previewRun)?.results)
+  const previewResults = asDict(asDict(previewRun)?.results) ?? {}
 
   const graph = readGraph(studio, previewRun, nodes, edges)
   const graphSignature = graph.nodes.map(node => `${node.id}:${node.type}:${node.label}:${node.position.x}:${node.position.y}`).join('|') + '::' + graph.edges.map(edge => `${edge.source}:${edge.target}:${edge.sourceHandle}`).join('|')
@@ -365,12 +365,12 @@ export function WorkflowRuns({
   const selectedInfo = selectedNode ? previewResults?.[selectedNode] : null
   const selectedDetails = asDict(selectedInfo)
   const [healthArtifact, setHealthArtifact] = useState<Dict | null>(null)
-  const nodeHealth = selectedDetails as WorkflowRunNodeHealth
+  const nodeHealth: WorkflowRunNodeHealth = selectedDetails ?? {}
   const partialOnSummary = nodeHealth.partial_result === true ||
     (nodeHealth.failed_item_count ?? 0) > 0 ||
     ['partial', 'invalid', 'limit_reached'].includes(nodeHealth.result_status ?? '')
   useEffect(() => {
-    if (!selectedNode || !previewRun?.id || !partialOnSummary || !selectedDetails.artifact) {
+    if (!selectedNode || !previewRun?.id || !partialOnSummary || !selectedDetails?.artifact) {
       setHealthArtifact(null)
       return
     }
@@ -380,14 +380,14 @@ export function WorkflowRuns({
       .then(payload => { if (alive) setHealthArtifact(payload) })
       .catch(() => { if (alive) setHealthArtifact(null) })
     return () => { alive = false }
-  }, [selectedNode, previewRun?.id, partialOnSummary, selectedDetails.artifact, studio.projectId])
-  const itemPayload = healthArtifact ?? asDict(selectedDetails.result)
+  }, [selectedNode, previewRun?.id, partialOnSummary, selectedDetails?.artifact, studio.projectId])
+  const itemPayload = healthArtifact ?? asDict(selectedDetails?.result) ?? {}
   const failedRaw = Array.isArray(itemPayload.failed_items) ? itemPayload.failed_items
     : Array.isArray(itemPayload.failed_voiceovers) ? itemPayload.failed_voiceovers
-      : Array.isArray(selectedDetails.failed_items) ? selectedDetails.failed_items : []
+      : Array.isArray(selectedDetails?.failed_items) ? selectedDetails.failed_items : []
   const failedItems = failedRaw.filter((value): value is { id?: string; index?: number; error?: string; instance_id?: string } =>
     value !== null && typeof value === 'object' && !Array.isArray(value))
-  const selectedHealth = selectedDetails as WorkflowRunNodeHealth
+  const selectedHealth = nodeHealth
   const showItemHealth = selectedHealth.partial_result === true ||
     (selectedHealth.failed_item_count ?? 0) > 0 || failedItems.length > 0 ||
     ['partial', 'invalid', 'limit_reached'].includes(selectedHealth.result_status ?? '')
@@ -717,7 +717,7 @@ export function WorkflowRuns({
         {/* Keep existing run actions accessible without changing the screenshot's default layout. */}
         {previewRun && (['queued', 'running'].includes(previewRun.state) || previewRun.state === 'completed') && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#e7e7e7] bg-white px-5 py-2 dark:border-[#393939] dark:bg-[#202020]">
-            {['queued', 'running'].includes(previewRun.state) && <button type="button" disabled={!isActivePreview} onClick={() => void cancel()} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-[#f7f7f7]">Cancel execution</button>}
+            {['queued', 'running'].includes(previewRun.state) && <button type="button" onClick={() => void cancel(previewRun.id)} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-[#f7f7f7]">Cancel execution</button>}
             {previewRun.state === 'completed' && <>
               <button type="button" disabled={working || !isActivePreview} title={!isActivePreview ? 'Click Use this execution first' : 'Apply Cut Plan to Timeline'} onClick={() => void applyCutPlan()} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs hover:bg-[#f7f7f7]"><Scissors size={14} /> Apply Cut Plan</button>
               <button type="button" disabled={working || !isActivePreview} title={!isActivePreview ? 'Click Use this execution first' : 'Download rendered video'} onClick={() => void downloadVideo()} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs hover:bg-[#f7f7f7]"><Download size={14} /> Rendered video</button>

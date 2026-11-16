@@ -143,6 +143,7 @@ export function useWorkflowStudio({
   const lastSavedSnapshot = useRef(workflowSnapshot(initialName, []))
   const failedAutoSaveSnapshot = useRef('')
   const saveInProgress = useRef(false)
+  const startInProgress = useRef(false)
   const activeIdRef = useRef<number | null>(null)
 
   const setNodes: Dispatch<SetStateAction<WorkflowNode[]>> = useCallback(value => {
@@ -803,17 +804,20 @@ export function useWorkflowStudio({
   }, [currentSnapshot])
 
   const start = async () => {
-    const definition = await save()
-    if (!definition) return
+    if (startInProgress.current) return
+    startInProgress.current = true
 
-    if (hasVideoSource && !sourceId) {
-      setError('Upload/select a video in Sources first.')
-      return
-    }
-
-    setWorking(true)
-    setError(null)
     try {
+      const definition = await save()
+      if (!definition) return
+
+      if (hasVideoSource && !sourceId) {
+        setError('Upload/select a video in Sources first.')
+        return
+      }
+
+      setWorking(true)
+      setError(null)
       const next = await api<WorkflowRun>(
         `/workflows/${projectId}/runs`,
         {
@@ -833,6 +837,7 @@ export function useWorkflowStudio({
     } catch (err) {
       setError(errorMessage(err))
     } finally {
+      startInProgress.current = false
       setWorking(false)
     }
   }
@@ -1126,13 +1131,16 @@ export function useWorkflowStudio({
     }
   }
 
-  const cancel = async () => {
-    if (!run) return
+  const cancel = async (runId: number = run?.id ?? 0) => {
+    if (!runId) return
     try {
-      setRun(await api<WorkflowRun>(
-        `/workflows/${projectId}/runs/${run.id}/cancel`,
+      const cancelledRun = await api<WorkflowRun>(
+        `/workflows/${projectId}/runs/${runId}/cancel`,
         { method: 'POST' },
-      ))
+      )
+      setRuns(previous => [cancelledRun, ...previous.filter(item => item.id !== cancelledRun.id)]
+        .sort((left, right) => right.id - left.id))
+      if (run?.id === cancelledRun.id) setRun(cancelledRun)
     } catch (err) {
       setError(errorMessage(err))
     }

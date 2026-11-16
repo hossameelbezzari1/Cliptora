@@ -20670,3 +20670,1453 @@ ValueError: Gemini Highlights needs a direct connection from Transcribe Every Wo
 [2026-11-16 00:45:01] INFO     cliptora.http: [request:b27666050dcc] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (94.02 ms)
 [2026-11-16 00:45:09] INFO     cliptora.http: [request:aa18fcb55f98] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (67.95 ms)
 [2026-11-16 00:45:13] INFO     cliptora.http: [request:6a0849d08eca] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (67.15 ms)
+[2026-11-16 01:05:23] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:05:23] INFO     cliptora: HTTP and exception logging installed
+[2026-11-16 01:05:23] INFO     uvicorn.error: Started server process [31948]
+[2026-11-16 01:05:23] INFO     uvicorn.error: Waiting for application startup.
+[2026-11-16 01:05:23] INFO     uvicorn.error: Application startup complete.
+[2026-11-16 01:05:25] INFO     cliptora.http: [request:1754db93e9d3] GET /workflows/{project_id}/runs -> 200 (527.77 ms)
+[2026-11-16 01:05:36] INFO     cliptora.http: [request:c25961bb24e8] GET /auth/me -> 200 (21.77 ms)
+[2026-11-16 01:05:36] INFO     cliptora.http: [request:f9d1ce283c19] GET /auth/me -> 200 (30.30 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:a11fca7cb878] GET /projects/{project_id} -> 200 (129.61 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:35c44026b6c6] GET /projects/{project_id} -> 200 (28.30 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:f79bf30fdac0] GET /projects/{project_id}/timeline -> 200 (209.65 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:ac60742fc51b] GET /projects/{project_id}/timeline -> 200 (40.34 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:2d2b1904a3ab] GET /api/v1/workflow-type-catalog -> 200 (50.19 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:ae8467aae3a4] GET /api/v1/workflow-type-catalog -> 200 (111.18 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:d14df1c1c17f] GET /workflows/templates -> 200 (350.52 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:f92cc21b5e21] GET /workflows/catalog -> 200 (352.76 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:94fa07963543] GET /workflows/{project_id}/sources -> 200 (564.48 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:d0e5b9b5d817] GET /workflows/{project_id}/definitions -> 200 (577.50 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:7fc833af9a45] GET /workflows/catalog -> 200 (313.79 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:32a9b1f78c35] GET /workflows/templates -> 200 (315.09 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:4eaab0044c54] GET /workflows/{project_id}/runs -> 200 (677.73 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:89502d996067] GET /workflows/{project_id}/sources -> 200 (331.42 ms)
+[2026-11-16 01:05:37] INFO     cliptora.http: [request:5b394090f981] GET /workflows/{project_id}/definitions -> 200 (65.51 ms)
+[2026-11-16 01:05:38] INFO     cliptora.http: [request:7960325d7d6f] GET /workflows/{project_id}/runs -> 200 (142.20 ms)
+[2026-11-16 01:05:38] INFO     cliptora.http: [request:aca886ad1d8f] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (975.08 ms)
+[2026-11-16 01:05:39] INFO     cliptora.http: [request:55bb36dece0c] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1026.81 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:2cac739d5bef] GET /workflows/{project_id}/runs -> 200 (167.55 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:0c4878b19163] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (196.69 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:e678b008bcc7] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (222.03 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:132b28c7fa63] GET /workflows/{project_id}/runs/{run_id}/audios -> 200 (256.88 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:b3f3cdb477f8] GET /workflows/{project_id}/runs -> 200 (165.70 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:a2229581410e] GET /workflows/{project_id}/runs/{run_id}/artifacts/{node_id} -> 200 (63.35 ms)
+[2026-11-16 01:06:16] INFO     cliptora.http: [request:74df3feecac9] GET /workflows/{project_id}/runs/{run_id}/audios -> 200 (168.09 ms)
+[2026-11-16 01:06:17] INFO     cliptora.http: [request:cf2e8861b075] GET /workflows/{project_id}/runs/{run_id}/audio/{node_id}/{track} -> 206 (226.90 ms)
+[2026-11-16 01:06:17] INFO     cliptora.http: [request:14a46d6bd657] GET /workflows/{project_id}/runs -> 200 (120.50 ms)
+[2026-11-16 01:06:18] INFO     cliptora.http: [request:fd1ce1ca6d5a] GET /workflows/{project_id}/runs -> 200 (135.74 ms)
+[2026-11-16 01:06:25] INFO     cliptora.http: [request:270a4ba94045] GET /auth/csrf -> 200 (5.97 ms)
+[2026-11-16 01:06:26] INFO     cliptora.http: [request:0dcd3dfc9e6c] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (35.14 ms)
+[2026-11-16 01:06:26] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=core_schedule_trigger | previous_run_id=209
+[2026-11-16 01:06:26] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=media_probe | previous_run_id=209
+[2026-11-16 01:06:26] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_extract | previous_run_id=209
+[2026-11-16 01:06:26] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_transcribe | previous_run_id=209
+[2026-11-16 01:06:28] INFO     cliptora.http: [request:e2bcab705abb] GET /workflows/{project_id}/runs/{run_id} -> 200 (669.77 ms)
+[2026-11-16 01:06:29] INFO     cliptora.http: [request:10911e6f4f10] POST /workflows/{project_id}/runs -> 202 (3627.73 ms)
+[2026-11-16 01:06:29] INFO     cliptora.http: [request:f13335afda6b] GET /workflows/{project_id}/runs/{run_id} -> 200 (59.69 ms)
+[2026-11-16 01:06:45] INFO     cliptora.http: [request:14a3c657dba4] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (32.36 ms)
+[2026-11-16 01:06:56] INFO     cliptora.http: [request:7dc5935476a8] GET /auth/me -> 200 (37.86 ms)
+[2026-11-16 01:06:56] INFO     cliptora.http: [request:973219dfe36a] GET /auth/me -> 200 (24.90 ms)
+[2026-11-16 01:06:56] INFO     cliptora.http: [request:1d699ad956c4] GET /projects/{project_id} -> 200 (44.44 ms)
+[2026-11-16 01:06:56] INFO     cliptora.http: [request:9ea4a145b1c3] GET /projects/{project_id}/timeline -> 200 (68.91 ms)
+[2026-11-16 01:06:56] INFO     cliptora.http: [request:ef6a3b902d9f] GET /projects/{project_id} -> 200 (49.55 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:7d9756359c1b] GET /projects/{project_id}/timeline -> 200 (63.52 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:4f8aad3b4263] GET /api/v1/workflow-type-catalog -> 200 (42.76 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:b7c1b3fade51] GET /api/v1/workflow-type-catalog -> 200 (38.45 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:1793d032472b] GET /workflows/templates -> 200 (214.39 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:c1a74b7bb021] GET /workflows/catalog -> 200 (225.14 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:6cea60854c24] GET /workflows/{project_id}/sources -> 200 (301.95 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:5dd62fae4725] GET /workflows/{project_id}/definitions -> 200 (293.52 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:8847d35a059b] GET /workflows/templates -> 200 (193.29 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:988e198bfe43] GET /workflows/catalog -> 200 (142.86 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:0bd976986e7a] GET /workflows/{project_id}/sources -> 200 (274.35 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:b723d644caec] GET /workflows/{project_id}/runs -> 200 (562.26 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:5a5ae22b314e] GET /workflows/{project_id}/definitions -> 200 (273.14 ms)
+[2026-11-16 01:06:57] INFO     cliptora.http: [request:780d9cad0d07] GET /workflows/{project_id}/runs -> 200 (186.41 ms)
+[2026-11-16 01:06:58] INFO     cliptora.http: [request:757c871cf3bd] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1074.21 ms)
+[2026-11-16 01:07:00] INFO     cliptora.http: [request:f7092a8edd52] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1208.94 ms)
+[2026-11-16 01:07:08] INFO     cliptora.http: [request:ea35fa420070] GET /auth/csrf -> 200 (3.09 ms)
+[2026-11-16 01:07:08] INFO     cliptora.http: [request:2e863d0a2f25] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (38.59 ms)
+[2026-11-16 01:08:51] INFO     cliptora.http: [request:4dbcad55bef9] GET /auth/me -> 200 (36.27 ms)
+[2026-11-16 01:08:51] INFO     cliptora.http: [request:2cd3152d443f] GET /auth/me -> 200 (43.17 ms)
+[2026-11-16 01:08:56] INFO     cliptora.http: [request:cf24e87870c4] GET /projects/{project_id} -> 200 (45.34 ms)
+[2026-11-16 01:08:57] INFO     cliptora.http: [request:7d275d2f540c] GET /projects/{project_id}/timeline -> 200 (143.33 ms)
+[2026-11-16 01:08:57] INFO     cliptora.http: [request:e6ac2479aa11] GET /projects/{project_id} -> 200 (42.74 ms)
+[2026-11-16 01:08:57] INFO     cliptora.http: [request:a925aad49946] GET /projects/{project_id}/timeline -> 200 (124.03 ms)
+[2026-11-16 01:09:06] INFO     cliptora.http: [request:0a41673c938f] GET /api/v1/workflow-type-catalog -> 200 (159.75 ms)
+[2026-11-16 01:09:09] INFO     cliptora.http: [request:689792852bcd] GET /workflows/catalog -> 200 (185.38 ms)
+[2026-11-16 01:09:09] INFO     cliptora.http: [request:bd258a4a1a7c] GET /workflows/templates -> 200 (82.15 ms)
+[2026-11-16 01:09:09] INFO     cliptora.http: [request:88e4424c7690] GET /workflows/{project_id}/definitions -> 200 (69.58 ms)
+[2026-11-16 01:09:09] INFO     cliptora.http: [request:740d6f013e83] GET /workflows/{project_id}/sources -> 200 (47.91 ms)
+[2026-11-16 01:09:10] INFO     cliptora.http: [request:14011403e387] GET /workflows/{project_id}/runs -> 200 (415.03 ms)
+[2026-11-16 01:09:10] INFO     cliptora.http: [request:433a61488c64] GET /api/v1/workflow-type-catalog -> 200 (63.58 ms)
+[2026-11-16 01:09:11] INFO     cliptora.http: [request:97467195c48c] GET /workflows/catalog -> 200 (211.48 ms)
+[2026-11-16 01:09:12] INFO     cliptora.http: [request:1b95ef13b6d7] GET /workflows/templates -> 200 (58.69 ms)
+[2026-11-16 01:09:12] INFO     cliptora.http: [request:c2d6adc9dd08] GET /workflows/{project_id}/definitions -> 200 (94.13 ms)
+[2026-11-16 01:09:12] INFO     cliptora.http: [request:1c1e951fac89] GET /workflows/{project_id}/sources -> 200 (112.93 ms)
+[2026-11-16 01:09:13] INFO     cliptora.http: [request:6adfff37dda9] GET /workflows/{project_id}/runs -> 200 (543.98 ms)
+[2026-11-16 01:09:20] INFO     cliptora.http: [request:31b945b0f796] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (4330.49 ms)
+[2026-11-16 01:09:25] INFO     cliptora.http: [request:b20b19fd46a9] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (5058.44 ms)
+[2026-11-16 01:10:55] INFO     cliptora.http: [request:0adc43d77888] GET /auth/me -> 200 (80.60 ms)
+[2026-11-16 01:10:55] INFO     cliptora.http: [request:ebc5420e6e25] GET /auth/me -> 200 (64.94 ms)
+[2026-11-16 01:10:55] INFO     cliptora.http: [request:925b5ebfe060] GET /projects/{project_id} -> 200 (137.38 ms)
+[2026-11-16 01:10:56] INFO     cliptora.http: [request:ec2f2c3601eb] GET /projects/{project_id}/timeline -> 200 (261.42 ms)
+[2026-11-16 01:10:56] INFO     cliptora.http: [request:c0917a02131e] GET /projects/{project_id} -> 200 (221.01 ms)
+[2026-11-16 01:10:56] INFO     cliptora.http: [request:dd8112c6a273] GET /projects/{project_id}/timeline -> 200 (176.40 ms)
+[2026-11-16 01:10:56] INFO     cliptora.http: [request:6aa368dc4e28] GET /api/v1/workflow-type-catalog -> 200 (338.62 ms)
+[2026-11-16 01:10:57] INFO     cliptora.http: [request:086487812b33] GET /api/v1/workflow-type-catalog -> 200 (101.06 ms)
+[2026-11-16 01:10:57] INFO     cliptora.http: [request:f6ed8fcb7fc7] GET /workflows/catalog -> 200 (969.17 ms)
+[2026-11-16 01:10:57] INFO     cliptora.http: [request:3bb9b33e6c78] GET /workflows/templates -> 200 (826.54 ms)
+[2026-11-16 01:10:57] INFO     cliptora.http: [request:1618ea1355a5] GET /workflows/{project_id}/definitions -> 200 (840.90 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:2c95a57c1543] GET /workflows/catalog -> 200 (734.45 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:8c88eb816db6] GET /workflows/{project_id}/sources -> 200 (1394.18 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:4fbb430ba7cd] GET /workflows/{project_id}/runs -> 200 (1377.70 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:8244879bb56f] GET /workflows/templates -> 200 (722.57 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:3a897e00daf2] GET /workflows/{project_id}/definitions -> 200 (738.41 ms)
+[2026-11-16 01:10:58] INFO     cliptora.http: [request:277b50a944fa] GET /workflows/{project_id}/sources -> 200 (94.74 ms)
+[2026-11-16 01:10:59] INFO     cliptora.http: [request:8b4d8c0b8f2f] GET /workflows/{project_id}/runs -> 200 (842.24 ms)
+[2026-11-16 01:11:01] INFO     cliptora.http: [request:4ab16adbb121] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (3289.14 ms)
+[2026-11-16 01:11:06] INFO     cliptora.http: [request:10302c7c4987] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (2803.59 ms)
+[2026-11-16 01:14:48] INFO     cliptora.http: [request:6916cfdab8df] GET /auth/csrf -> 200 (10.38 ms)
+[2026-11-16 01:14:51] INFO     cliptora.http: [request:c6127c1a95db] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (222.12 ms)
+[2026-11-16 01:14:55] INFO     cliptora.http: [request:001770561d96] GET /workflows/{project_id}/runs/{run_id} -> 200 (182.02 ms)
+[2026-11-16 01:14:58] INFO     cliptora.http: [request:9d391cce4dd5] GET /workflows/{project_id}/runs/{run_id} -> 200 (513.72 ms)
+[2026-11-16 01:15:00] INFO     cliptora.http: [request:0e319d3a26a9] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (777.90 ms)
+[2026-11-16 01:15:01] INFO     cliptora.http: [request:56c0f8a5a5ed] GET /workflows/{project_id}/runs/{run_id} -> 200 (1534.06 ms)
+[2026-11-16 01:15:02] INFO     cliptora.http: [request:e5cc9650c52c] GET /workflows/{project_id}/runs/{run_id} -> 200 (941.73 ms)
+[2026-11-16 01:15:04] INFO     cliptora.http: [request:a97feeb3c84c] GET /workflows/{project_id}/runs -> 200 (2601.03 ms)
+[2026-11-16 01:15:04] INFO     cliptora.http: [request:8682da3c998f] GET /workflows/{project_id}/runs/{run_id} -> 200 (1678.81 ms)
+[2026-11-16 01:15:04] INFO     cliptora.http: [request:77e2cca822b8] GET /workflows/{project_id}/runs/{run_id} -> 200 (258.81 ms)
+[2026-11-16 01:15:05] INFO     cliptora.http: [request:3023f6b0296c] GET /workflows/{project_id}/runs/{run_id} -> 200 (519.07 ms)
+[2026-11-16 01:15:09] INFO     cliptora.http: [request:4ce767e80f80] GET /workflows/{project_id}/runs/{run_id} -> 200 (1301.82 ms)
+[2026-11-16 01:15:12] INFO     cliptora.http: [request:65a31aa31cd6] GET /workflows/{project_id}/runs -> 200 (4583.04 ms)
+[2026-11-16 01:15:13] INFO     cliptora.http: [request:78c1c827c467] GET /workflows/{project_id}/runs/{run_id} -> 200 (3880.00 ms)
+[2026-11-16 01:15:14] INFO     cliptora.http: [request:8ef13b0c56a3] GET /workflows/{project_id}/runs/{run_id} -> 200 (1021.14 ms)
+[2026-11-16 01:15:14] INFO     cliptora.http: [request:e1812f36fb8c] GET /workflows/{project_id}/runs/{run_id} -> 200 (870.79 ms)
+[2026-11-16 01:15:17] INFO     cliptora.http: [request:e03cd65d08cd] GET /workflows/{project_id}/runs -> 200 (2415.04 ms)
+[2026-11-16 01:15:17] INFO     cliptora.http: [request:33345862209c] GET /workflows/{project_id}/runs/{run_id} -> 200 (2207.96 ms)
+[2026-11-16 01:15:17] INFO     cliptora.http: [request:5f834f381e45] GET /workflows/{project_id}/runs/{run_id} -> 200 (290.05 ms)
+[2026-11-16 01:15:18] INFO     cliptora.http: [request:00a465dafad3] GET /workflows/{project_id}/runs/{run_id} -> 200 (414.05 ms)
+[2026-11-16 01:15:18] INFO     cliptora.http: [request:b5667fed9519] GET /workflows/{project_id}/runs/{run_id} -> 200 (205.46 ms)
+[2026-11-16 01:15:19] INFO     cliptora.http: [request:8ae3ce25927f] GET /workflows/{project_id}/runs/{run_id} -> 200 (164.52 ms)
+[2026-11-16 01:15:20] INFO     cliptora.http: [request:433dd72a9501] GET /workflows/{project_id}/runs/{run_id} -> 200 (229.38 ms)
+[2026-11-16 01:15:21] INFO     cliptora.http: [request:5c7efc1c3b76] GET /workflows/{project_id}/runs/{run_id} -> 200 (187.37 ms)
+[2026-11-16 01:15:23] INFO     cliptora.http: [request:2cef0ef6a6c7] GET /workflows/{project_id}/runs -> 200 (1853.73 ms)
+[2026-11-16 01:15:24] INFO     cliptora.http: [request:fa58c7788869] GET /workflows/{project_id}/runs/{run_id} -> 200 (419.07 ms)
+[2026-11-16 01:15:25] INFO     cliptora.http: [request:504ff844eca4] GET /workflows/{project_id}/runs/{run_id} -> 200 (465.13 ms)
+[2026-11-16 01:15:26] INFO     cliptora.http: [request:c8c9bbd1da7a] GET /workflows/{project_id}/runs/{run_id} -> 200 (201.77 ms)
+[2026-11-16 01:15:27] INFO     cliptora.http: [request:3dad8ac53517] GET /workflows/{project_id}/runs/{run_id} -> 200 (188.00 ms)
+[2026-11-16 01:15:29] INFO     cliptora.http: [request:74f6feb254d3] GET /workflows/{project_id}/runs/{run_id} -> 200 (302.24 ms)
+[2026-11-16 01:15:31] INFO     cliptora.http: [request:376a0593e5eb] GET /workflows/{project_id}/runs -> 200 (2612.63 ms)
+[2026-11-16 01:15:31] INFO     cliptora.http: [request:877b244f14a1] GET /workflows/{project_id}/runs/{run_id} -> 200 (224.21 ms)
+[2026-11-16 01:15:32] INFO     cliptora.http: [request:18a44d5a0814] GET /workflows/{project_id}/runs/{run_id} -> 200 (267.98 ms)
+[2026-11-16 01:15:33] INFO     cliptora.http: [request:29c46afd0f39] GET /workflows/{project_id}/runs/{run_id} -> 200 (333.32 ms)
+[2026-11-16 01:15:34] INFO     cliptora.http: [request:92a8f79b6cbe] GET /workflows/{project_id}/runs/{run_id} -> 200 (340.12 ms)
+[2026-11-16 01:15:35] INFO     cliptora.http: [request:928ab5d5dafa] GET /workflows/{project_id}/runs/{run_id} -> 200 (253.37 ms)
+[2026-11-16 01:15:38] INFO     cliptora.http: [request:6b3181ac058b] GET /workflows/{project_id}/runs -> 200 (2477.18 ms)
+[2026-11-16 01:15:38] INFO     cliptora.http: [request:e5468cf0b069] GET /workflows/{project_id}/runs/{run_id} -> 200 (253.02 ms)
+[2026-11-16 01:15:39] INFO     cliptora.http: [request:51a65a55b71e] GET /workflows/{project_id}/runs/{run_id} -> 200 (249.18 ms)
+[2026-11-16 01:15:41] INFO     cliptora.http: [request:53bece416821] GET /workflows/{project_id}/runs/{run_id} -> 200 (627.30 ms)
+[2026-11-16 01:15:42] INFO     cliptora.http: [request:38d28d1573d6] GET /workflows/{project_id}/runs/{run_id} -> 200 (451.12 ms)
+[2026-11-16 01:15:43] INFO     cliptora.http: [request:eea0c1efec2b] GET /workflows/{project_id}/runs/{run_id} -> 200 (318.74 ms)
+[2026-11-16 01:15:45] INFO     cliptora.http: [request:14bab45203f0] GET /workflows/{project_id}/runs -> 200 (2786.07 ms)
+[2026-11-16 01:15:46] INFO     cliptora.http: [request:c241e5ff5d61] GET /workflows/{project_id}/runs/{run_id} -> 200 (289.06 ms)
+[2026-11-16 01:15:46] INFO     cliptora.http: [request:d154d21b1095] GET /workflows/{project_id}/runs/{run_id} -> 200 (503.70 ms)
+[2026-11-16 01:15:50] INFO     cliptora.http: [request:9d69a668315d] GET /workflows/{project_id}/runs/{run_id} -> 200 (3080.52 ms)
+[2026-11-16 01:15:55] INFO     cliptora.http: [request:13ad7bb2b9d2] GET /workflows/{project_id}/runs/{run_id} -> 200 (5645.13 ms)
+[2026-11-16 01:15:55] INFO     cliptora.http: [request:51bfcddcabaa] GET /workflows/{project_id}/runs -> 200 (5757.09 ms)
+[2026-11-16 01:15:55] INFO     cliptora.http: [request:a7d2bbf2a02c] GET /workflows/{project_id}/runs/{run_id} -> 200 (4921.34 ms)
+[2026-11-16 01:15:56] INFO     cliptora.http: [request:b7dba3c3066f] GET /workflows/{project_id}/runs/{run_id} -> 200 (683.32 ms)
+[2026-11-16 01:15:57] INFO     cliptora.http: [request:2d87d5ede218] GET /workflows/{project_id}/runs/{run_id} -> 200 (769.69 ms)
+[2026-11-16 01:15:57] INFO     cliptora.http: [request:4256bdcf0d91] GET /workflows/{project_id}/runs/{run_id} -> 200 (585.72 ms)
+[2026-11-16 01:16:01] INFO     cliptora.http: [request:6382cb21fff5] GET /workflows/{project_id}/runs/{run_id} -> 200 (3341.61 ms)
+[2026-11-16 01:16:01] INFO     cliptora.http: [request:e882d903ad15] GET /workflows/{project_id}/runs -> 200 (3773.42 ms)
+[2026-11-16 01:16:01] INFO     cliptora.http: [request:36e72c77fe02] GET /workflows/{project_id}/runs/{run_id} -> 200 (535.86 ms)
+[2026-11-16 01:16:01] INFO     cliptora.http: [request:c390358398a5] GET /workflows/{project_id}/runs/{run_id} -> 200 (351.96 ms)
+[2026-11-16 01:16:02] INFO     cliptora.http: [request:fa79697a2df3] GET /workflows/{project_id}/runs/{run_id} -> 200 (271.14 ms)
+[2026-11-16 01:16:02] INFO     cliptora.http: [request:80a84bbd9158] GET /workflows/{project_id}/runs/{run_id} -> 200 (317.20 ms)
+[2026-11-16 01:16:03] INFO     cliptora.http: [request:4c56b57003d7] GET /workflows/{project_id}/runs/{run_id} -> 200 (399.54 ms)
+[2026-11-16 01:16:05] INFO     cliptora.http: [request:0ee70cd4a6c8] GET /workflows/{project_id}/runs/{run_id} -> 200 (1468.16 ms)
+[2026-11-16 01:16:08] INFO     cliptora.http: [request:ef555b8edf66] GET /workflows/{project_id}/runs -> 200 (4270.07 ms)
+[2026-11-16 01:16:08] INFO     cliptora.http: [request:7f0d0bb9903c] GET /workflows/{project_id}/runs/{run_id} -> 200 (1005.52 ms)
+[2026-11-16 01:16:09] INFO     cliptora.http: [request:2c90d22c6b3a] GET /workflows/{project_id}/runs/{run_id} -> 200 (707.46 ms)
+[2026-11-16 01:16:10] INFO     cliptora.http: [request:34499c521af7] GET /workflows/{project_id}/runs/{run_id} -> 200 (692.24 ms)
+[2026-11-16 01:16:10] INFO     cliptora.http: [request:1875f3025024] GET /workflows/{project_id}/runs/{run_id} -> 200 (493.71 ms)
+[2026-11-16 01:16:11] INFO     cliptora.http: [request:10ab95f1c7cf] GET /workflows/{project_id}/runs/{run_id} -> 200 (809.35 ms)
+[2026-11-16 01:16:15] INFO     cliptora.http: [request:d4ade0ecec7a] GET /workflows/{project_id}/runs -> 200 (4262.64 ms)
+[2026-11-16 01:16:16] INFO     cliptora.http: [request:f1af7121eae9] GET /workflows/{project_id}/runs/{run_id} -> 200 (612.45 ms)
+[2026-11-16 01:16:16] INFO     cliptora.http: [request:4fbb1e84b3f4] GET /workflows/{project_id}/runs/{run_id} -> 200 (530.41 ms)
+[2026-11-16 01:16:16] INFO     cliptora.http: [request:7271a47dc578] GET /workflows/{project_id}/runs/{run_id} -> 200 (480.71 ms)
+[2026-11-16 01:16:17] INFO     cliptora.http: [request:2ae2ecfd2ae8] GET /workflows/{project_id}/runs/{run_id} -> 200 (514.41 ms)
+[2026-11-16 01:16:19] INFO     cliptora.http: [request:03893716470b] GET /workflows/{project_id}/runs/{run_id} -> 200 (784.18 ms)
+[2026-11-16 01:16:22] INFO     cliptora.http: [request:bb377725784c] GET /workflows/{project_id}/runs -> 200 (4424.50 ms)
+[2026-11-16 01:16:23] INFO     cliptora.http: [request:9cccca0770c4] GET /workflows/{project_id}/runs/{run_id} -> 200 (469.11 ms)
+[2026-11-16 01:16:23] INFO     cliptora.http: [request:82b7a36822b0] GET /workflows/{project_id}/runs/{run_id} -> 200 (368.74 ms)
+[2026-11-16 01:16:24] INFO     cliptora.http: [request:1295ab31443e] GET /workflows/{project_id}/runs/{run_id} -> 200 (393.12 ms)
+[2026-11-16 01:16:24] INFO     cliptora.http: [request:9e43293ecdd2] GET /workflows/{project_id}/runs/{run_id} -> 200 (496.47 ms)
+[2026-11-16 01:16:28] INFO     cliptora.http: [request:7af2626e0fa1] GET /workflows/{project_id}/runs/{run_id} -> 200 (3444.64 ms)
+[2026-11-16 01:16:28] INFO     cliptora.http: [request:8fae4319ab25] GET /workflows/{project_id}/runs -> 200 (3373.60 ms)
+[2026-11-16 01:16:28] INFO     cliptora.http: [request:25e76019af81] GET /workflows/{project_id}/runs/{run_id} -> 200 (505.21 ms)
+[2026-11-16 01:16:29] INFO     cliptora.http: [request:e5a9e9b61a49] GET /workflows/{project_id}/runs/{run_id} -> 200 (342.23 ms)
+[2026-11-16 01:16:29] INFO     cliptora.http: [request:caee47f5c285] GET /workflows/{project_id}/runs/{run_id} -> 200 (443.45 ms)
+[2026-11-16 01:16:30] INFO     cliptora.http: [request:5d42849e8638] GET /workflows/{project_id}/runs/{run_id} -> 200 (414.91 ms)
+[2026-11-16 01:16:32] INFO     cliptora.http: [request:a2bf45e5eb67] GET /workflows/{project_id}/runs/{run_id} -> 200 (574.15 ms)
+[2026-11-16 01:16:34] INFO     cliptora.http: [request:8ccb1097402e] GET /workflows/{project_id}/runs -> 200 (2957.54 ms)
+[2026-11-16 01:16:35] INFO     cliptora.http: [request:747b3cfcddeb] GET /workflows/{project_id}/runs/{run_id} -> 200 (403.48 ms)
+[2026-11-16 01:16:35] INFO     cliptora.http: [request:e1b5a67f065a] GET /workflows/{project_id}/runs/{run_id} -> 200 (384.36 ms)
+[2026-11-16 01:16:36] INFO     cliptora.http: [request:a81276f1fb25] GET /workflows/{project_id}/runs/{run_id} -> 200 (446.02 ms)
+[2026-11-16 01:16:37] INFO     cliptora.http: [request:011e87be10a0] GET /workflows/{project_id}/runs/{run_id} -> 200 (507.94 ms)
+[2026-11-16 01:16:39] INFO     cliptora.http: [request:63f48e908d0e] GET /workflows/{project_id}/runs/{run_id} -> 200 (577.34 ms)
+[2026-11-16 01:16:41] INFO     cliptora.http: [request:6230cb816892] GET /workflows/{project_id}/runs -> 200 (2878.24 ms)
+[2026-11-16 01:16:42] INFO     cliptora.http: [request:d9652c058377] GET /workflows/{project_id}/runs/{run_id} -> 200 (471.80 ms)
+[2026-11-16 01:16:42] INFO     cliptora.http: [request:750591e00939] GET /workflows/{project_id}/runs/{run_id} -> 200 (577.27 ms)
+[2026-11-16 01:16:44] INFO     cliptora.http: [request:dc347c8bf6e8] GET /workflows/{project_id}/runs/{run_id} -> 200 (938.88 ms)
+[2026-11-16 01:16:45] INFO     cliptora.http: [request:71f5be9e6f45] GET /workflows/{project_id}/runs/{run_id} -> 200 (788.35 ms)
+[2026-11-16 01:16:47] INFO     cliptora.http: [request:3345ad085b29] GET /workflows/{project_id}/runs/{run_id} -> 200 (862.55 ms)
+[2026-11-16 01:16:53] INFO     cliptora.http: [request:4c5e91600eb8] GET /workflows/{project_id}/runs -> 200 (7040.46 ms)
+[2026-11-16 01:16:53] INFO     cliptora.http: [request:4478d3d60cae] GET /workflows/{project_id}/runs/{run_id} -> 200 (6137.52 ms)
+[2026-11-16 01:16:58] INFO     cliptora.http: [request:6905b00cde62] GET /workflows/{project_id}/runs/{run_id} -> 200 (4656.66 ms)
+[2026-11-16 01:16:58] INFO     cliptora.http: [request:911f528323d6] GET /workflows/{project_id}/runs -> 200 (4975.79 ms)
+[2026-11-16 01:16:58] INFO     cliptora.http: [request:5200cb8a37a1] GET /workflows/{project_id}/runs/{run_id} -> 200 (482.10 ms)
+[2026-11-16 01:16:59] INFO     cliptora.http: [request:b6e5519b62fb] GET /workflows/{project_id}/runs/{run_id} -> 200 (777.79 ms)
+[2026-11-16 01:17:00] INFO     cliptora.http: [request:268eda667a88] GET /workflows/{project_id}/runs/{run_id} -> 200 (696.17 ms)
+[2026-11-16 01:17:01] INFO     cliptora.http: [request:2a8a653e8667] GET /workflows/{project_id}/runs/{run_id} -> 200 (968.39 ms)
+[2026-11-16 01:17:04] INFO     cliptora.http: [request:8fea6e24d722] GET /workflows/{project_id}/runs -> 200 (3979.94 ms)
+[2026-11-16 01:17:04] INFO     cliptora.http: [request:67c907044e89] GET /workflows/{project_id}/runs/{run_id} -> 200 (3318.47 ms)
+[2026-11-16 01:17:05] INFO     cliptora.http: [request:cc7463ae7bbf] GET /workflows/{project_id}/runs/{run_id} -> 200 (665.46 ms)
+[2026-11-16 01:17:06] INFO     cliptora.http: [request:83b8cc3a5f2a] GET /workflows/{project_id}/runs/{run_id} -> 200 (541.59 ms)
+[2026-11-16 01:17:06] INFO     cliptora.http: [request:9a03d2e4ddfb] GET /workflows/{project_id}/runs/{run_id} -> 200 (361.31 ms)
+[2026-11-16 01:17:07] INFO     cliptora.http: [request:331195d0e873] GET /workflows/{project_id}/runs/{run_id} -> 200 (813.09 ms)
+[2026-11-16 01:17:07] INFO     cliptora.http: [request:92a6f4c2fc24] GET /workflows/{project_id}/runs/{run_id} -> 200 (607.32 ms)
+[2026-11-16 01:17:08] INFO     cliptora.http: [request:ea5255424bb7] GET /workflows/{project_id}/runs/{run_id} -> 200 (719.44 ms)
+[2026-11-16 01:17:09] INFO     cliptora.http: [request:3385e0b99692] GET /workflows/{project_id}/runs/{run_id} -> 200 (600.39 ms)
+[2026-11-16 01:17:10] INFO     cliptora.http: [request:38cc51b45588] GET /workflows/{project_id}/runs/{run_id} -> 200 (1744.47 ms)
+[2026-11-16 01:17:12] INFO     cliptora.http: [request:d9a76c9a4fcd] GET /workflows/{project_id}/runs/{run_id} -> 200 (724.39 ms)
+[2026-11-16 01:17:13] INFO     cliptora.http: [request:dfe55fd6ba0e] GET /workflows/{project_id}/runs/{run_id} -> 200 (788.65 ms)
+[2026-11-16 01:17:14] INFO     cliptora.http: [request:6f41d1d68e2e] GET /workflows/{project_id}/runs/{run_id} -> 200 (546.40 ms)
+[2026-11-16 01:17:14] INFO     cliptora.http: [request:1d8a2a459ac1] GET /workflows/{project_id}/runs/{run_id} -> 200 (558.84 ms)
+[2026-11-16 01:17:16] INFO     cliptora.http: [request:94ca89785ab4] GET /workflows/{project_id}/runs/{run_id} -> 200 (417.68 ms)
+[2026-11-16 01:17:17] INFO     cliptora.http: [request:d9f4790da232] GET /workflows/{project_id}/runs/{run_id} -> 200 (511.00 ms)
+[2026-11-16 01:17:20] INFO     cliptora.http: [request:235c044c13fc] GET /workflows/{project_id}/runs/{run_id} -> 200 (1006.21 ms)
+[2026-11-16 01:17:21] INFO     cliptora.http: [request:35e3b68409de] GET /workflows/{project_id}/runs/{run_id} -> 200 (876.98 ms)
+[2026-11-16 01:17:22] INFO     cliptora.http: [request:5c74201b9f64] GET /workflows/{project_id}/runs/{run_id} -> 200 (564.60 ms)
+[2026-11-16 01:17:24] INFO     cliptora.http: [request:6183e32db0f2] GET /workflows/{project_id}/runs/{run_id} -> 200 (950.74 ms)
+[2026-11-16 01:17:25] INFO     cliptora.http: [request:ad9f8cf97dfa] GET /workflows/{project_id}/runs/{run_id} -> 200 (1132.00 ms)
+[2026-11-16 01:17:26] INFO     cliptora.http: [request:94964f13b45e] GET /workflows/{project_id}/runs/{run_id} -> 200 (512.11 ms)
+[2026-11-16 01:17:27] INFO     cliptora.http: [request:a8c3a692d5f3] GET /workflows/{project_id}/runs/{run_id} -> 200 (336.90 ms)
+[2026-11-16 01:17:28] INFO     cliptora.http: [request:7757bfe42a1d] GET /workflows/{project_id}/runs/{run_id} -> 200 (577.19 ms)
+[2026-11-16 01:17:31] INFO     cliptora.http: [request:69eec435bd40] GET /workflows/{project_id}/runs/{run_id} -> 200 (1434.82 ms)
+[2026-11-16 01:17:32] INFO     cliptora.http: [request:9c2630f8094d] GET /workflows/{project_id}/runs/{run_id} -> 200 (1364.50 ms)
+[2026-11-16 01:17:32] INFO     cliptora.http: [request:a02d1ad0aa7e] GET /workflows/{project_id}/runs/{run_id} -> 200 (502.82 ms)
+[2026-11-16 01:17:34] INFO     cliptora.http: [request:6b4b67ec6aee] GET /workflows/{project_id}/runs/{run_id} -> 200 (844.01 ms)
+[2026-11-16 01:17:36] INFO     cliptora.http: [request:ed0eaf3f6e00] GET /workflows/{project_id}/runs/{run_id} -> 200 (1202.12 ms)
+[2026-11-16 01:17:37] INFO     cliptora.http: [request:f9f80c09a35f] GET /workflows/{project_id}/runs/{run_id} -> 200 (786.96 ms)
+[2026-11-16 01:17:39] INFO     cliptora.http: [request:e7bc6175482d] GET /workflows/{project_id}/runs/{run_id} -> 200 (1024.96 ms)
+[2026-11-16 01:17:39] INFO     cliptora.http: [request:372d9e0ab276] GET /workflows/{project_id}/runs/{run_id} -> 200 (538.07 ms)
+[2026-11-16 01:17:41] INFO     cliptora.http: [request:dd5007eed55a] GET /workflows/{project_id}/runs/{run_id} -> 200 (967.94 ms)
+[2026-11-16 01:17:44] INFO     cliptora.http: [request:6e5b0a20e292] GET /workflows/{project_id}/runs/{run_id} -> 200 (1094.95 ms)
+[2026-11-16 01:17:44] INFO     cliptora.http: [request:ccf71e356de7] GET /workflows/{project_id}/runs/{run_id} -> 200 (675.13 ms)
+[2026-11-16 01:17:45] INFO     cliptora.http: [request:35d96acba283] GET /workflows/{project_id}/runs/{run_id} -> 200 (802.56 ms)
+[2026-11-16 01:17:46] INFO     cliptora.http: [request:2d7b1fb27cc4] GET /workflows/{project_id}/runs/{run_id} -> 200 (712.81 ms)
+[2026-11-16 01:17:48] INFO     cliptora.http: [request:ab8493bc5a0e] GET /workflows/{project_id}/runs/{run_id} -> 200 (711.51 ms)
+[2026-11-16 01:17:49] INFO     cliptora.http: [request:28ddec9952d3] GET /workflows/{project_id}/runs/{run_id} -> 200 (632.25 ms)
+[2026-11-16 01:17:51] INFO     cliptora.http: [request:8815147501b7] GET /workflows/{project_id}/runs/{run_id} -> 200 (633.29 ms)
+[2026-11-16 01:17:53] INFO     cliptora.http: [request:51c846630598] GET /workflows/{project_id}/runs/{run_id} -> 200 (1483.22 ms)
+[2026-11-16 01:17:54] INFO     cliptora.http: [request:1f948d827bc0] GET /workflows/{project_id}/runs/{run_id} -> 200 (566.92 ms)
+[2026-11-16 01:17:56] INFO     cliptora.http: [request:41fbf1ddb2ef] GET /workflows/{project_id}/runs/{run_id} -> 200 (769.51 ms)
+[2026-11-16 01:17:57] INFO     cliptora.http: [request:07841dbeea90] GET /workflows/{project_id}/runs/{run_id} -> 200 (1003.89 ms)
+[2026-11-16 01:17:58] INFO     cliptora.http: [request:7eb41fe1845d] GET /workflows/{project_id}/runs/{run_id} -> 200 (835.95 ms)
+[2026-11-16 01:17:59] INFO     cliptora.http: [request:4bb070f20d6e] GET /workflows/{project_id}/runs/{run_id} -> 200 (915.89 ms)
+[2026-11-16 01:18:01] INFO     cliptora.http: [request:37aa3795e18a] GET /workflows/{project_id}/runs/{run_id} -> 200 (674.67 ms)
+[2026-11-16 01:18:03] INFO     cliptora.http: [request:07bc4294814a] GET /workflows/{project_id}/runs/{run_id} -> 200 (1049.38 ms)
+[2026-11-16 01:18:03] INFO     cliptora.http: [request:b94437705e76] GET /workflows/{project_id}/runs/{run_id} -> 200 (771.98 ms)
+[2026-11-16 01:18:06] INFO     cliptora.http: [request:49170cb7542e] GET /workflows/{project_id}/runs/{run_id} -> 200 (817.99 ms)
+[2026-11-16 01:18:07] INFO     cliptora.http: [request:64b53afa452b] GET /workflows/{project_id}/runs/{run_id} -> 200 (674.38 ms)
+[2026-11-16 01:18:09] INFO     cliptora.http: [request:00678de5a304] GET /workflows/{project_id}/runs/{run_id} -> 200 (1550.98 ms)
+[2026-11-16 01:18:10] INFO     cliptora.http: [request:89650c649856] GET /workflows/{project_id}/runs/{run_id} -> 200 (1051.39 ms)
+[2026-11-16 01:18:11] INFO     cliptora.http: [request:79b9d9a40c13] GET /workflows/{project_id}/runs/{run_id} -> 200 (811.93 ms)
+[2026-11-16 01:18:12] INFO     cliptora.http: [request:640e658fca15] GET /workflows/{project_id}/runs/{run_id} -> 200 (872.68 ms)
+[2026-11-16 01:18:14] INFO     cliptora.http: [request:449e44a09cbc] GET /workflows/{project_id}/runs/{run_id} -> 200 (915.94 ms)
+[2026-11-16 01:18:15] INFO     cliptora.http: [request:04779a1fb504] GET /workflows/{project_id}/runs/{run_id} -> 200 (1010.95 ms)
+[2026-11-16 01:18:16] INFO     cliptora.http: [request:304711ce1273] GET /workflows/{project_id}/runs/{run_id} -> 200 (951.68 ms)
+[2026-11-16 01:18:17] INFO     cliptora.http: [request:14fe37822476] GET /workflows/{project_id}/runs/{run_id} -> 200 (671.54 ms)
+[2026-11-16 01:18:20] INFO     cliptora.http: [request:9b337a7cc330] GET /workflows/{project_id}/runs/{run_id} -> 200 (1317.79 ms)
+[2026-11-16 01:18:21] INFO     cliptora.http: [request:3e7c1234d7aa] GET /workflows/{project_id}/runs/{run_id} -> 200 (1131.20 ms)
+[2026-11-16 01:18:22] INFO     cliptora.http: [request:ff0ff204ff2f] GET /workflows/{project_id}/runs/{run_id} -> 200 (1188.68 ms)
+[2026-11-16 01:18:23] INFO     cliptora.http: [request:0ea9452b7c3b] GET /workflows/{project_id}/runs/{run_id} -> 200 (756.83 ms)
+[2026-11-16 01:18:25] INFO     cliptora.http: [request:bdc7dfe74192] GET /workflows/{project_id}/runs/{run_id} -> 200 (1243.07 ms)
+[2026-11-16 01:18:26] INFO     cliptora.http: [request:1c46b4a3632b] GET /workflows/{project_id}/runs/{run_id} -> 200 (1130.90 ms)
+[2026-11-16 01:18:28] INFO     cliptora.http: [request:57876da5b3dd] GET /workflows/{project_id}/runs/{run_id} -> 200 (1582.05 ms)
+[2026-11-16 01:18:29] INFO     cliptora.http: [request:ad0dea84d044] GET /workflows/{project_id}/runs/{run_id} -> 200 (1772.96 ms)
+[2026-11-16 01:18:31] INFO     cliptora.http: [request:b415d233b8d6] GET /workflows/{project_id}/runs/{run_id} -> 200 (1344.99 ms)
+[2026-11-16 01:18:32] INFO     cliptora.http: [request:e58a4d9bb541] GET /workflows/{project_id}/runs/{run_id} -> 200 (993.15 ms)
+[2026-11-16 01:18:34] INFO     cliptora.http: [request:258a7408ec76] GET /workflows/{project_id}/runs/{run_id} -> 200 (1301.11 ms)
+[2026-11-16 01:18:37] INFO     cliptora.http: [request:1e0c4d8dba82] GET /workflows/{project_id}/runs/{run_id} -> 200 (2529.17 ms)
+[2026-11-16 01:18:39] INFO     cliptora.http: [request:2dd2f19066df] GET /workflows/{project_id}/runs/{run_id} -> 200 (2119.27 ms)
+[2026-11-16 01:18:41] INFO     cliptora.http: [request:453b40d044ef] GET /workflows/{project_id}/runs/{run_id} -> 200 (1757.10 ms)
+[2026-11-16 01:18:43] INFO     cliptora.http: [request:931412190b30] GET /workflows/{project_id}/runs/{run_id} -> 200 (1467.46 ms)
+[2026-11-16 01:18:45] INFO     cliptora.http: [request:8a4ce9776feb] GET /workflows/{project_id}/runs/{run_id} -> 200 (1664.38 ms)
+[2026-11-16 01:18:47] INFO     cliptora.http: [request:77b3f25e6069] GET /workflows/{project_id}/runs/{run_id} -> 200 (1980.89 ms)
+[2026-11-16 01:18:50] INFO     cliptora.http: [request:2ad8a87b4460] GET /workflows/{project_id}/runs/{run_id} -> 200 (1379.71 ms)
+[2026-11-16 01:18:52] INFO     cliptora.http: [request:5aee84b99403] GET /workflows/{project_id}/runs/{run_id} -> 200 (2317.47 ms)
+[2026-11-16 01:18:53] INFO     cliptora.http: [request:81d90ff78bde] GET /workflows/{project_id}/runs/{run_id} -> 200 (935.12 ms)
+[2026-11-16 01:18:55] INFO     cliptora.http: [request:6267ce0cf255] GET /workflows/{project_id}/runs/{run_id} -> 200 (909.98 ms)
+[2026-11-16 01:18:57] INFO     cliptora.http: [request:2fcc549d9379] GET /workflows/{project_id}/runs/{run_id} -> 200 (1503.82 ms)
+[2026-11-16 01:18:59] INFO     cliptora.http: [request:cca83d1bd54f] GET /workflows/{project_id}/runs/{run_id} -> 200 (831.04 ms)
+[2026-11-16 01:19:00] INFO     cliptora.http: [request:f8402563c8e2] GET /workflows/{project_id}/runs/{run_id} -> 200 (759.42 ms)
+[2026-11-16 01:19:01] INFO     cliptora.http: [request:b1f32eb952ba] GET /workflows/{project_id}/runs/{run_id} -> 200 (493.13 ms)
+[2026-11-16 01:19:01] INFO     cliptora.http: [request:c4034d19829c] GET /workflows/{project_id}/runs/{run_id} -> 200 (553.24 ms)
+[2026-11-16 01:19:02] INFO     cliptora.http: [request:525937c3a561] GET /workflows/{project_id}/runs/{run_id} -> 200 (549.18 ms)
+[2026-11-16 01:19:02] INFO     cliptora.http: [request:bbe5a51cadfd] GET /workflows/{project_id}/runs/{run_id} -> 200 (604.55 ms)
+[2026-11-16 01:19:03] INFO     cliptora.http: [request:c3c58bd21c20] GET /workflows/{project_id}/runs/{run_id} -> 200 (590.71 ms)
+[2026-11-16 01:19:04] INFO     cliptora.http: [request:7a747ee46562] GET /workflows/{project_id}/runs/{run_id} -> 200 (1386.77 ms)
+[2026-11-16 01:19:06] INFO     cliptora.http: [request:355bc5f218c9] GET /workflows/{project_id}/runs/{run_id} -> 200 (1129.60 ms)
+[2026-11-16 01:19:07] INFO     cliptora.http: [request:2bafaaf87959] GET /workflows/{project_id}/runs/{run_id} -> 200 (1114.85 ms)
+[2026-11-16 01:19:08] INFO     cliptora.http: [request:e0031b2dc63c] GET /workflows/{project_id}/runs/{run_id} -> 200 (1360.89 ms)
+[2026-11-16 01:19:09] INFO     cliptora.http: [request:f841258391b9] GET /workflows/{project_id}/runs/{run_id} -> 200 (900.56 ms)
+[2026-11-16 01:19:10] INFO     cliptora.http: [request:ecff34d39449] GET /workflows/{project_id}/runs/{run_id} -> 200 (846.28 ms)
+[2026-11-16 01:19:10] INFO     cliptora.http: [request:669ec14c9f41] GET /workflows/{project_id}/runs/{run_id} -> 200 (955.24 ms)
+[2026-11-16 01:19:12] INFO     cliptora.http: [request:4981b9b77d79] GET /workflows/{project_id}/runs/{run_id} -> 200 (1246.73 ms)
+[2026-11-16 01:19:12] INFO     cliptora.http: [request:9823ab9f0ab0] GET /workflows/{project_id}/runs/{run_id} -> 200 (777.07 ms)
+[2026-11-16 01:19:13] INFO     cliptora.http: [request:9bf3ee0aa1b8] GET /workflows/{project_id}/runs/{run_id} -> 200 (785.90 ms)
+[2026-11-16 01:19:14] INFO     cliptora.http: [request:e43a3f8d42ea] GET /workflows/{project_id}/runs/{run_id} -> 200 (706.47 ms)
+[2026-11-16 01:19:15] INFO     cliptora.http: [request:f765c2fd22f7] GET /workflows/{project_id}/runs/{run_id} -> 200 (952.02 ms)
+[2026-11-16 01:19:17] INFO     cliptora.http: [request:8c149b88b0c7] GET /workflows/{project_id}/runs/{run_id} -> 200 (764.48 ms)
+[2026-11-16 01:19:17] INFO     cliptora.http: [request:afce3884162d] GET /workflows/{project_id}/runs/{run_id} -> 200 (758.42 ms)
+[2026-11-16 01:19:19] INFO     cliptora.http: [request:5ea98930a5ba] GET /workflows/{project_id}/runs/{run_id} -> 200 (650.85 ms)
+[2026-11-16 01:19:21] INFO     cliptora.http: [request:e278203e09eb] GET /workflows/{project_id}/runs/{run_id} -> 200 (622.44 ms)
+[2026-11-16 01:19:22] INFO     cliptora.http: [request:fd056e29f1a5] GET /workflows/{project_id}/runs/{run_id} -> 200 (503.78 ms)
+[2026-11-16 01:19:23] INFO     cliptora.http: [request:c4a756de4616] GET /workflows/{project_id}/runs/{run_id} -> 200 (458.46 ms)
+[2026-11-16 01:19:25] INFO     cliptora.http: [request:40756327689a] GET /workflows/{project_id}/runs/{run_id} -> 200 (636.92 ms)
+[2026-11-16 01:19:26] INFO     cliptora.http: [request:844aed1714be] GET /workflows/{project_id}/runs/{run_id} -> 200 (554.02 ms)
+[2026-11-16 01:19:27] INFO     cliptora.http: [request:d554c74bfffe] GET /workflows/{project_id}/runs/{run_id} -> 200 (814.23 ms)
+[2026-11-16 01:19:29] INFO     cliptora.http: [request:1223934f18b0] GET /workflows/{project_id}/runs/{run_id} -> 200 (717.66 ms)
+[2026-11-16 01:19:30] INFO     cliptora.http: [request:31f3e8eaace2] GET /workflows/{project_id}/runs/{run_id} -> 200 (525.54 ms)
+[2026-11-16 01:19:32] INFO     cliptora.http: [request:dd5c3b51c481] GET /workflows/{project_id}/runs/{run_id} -> 200 (934.53 ms)
+[2026-11-16 01:19:33] INFO     cliptora.http: [request:bf6f12d7ac82] GET /workflows/{project_id}/runs/{run_id} -> 200 (908.45 ms)
+[2026-11-16 01:19:34] INFO     cliptora.http: [request:5d5f09e473e2] GET /workflows/{project_id}/runs/{run_id} -> 200 (450.95 ms)
+[2026-11-16 01:19:36] INFO     cliptora.http: [request:8d1b7b658f66] GET /workflows/{project_id}/runs/{run_id} -> 200 (616.24 ms)
+[2026-11-16 01:19:37] INFO     cliptora.http: [request:7f737949fd22] GET /workflows/{project_id}/runs/{run_id} -> 200 (506.49 ms)
+[2026-11-16 01:19:38] INFO     cliptora.http: [request:8aa57cf9a1a6] GET /workflows/{project_id}/runs/{run_id} -> 200 (694.33 ms)
+[2026-11-16 01:19:41] INFO     cliptora.http: [request:b18ac67128e7] GET /workflows/{project_id}/runs/{run_id} -> 200 (1321.28 ms)
+[2026-11-16 01:19:42] INFO     cliptora.http: [request:8b671b1224c7] GET /workflows/{project_id}/runs/{run_id} -> 200 (817.83 ms)
+[2026-11-16 01:19:43] INFO     cliptora.http: [request:43f4d4a1e074] GET /workflows/{project_id}/runs/{run_id} -> 200 (900.30 ms)
+[2026-11-16 01:19:45] INFO     cliptora.http: [request:bf035280fbbf] GET /workflows/{project_id}/runs/{run_id} -> 200 (855.43 ms)
+[2026-11-16 01:19:45] INFO     cliptora.http: [request:e83e4fc31129] GET /workflows/{project_id}/runs/{run_id} -> 200 (777.16 ms)
+[2026-11-16 01:19:47] INFO     cliptora.http: [request:addc24fd4e77] GET /workflows/{project_id}/runs/{run_id} -> 200 (630.27 ms)
+[2026-11-16 01:19:48] INFO     cliptora.http: [request:33fd9d2498ab] GET /workflows/{project_id}/runs/{run_id} -> 200 (599.28 ms)
+[2026-11-16 01:19:50] INFO     cliptora.http: [request:1f4c8ebb7c52] GET /workflows/{project_id}/runs/{run_id} -> 200 (748.70 ms)
+[2026-11-16 01:19:52] INFO     cliptora.http: [request:05d00032186d] GET /workflows/{project_id}/runs/{run_id} -> 200 (1001.05 ms)
+[2026-11-16 01:19:53] INFO     cliptora.http: [request:249a339b3359] GET /workflows/{project_id}/runs/{run_id} -> 200 (1025.11 ms)
+[2026-11-16 01:19:54] INFO     cliptora.http: [request:c20aaa51b368] GET /workflows/{project_id}/runs/{run_id} -> 200 (1104.77 ms)
+[2026-11-16 01:19:56] INFO     cliptora.http: [request:7e425aa213ce] GET /workflows/{project_id}/runs/{run_id} -> 200 (1020.75 ms)
+[2026-11-16 01:19:57] INFO     cliptora.http: [request:6bc28ff32157] GET /workflows/{project_id}/runs/{run_id} -> 200 (605.48 ms)
+[2026-11-16 01:19:58] INFO     cliptora.http: [request:13aa0536f35b] GET /workflows/{project_id}/runs/{run_id} -> 200 (410.32 ms)
+[2026-11-16 01:20:00] INFO     cliptora.http: [request:4dc7b7f2709b] GET /workflows/{project_id}/runs/{run_id} -> 200 (596.52 ms)
+[2026-11-16 01:20:01] INFO     cliptora.http: [request:9acee0eef451] GET /workflows/{project_id}/runs/{run_id} -> 200 (506.00 ms)
+[2026-11-16 01:20:02] INFO     cliptora.http: [request:ad8b5dff873c] GET /workflows/{project_id}/runs/{run_id} -> 200 (720.49 ms)
+[2026-11-16 01:20:04] INFO     cliptora.http: [request:dc9310c52b61] GET /workflows/{project_id}/runs/{run_id} -> 200 (469.04 ms)
+[2026-11-16 01:20:05] INFO     cliptora.http: [request:7e04f14d6a26] GET /workflows/{project_id}/runs/{run_id} -> 200 (685.07 ms)
+[2026-11-16 01:20:07] INFO     cliptora.http: [request:f8051308541c] GET /workflows/{project_id}/runs/{run_id} -> 200 (558.56 ms)
+[2026-11-16 01:20:07] INFO     cliptora.http: [request:cd94cebff9ee] GET /workflows/{project_id}/runs/{run_id} -> 200 (352.57 ms)
+[2026-11-16 01:20:09] INFO     cliptora.http: [request:e79a19f75865] GET /workflows/{project_id}/runs/{run_id} -> 200 (411.60 ms)
+[2026-11-16 01:20:10] INFO     cliptora.http: [request:b8e5e97138e7] GET /workflows/{project_id}/runs/{run_id} -> 200 (252.46 ms)
+[2026-11-16 01:20:11] INFO     cliptora.http: [request:7112c635c245] GET /workflows/{project_id}/runs/{run_id} -> 200 (464.89 ms)
+[2026-11-16 01:20:13] INFO     cliptora.http: [request:dcf891b27ee3] GET /workflows/{project_id}/runs/{run_id} -> 200 (487.92 ms)
+[2026-11-16 01:20:15] INFO     cliptora.http: [request:22d8df61f06e] GET /workflows/{project_id}/runs -> 200 (2322.46 ms)
+[2026-11-16 01:20:15] INFO     cliptora.http: [request:2fcb059b23dd] GET /workflows/{project_id}/runs/{run_id} -> 200 (556.31 ms)
+[2026-11-16 01:20:16] INFO     cliptora.http: [request:55d92c6d2835] GET /workflows/{project_id}/runs/{run_id} -> 200 (576.74 ms)
+[2026-11-16 01:20:17] INFO     cliptora.http: [request:69cbce53b547] GET /workflows/{project_id}/runs/{run_id} -> 200 (233.75 ms)
+[2026-11-16 01:20:18] INFO     cliptora.http: [request:c8204113b597] GET /workflows/{project_id}/runs/{run_id} -> 200 (272.41 ms)
+[2026-11-16 01:20:20] INFO     cliptora.http: [request:14133f80bb86] GET /workflows/{project_id}/runs/{run_id} -> 200 (148.48 ms)
+[2026-11-16 01:20:21] INFO     cliptora.http: [request:e62348f95fca] GET /workflows/{project_id}/runs -> 200 (1091.15 ms)
+[2026-11-16 01:20:21] INFO     cliptora.http: [request:4f024a95346d] GET /workflows/{project_id}/runs/{run_id} -> 200 (169.18 ms)
+[2026-11-16 01:20:23] INFO     cliptora.http: [request:1915e2d65ec8] GET /workflows/{project_id}/runs/{run_id} -> 200 (502.16 ms)
+[2026-11-16 01:20:24] INFO     cliptora.http: [request:27777734d1a4] GET /workflows/{project_id}/runs/{run_id} -> 200 (969.64 ms)
+[2026-11-16 01:20:24] INFO     cliptora.http: [request:9d8fc7716096] GET /workflows/{project_id}/runs/{run_id} -> 200 (432.57 ms)
+[2026-11-16 01:20:25] INFO     cliptora.http: [request:35482a7ceb92] GET /workflows/{project_id}/runs/{run_id} -> 200 (109.15 ms)
+[2026-11-16 01:20:27] INFO     cliptora.http: [request:8ef41f5b720d] GET /workflows/{project_id}/runs/{run_id} -> 200 (154.58 ms)
+[2026-11-16 01:20:27] INFO     cliptora.http: [request:023fc074a457] GET /workflows/{project_id}/runs -> 200 (901.08 ms)
+[2026-11-16 01:20:28] INFO     cliptora.http: [request:117cefc3dcf1] GET /workflows/{project_id}/runs/{run_id} -> 200 (199.94 ms)
+[2026-11-16 01:20:29] INFO     cliptora.http: [request:624d6f25a389] GET /workflows/{project_id}/runs/{run_id} -> 200 (193.79 ms)
+[2026-11-16 01:20:31] INFO     cliptora.http: [request:3a2e4e8436b0] GET /workflows/{project_id}/runs/{run_id} -> 200 (278.76 ms)
+[2026-11-16 01:20:33] INFO     cliptora.http: [request:082475f9f498] GET /workflows/{project_id}/runs/{run_id} -> 200 (465.94 ms)
+[2026-11-16 01:20:35] INFO     cliptora.http: [request:962f10de73e9] GET /workflows/{project_id}/runs/{run_id} -> 200 (539.08 ms)
+[2026-11-16 01:20:37] INFO     cliptora.http: [request:51a8fc684c74] GET /workflows/{project_id}/runs/{run_id} -> 200 (875.06 ms)
+[2026-11-16 01:20:38] INFO     cliptora.http: [request:606ae64cc8ec] GET /workflows/{project_id}/runs/{run_id} -> 200 (938.91 ms)
+[2026-11-16 01:20:39] INFO     cliptora.http: [request:2de0d9915602] GET /workflows/{project_id}/runs/{run_id} -> 200 (539.56 ms)
+[2026-11-16 01:20:41] INFO     cliptora.http: [request:41dbe7ef48f0] GET /workflows/{project_id}/runs/{run_id} -> 200 (584.20 ms)
+[2026-11-16 01:20:42] INFO     cliptora.http: [request:9dae678d5e40] GET /workflows/{project_id}/runs/{run_id} -> 200 (621.53 ms)
+[2026-11-16 01:20:43] INFO     cliptora.http: [request:43cef26980ce] GET /workflows/{project_id}/runs/{run_id} -> 200 (561.35 ms)
+[2026-11-16 01:20:45] INFO     cliptora.http: [request:ba1b128843a3] GET /workflows/{project_id}/runs/{run_id} -> 200 (391.77 ms)
+[2026-11-16 01:20:46] INFO     cliptora.http: [request:1700a74328f3] GET /workflows/{project_id}/runs/{run_id} -> 200 (581.16 ms)
+[2026-11-16 01:20:48] INFO     cliptora.http: [request:b66f16e833e0] GET /workflows/{project_id}/runs/{run_id} -> 200 (216.12 ms)
+[2026-11-16 01:20:49] INFO     cliptora.http: [request:cb527bace1c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (230.06 ms)
+[2026-11-16 01:20:50] INFO     cliptora.http: [request:fa038eb53267] GET /workflows/{project_id}/runs/{run_id} -> 200 (251.68 ms)
+[2026-11-16 01:20:52] INFO     cliptora.http: [request:0e22fc351430] GET /workflows/{project_id}/runs/{run_id} -> 200 (565.98 ms)
+[2026-11-16 01:20:53] INFO     cliptora.http: [request:13d413b545e0] GET /workflows/{project_id}/runs/{run_id} -> 200 (372.64 ms)
+[2026-11-16 01:20:54] INFO     cliptora.http: [request:5c358a338c50] GET /workflows/{project_id}/runs/{run_id} -> 200 (183.55 ms)
+[2026-11-16 01:20:55] INFO     cliptora.http: [request:b7a8a51fac16] GET /workflows/{project_id}/runs/{run_id} -> 200 (319.97 ms)
+[2026-11-16 01:20:56] INFO     cliptora.http: [request:c34104b03965] GET /workflows/{project_id}/runs/{run_id} -> 200 (175.13 ms)
+[2026-11-16 01:20:58] INFO     cliptora.http: [request:2fe87d9dce26] GET /workflows/{project_id}/runs/{run_id} -> 200 (240.89 ms)
+[2026-11-16 01:20:59] INFO     cliptora.http: [request:b29933acd7e2] GET /workflows/{project_id}/runs/{run_id} -> 200 (239.51 ms)
+[2026-11-16 01:21:01] INFO     cliptora.http: [request:67668c4944c9] GET /workflows/{project_id}/runs/{run_id} -> 200 (273.29 ms)
+[2026-11-16 01:21:02] INFO     cliptora.http: [request:21198c2870cb] GET /workflows/{project_id}/runs/{run_id} -> 200 (279.24 ms)
+[2026-11-16 01:21:04] INFO     cliptora.http: [request:51ed961642de] GET /workflows/{project_id}/runs/{run_id} -> 200 (247.45 ms)
+[2026-11-16 01:21:05] INFO     cliptora.http: [request:153f9b6c8e17] GET /workflows/{project_id}/runs/{run_id} -> 200 (323.60 ms)
+[2026-11-16 01:21:06] INFO     cliptora.http: [request:b79025db25f0] GET /workflows/{project_id}/runs/{run_id} -> 200 (148.78 ms)
+[2026-11-16 01:21:08] INFO     cliptora.http: [request:7b7998faaee0] GET /workflows/{project_id}/runs/{run_id} -> 200 (380.86 ms)
+[2026-11-16 01:21:09] INFO     cliptora.http: [request:d26e1b7fae5f] GET /workflows/{project_id}/runs/{run_id} -> 200 (140.86 ms)
+[2026-11-16 01:21:10] INFO     cliptora.http: [request:a273673f1bf2] GET /workflows/{project_id}/runs/{run_id} -> 200 (143.59 ms)
+[2026-11-16 01:21:12] INFO     cliptora.http: [request:bd93776e8f00] GET /workflows/{project_id}/runs/{run_id} -> 200 (253.43 ms)
+[2026-11-16 01:21:13] INFO     cliptora.http: [request:434b6ad666b1] GET /workflows/{project_id}/runs/{run_id} -> 200 (148.73 ms)
+[2026-11-16 01:21:15] INFO     cliptora.http: [request:874a47efdb33] GET /workflows/{project_id}/runs/{run_id} -> 200 (210.77 ms)
+[2026-11-16 01:21:16] INFO     cliptora.http: [request:c0bcef859d3d] GET /workflows/{project_id}/runs/{run_id} -> 200 (517.56 ms)
+[2026-11-16 01:21:18] INFO     cliptora.http: [request:09ad3658b86e] GET /workflows/{project_id}/runs/{run_id} -> 200 (291.70 ms)
+[2026-11-16 01:21:19] INFO     cliptora.http: [request:54a92a964d4e] GET /workflows/{project_id}/runs/{run_id} -> 200 (397.80 ms)
+[2026-11-16 01:21:20] INFO     cliptora.http: [request:46cb692947b0] GET /workflows/{project_id}/runs/{run_id} -> 200 (214.90 ms)
+[2026-11-16 01:21:22] INFO     cliptora.http: [request:fcc11eec81a1] GET /workflows/{project_id}/runs/{run_id} -> 200 (153.61 ms)
+[2026-11-16 01:21:23] INFO     cliptora.http: [request:51871d14da0a] GET /workflows/{project_id}/runs/{run_id} -> 200 (220.12 ms)
+[2026-11-16 01:21:25] INFO     cliptora.http: [request:488e01145b40] GET /workflows/{project_id}/runs/{run_id} -> 200 (210.14 ms)
+[2026-11-16 01:21:26] INFO     cliptora.http: [request:6607ea71449d] GET /workflows/{project_id}/runs/{run_id} -> 200 (150.38 ms)
+[2026-11-16 01:21:27] INFO     cliptora.http: [request:baa5d93328c7] GET /workflows/{project_id}/runs/{run_id} -> 200 (155.34 ms)
+[2026-11-16 01:21:29] INFO     cliptora.http: [request:e86360cca734] GET /workflows/{project_id}/runs/{run_id} -> 200 (166.17 ms)
+[2026-11-16 01:21:30] INFO     cliptora.http: [request:d19519bf1994] GET /workflows/{project_id}/runs/{run_id} -> 200 (267.70 ms)
+[2026-11-16 01:21:32] INFO     cliptora.http: [request:8813eb14027b] GET /workflows/{project_id}/runs/{run_id} -> 200 (627.18 ms)
+[2026-11-16 01:21:34] INFO     cliptora.http: [request:84a2105599b6] GET /workflows/{project_id}/runs/{run_id} -> 200 (633.15 ms)
+[2026-11-16 01:21:35] INFO     cliptora.http: [request:452a845d83fc] GET /workflows/{project_id}/runs/{run_id} -> 200 (410.46 ms)
+[2026-11-16 01:21:36] INFO     cliptora.http: [request:062031622535] GET /workflows/{project_id}/runs/{run_id} -> 200 (239.09 ms)
+[2026-11-16 01:21:38] INFO     cliptora.http: [request:e4c77b6a827e] GET /workflows/{project_id}/runs/{run_id} -> 200 (400.74 ms)
+[2026-11-16 01:21:39] INFO     cliptora.http: [request:b9d9ff8e2365] GET /workflows/{project_id}/runs/{run_id} -> 200 (133.74 ms)
+[2026-11-16 01:21:40] INFO     cliptora.http: [request:6a88b0bd17ba] GET /workflows/{project_id}/runs/{run_id} -> 200 (113.00 ms)
+[2026-11-16 01:21:41] INFO     cliptora.http: [request:f4b39a0adaf5] GET /workflows/{project_id}/runs/{run_id} -> 200 (191.88 ms)
+[2026-11-16 01:21:43] INFO     cliptora.http: [request:822a8ae8c248] GET /workflows/{project_id}/runs/{run_id} -> 200 (349.24 ms)
+[2026-11-16 01:21:45] INFO     cliptora.http: [request:9e751dee2a5d] GET /workflows/{project_id}/runs/{run_id} -> 200 (699.21 ms)
+[2026-11-16 01:21:46] INFO     cliptora.http: [request:dc18a2e7efce] GET /workflows/{project_id}/runs/{run_id} -> 200 (1025.48 ms)
+[2026-11-16 01:21:47] INFO     cliptora.http: [request:6dea4538a188] GET /workflows/{project_id}/runs/{run_id} -> 200 (263.85 ms)
+[2026-11-16 01:21:49] INFO     cliptora.http: [request:31a13ca49b47] GET /workflows/{project_id}/runs/{run_id} -> 200 (588.12 ms)
+[2026-11-16 01:21:50] INFO     cliptora.http: [request:2b073d3cf4bc] GET /workflows/{project_id}/runs/{run_id} -> 200 (664.50 ms)
+[2026-11-16 01:21:51] INFO     cliptora.http: [request:afa5ca57651d] GET /workflows/{project_id}/runs/{run_id} -> 200 (393.54 ms)
+[2026-11-16 01:21:53] INFO     cliptora.http: [request:b5f47d102013] GET /workflows/{project_id}/runs/{run_id} -> 200 (343.87 ms)
+[2026-11-16 01:21:54] INFO     cliptora.http: [request:389a1087f93d] GET /workflows/{project_id}/runs/{run_id} -> 200 (245.78 ms)
+[2026-11-16 01:21:55] INFO     cliptora.http: [request:b53493e67e68] GET /workflows/{project_id}/runs/{run_id} -> 200 (232.12 ms)
+[2026-11-16 01:21:57] INFO     cliptora.http: [request:c83a48b2a7a3] GET /workflows/{project_id}/runs/{run_id} -> 200 (305.98 ms)
+[2026-11-16 01:21:59] INFO     cliptora.http: [request:3b01f63729ef] GET /workflows/{project_id}/runs/{run_id} -> 200 (1017.41 ms)
+[2026-11-16 01:22:00] INFO     cliptora.http: [request:beb4747a054c] GET /workflows/{project_id}/runs/{run_id} -> 200 (937.74 ms)
+[2026-11-16 01:22:02] INFO     cliptora.http: [request:f8b7717d3af1] GET /workflows/{project_id}/runs/{run_id} -> 200 (492.33 ms)
+[2026-11-16 01:22:03] INFO     cliptora.http: [request:8f627e67ad48] GET /workflows/{project_id}/runs/{run_id} -> 200 (916.00 ms)
+[2026-11-16 01:22:05] INFO     cliptora.http: [request:057f49d22b41] GET /workflows/{project_id}/runs/{run_id} -> 200 (693.10 ms)
+[2026-11-16 01:22:06] INFO     cliptora.http: [request:6b3826ab3b6c] GET /workflows/{project_id}/runs/{run_id} -> 200 (855.08 ms)
+[2026-11-16 01:22:08] INFO     cliptora.http: [request:c7daa5becbba] GET /workflows/{project_id}/runs/{run_id} -> 200 (897.74 ms)
+[2026-11-16 01:22:08] INFO     cliptora.http: [request:290e37591b7c] GET /workflows/{project_id}/runs/{run_id} -> 200 (478.20 ms)
+[2026-11-16 01:22:11] INFO     cliptora.http: [request:ec57f538b633] GET /workflows/{project_id}/runs/{run_id} -> 200 (704.82 ms)
+[2026-11-16 01:22:12] INFO     cliptora.http: [request:179b6cb4da38] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (1746.87 ms)
+[2026-11-16 01:22:13] INFO     cliptora.http: [request:c6f878e66a18] GET /workflows/{project_id}/runs/{run_id} -> 200 (1749.11 ms)
+[2026-11-16 01:22:14] INFO     cliptora.http: [request:704e808911df] GET /workflows/{project_id}/runs/{run_id} -> 200 (557.50 ms)
+[2026-11-16 01:22:20] INFO     cliptora.http: [request:85b85679c01e] GET /workflows/{project_id}/runs/{run_id} -> 200 (377.98 ms)
+[2026-11-16 01:22:21] INFO     cliptora.http: [request:81c1583ab8b7] GET /workflows/{project_id}/runs/{run_id} -> 200 (410.31 ms)
+[2026-11-16 01:22:23] INFO     cliptora.http: [request:2652b98a873a] GET /workflows/{project_id}/runs/{run_id} -> 200 (499.18 ms)
+[2026-11-16 01:22:24] INFO     cliptora.http: [request:2735bda5330b] GET /workflows/{project_id}/runs/{run_id} -> 200 (776.46 ms)
+[2026-11-16 01:22:26] INFO     cliptora.http: [request:22e9a26ba166] GET /workflows/{project_id}/runs/{run_id} -> 200 (901.84 ms)
+[2026-11-16 01:22:27] INFO     cliptora.http: [request:a4c2641e65c1] GET /workflows/{project_id}/runs/{run_id} -> 200 (644.58 ms)
+[2026-11-16 01:22:28] INFO     cliptora.http: [request:edb261179fb3] GET /workflows/{project_id}/runs/{run_id} -> 200 (457.27 ms)
+[2026-11-16 01:22:29] INFO     cliptora.http: [request:e93613cd47a2] GET /workflows/{project_id}/runs/{run_id} -> 200 (447.79 ms)
+[2026-11-16 01:22:30] INFO     cliptora.http: [request:7a1c64f7340e] GET /workflows/{project_id}/runs/{run_id} -> 200 (233.97 ms)
+[2026-11-16 01:22:32] INFO     cliptora.http: [request:e9bd95815123] GET /workflows/{project_id}/runs/{run_id} -> 200 (143.84 ms)
+[2026-11-16 01:22:33] INFO     cliptora.http: [request:4d545f60c29e] GET /workflows/{project_id}/runs/{run_id} -> 200 (211.53 ms)
+[2026-11-16 01:22:34] INFO     cliptora.http: [request:04f0f95cc086] GET /workflows/{project_id}/runs/{run_id} -> 200 (129.56 ms)
+[2026-11-16 01:22:36] INFO     cliptora.http: [request:3b811d9c5665] GET /workflows/{project_id}/runs/{run_id} -> 200 (472.17 ms)
+[2026-11-16 01:22:37] INFO     cliptora.http: [request:82fe2433a0d4] GET /workflows/{project_id}/runs/{run_id} -> 200 (384.56 ms)
+[2026-11-16 01:22:39] INFO     cliptora.http: [request:5378d8c03162] GET /workflows/{project_id}/runs/{run_id} -> 200 (248.10 ms)
+[2026-11-16 01:22:40] INFO     cliptora.http: [request:480cb280d0b3] GET /workflows/{project_id}/runs/{run_id} -> 200 (132.75 ms)
+[2026-11-16 01:22:42] INFO     cliptora.http: [request:2dcf0df6e2b8] GET /workflows/{project_id}/runs/{run_id} -> 200 (262.22 ms)
+[2026-11-16 01:22:43] INFO     cliptora.http: [request:7554fcd7d66c] GET /workflows/{project_id}/runs/{run_id} -> 200 (355.89 ms)
+[2026-11-16 01:22:44] INFO     cliptora.http: [request:8f173719898b] GET /workflows/{project_id}/runs/{run_id} -> 200 (254.98 ms)
+[2026-11-16 01:22:46] INFO     cliptora.http: [request:15dda8aca8db] GET /workflows/{project_id}/runs/{run_id} -> 200 (289.07 ms)
+[2026-11-16 01:22:47] INFO     cliptora.http: [request:60c0f1893f31] GET /workflows/{project_id}/runs/{run_id} -> 200 (367.59 ms)
+[2026-11-16 01:22:49] INFO     cliptora.http: [request:60f5db325a5b] GET /workflows/{project_id}/runs/{run_id} -> 200 (207.85 ms)
+[2026-11-16 01:22:50] INFO     cliptora.http: [request:c7a24717a019] GET /workflows/{project_id}/runs/{run_id} -> 200 (452.79 ms)
+[2026-11-16 01:22:51] INFO     cliptora.http: [request:c13bb0d5572c] GET /workflows/{project_id}/runs/{run_id} -> 200 (136.89 ms)
+[2026-11-16 01:22:53] INFO     cliptora.http: [request:9fe7c9ec8493] GET /workflows/{project_id}/runs/{run_id} -> 200 (517.80 ms)
+[2026-11-16 01:22:54] INFO     cliptora.http: [request:e348c582775f] GET /workflows/{project_id}/runs/{run_id} -> 200 (495.56 ms)
+[2026-11-16 01:22:56] INFO     cliptora.http: [request:32efed774d74] GET /workflows/{project_id}/runs/{run_id} -> 200 (1147.05 ms)
+[2026-11-16 01:22:58] INFO     cliptora.http: [request:90da97c42aab] GET /workflows/{project_id}/runs/{run_id} -> 200 (796.10 ms)
+[2026-11-16 01:22:59] INFO     cliptora.http: [request:7028423540ad] GET /workflows/{project_id}/runs/{run_id} -> 200 (511.76 ms)
+[2026-11-16 01:23:01] INFO     cliptora.http: [request:5b6b5a5bf8fe] GET /workflows/{project_id}/runs/{run_id} -> 200 (436.01 ms)
+[2026-11-16 01:23:01] INFO     cliptora.http: [request:5c93494d1513] GET /workflows/{project_id}/runs/{run_id} -> 200 (229.58 ms)
+[2026-11-16 01:23:03] INFO     cliptora.http: [request:0582ef3f2c34] GET /workflows/{project_id}/runs/{run_id} -> 200 (230.19 ms)
+[2026-11-16 01:23:04] INFO     cliptora.http: [request:5b959b2046fd] GET /workflows/{project_id}/runs/{run_id} -> 200 (756.98 ms)
+[2026-11-16 01:23:05] INFO     cliptora.http: [request:197e1b018e68] GET /workflows/{project_id}/runs/{run_id} -> 200 (668.41 ms)
+[2026-11-16 01:23:06] INFO     cliptora.http: [request:397035fbeb42] GET /workflows/{project_id}/runs/{run_id} -> 200 (493.85 ms)
+[2026-11-16 01:23:06] INFO     cliptora.http: [request:246cdac1ef5f] GET /workflows/{project_id}/runs/{run_id} -> 200 (309.56 ms)
+[2026-11-16 01:23:07] INFO     cliptora.http: [request:f42c147aceb4] GET /workflows/{project_id}/runs/{run_id} -> 200 (332.52 ms)
+[2026-11-16 01:23:09] INFO     cliptora.http: [request:8b7ee783dad5] GET /workflows/{project_id}/runs -> 200 (1779.39 ms)
+[2026-11-16 01:23:09] INFO     cliptora.http: [request:ceec7a45485c] GET /workflows/{project_id}/runs/{run_id} -> 200 (362.13 ms)
+[2026-11-16 01:23:10] INFO     cliptora.http: [request:e9d15c8d1240] GET /workflows/{project_id}/runs/{run_id} -> 200 (333.73 ms)
+[2026-11-16 01:23:11] INFO     cliptora.http: [request:b0adbc7a821a] GET /workflows/{project_id}/runs/{run_id} -> 200 (271.91 ms)
+[2026-11-16 01:23:12] INFO     cliptora.http: [request:132fcabb4701] GET /workflows/{project_id}/runs/{run_id} -> 200 (254.16 ms)
+[2026-11-16 01:23:14] INFO     cliptora.http: [request:1db042fc74e6] GET /workflows/{project_id}/runs/{run_id} -> 200 (452.87 ms)
+[2026-11-16 01:23:16] INFO     cliptora.http: [request:e47eda9447aa] GET /workflows/{project_id}/runs -> 200 (1835.33 ms)
+[2026-11-16 01:23:17] INFO     cliptora.http: [request:a115402d9f1b] GET /workflows/{project_id}/runs/{run_id} -> 200 (863.74 ms)
+[2026-11-16 01:23:17] INFO     cliptora.http: [request:9417c7cb9700] GET /workflows/{project_id}/runs/{run_id} -> 200 (876.01 ms)
+[2026-11-16 01:23:18] INFO     cliptora.http: [request:1e5c0640d4ee] GET /workflows/{project_id}/runs/{run_id} -> 200 (1130.13 ms)
+[2026-11-16 01:23:18] INFO     cliptora.http: [request:85e1fdc44928] GET /workflows/{project_id}/runs/{run_id} -> 200 (574.03 ms)
+[2026-11-16 01:23:19] INFO     cliptora.http: [request:4de9ce815312] GET /workflows/{project_id}/runs/{run_id} -> 200 (265.38 ms)
+[2026-11-16 01:23:21] INFO     cliptora.http: [request:ae7d8b0e42d6] GET /workflows/{project_id}/runs/{run_id} -> 200 (196.85 ms)
+[2026-11-16 01:23:24] INFO     cliptora.http: [request:4a459fa4f0d7] GET /workflows/{project_id}/runs -> 200 (2590.41 ms)
+[2026-11-16 01:23:24] INFO     cliptora.http: [request:962e56753964] GET /workflows/{project_id}/runs/{run_id} -> 200 (2266.36 ms)
+[2026-11-16 01:23:24] INFO     cliptora.http: [request:8f88bff4009f] GET /workflows/{project_id}/runs/{run_id} -> 200 (367.67 ms)
+[2026-11-16 01:23:25] INFO     cliptora.http: [request:b39bdd5e8b6b] GET /workflows/{project_id}/runs/{run_id} -> 200 (204.34 ms)
+[2026-11-16 01:23:26] INFO     cliptora.http: [request:a283a407d061] GET /workflows/{project_id}/runs/{run_id} -> 200 (158.41 ms)
+[2026-11-16 01:23:28] INFO     cliptora.http: [request:27e6334c5e7b] GET /workflows/{project_id}/runs/{run_id} -> 200 (209.01 ms)
+[2026-11-16 01:23:30] INFO     cliptora.http: [request:4a6e22abd782] GET /workflows/{project_id}/runs -> 200 (1106.65 ms)
+[2026-11-16 01:23:30] INFO     cliptora.http: [request:97b9a576a975] GET /workflows/{project_id}/runs/{run_id} -> 200 (187.20 ms)
+[2026-11-16 01:23:31] INFO     cliptora.http: [request:24f6389a06b9] GET /workflows/{project_id}/runs/{run_id} -> 200 (229.56 ms)
+[2026-11-16 01:23:32] INFO     cliptora.http: [request:554aae24e7c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (489.74 ms)
+[2026-11-16 01:23:33] INFO     cliptora.http: [request:ebd71e746cf2] GET /workflows/{project_id}/runs/{run_id} -> 200 (266.04 ms)
+[2026-11-16 01:23:35] INFO     cliptora.http: [request:c68fc9fd5fb5] GET /workflows/{project_id}/runs/{run_id} -> 200 (119.97 ms)
+[2026-11-16 01:23:37] INFO     cliptora.http: [request:828ae6be0fe1] GET /workflows/{project_id}/runs -> 200 (1765.38 ms)
+[2026-11-16 01:23:37] INFO     cliptora.http: [request:0500a31d80d9] GET /workflows/{project_id}/runs/{run_id} -> 200 (214.00 ms)
+[2026-11-16 01:23:38] INFO     cliptora.http: [request:5ff239684a86] GET /workflows/{project_id}/runs/{run_id} -> 200 (220.49 ms)
+[2026-11-16 01:23:39] INFO     cliptora.http: [request:db780bdd6ce3] GET /workflows/{project_id}/runs/{run_id} -> 200 (218.87 ms)
+[2026-11-16 01:23:40] INFO     cliptora.http: [request:844a6866a6bd] GET /workflows/{project_id}/runs/{run_id} -> 200 (340.76 ms)
+[2026-11-16 01:23:42] INFO     cliptora.http: [request:f0cfd7116746] GET /workflows/{project_id}/runs/{run_id} -> 200 (129.05 ms)
+[2026-11-16 01:23:44] INFO     cliptora.http: [request:998695dad86b] GET /workflows/{project_id}/runs -> 200 (1295.03 ms)
+[2026-11-16 01:23:44] INFO     cliptora.http: [request:0aa13de16256] GET /workflows/{project_id}/runs/{run_id} -> 200 (469.49 ms)
+[2026-11-16 01:23:45] INFO     cliptora.http: [request:6eef3dd1fa3d] GET /workflows/{project_id}/runs/{run_id} -> 200 (389.52 ms)
+[2026-11-16 01:23:46] INFO     cliptora.http: [request:130b7759ee9a] GET /workflows/{project_id}/runs/{run_id} -> 200 (144.62 ms)
+[2026-11-16 01:23:47] INFO     cliptora.http: [request:a420f20044d7] GET /workflows/{project_id}/runs/{run_id} -> 200 (136.83 ms)
+[2026-11-16 01:23:49] INFO     cliptora.http: [request:eeab381b3863] GET /workflows/{project_id}/runs/{run_id} -> 200 (208.62 ms)
+[2026-11-16 01:23:51] INFO     cliptora.http: [request:dfde695a81b0] GET /workflows/{project_id}/runs -> 200 (1546.47 ms)
+[2026-11-16 01:23:51] INFO     cliptora.http: [request:9da9c267f561] GET /workflows/{project_id}/runs/{run_id} -> 200 (240.52 ms)
+[2026-11-16 01:23:51] INFO     cliptora.http: [request:7605ad5529ea] GET /workflows/{project_id}/runs/{run_id} -> 200 (145.78 ms)
+[2026-11-16 01:23:53] INFO     cliptora.http: [request:f8fc240e6789] GET /workflows/{project_id}/runs/{run_id} -> 200 (555.64 ms)
+[2026-11-16 01:23:54] INFO     cliptora.http: [request:56dd441b394a] GET /workflows/{project_id}/runs/{run_id} -> 200 (147.76 ms)
+[2026-11-16 01:23:56] INFO     cliptora.http: [request:fe5ac3e3c43c] GET /workflows/{project_id}/runs/{run_id} -> 200 (147.09 ms)
+[2026-11-16 01:23:57] INFO     cliptora.http: [request:c1d3e505279c] GET /workflows/{project_id}/runs -> 200 (996.27 ms)
+[2026-11-16 01:23:58] INFO     cliptora.http: [request:135a92c960b5] GET /workflows/{project_id}/runs/{run_id} -> 200 (219.38 ms)
+[2026-11-16 01:23:58] INFO     cliptora.http: [request:00f8cb08fe4e] GET /workflows/{project_id}/runs/{run_id} -> 200 (124.95 ms)
+[2026-11-16 01:24:00] INFO     cliptora.http: [request:f8613a0869c7] GET /workflows/{project_id}/runs/{run_id} -> 200 (122.42 ms)
+[2026-11-16 01:24:01] INFO     cliptora.http: [request:f55e838ab587] GET /workflows/{project_id}/runs/{run_id} -> 200 (191.14 ms)
+[2026-11-16 01:24:03] INFO     cliptora.http: [request:8a7227b5b486] GET /workflows/{project_id}/runs/{run_id} -> 200 (385.16 ms)
+[2026-11-16 01:24:04] INFO     cliptora.http: [request:7ef4631115b8] GET /workflows/{project_id}/runs -> 200 (915.61 ms)
+[2026-11-16 01:24:05] INFO     cliptora.http: [request:da8e031c541b] GET /workflows/{project_id}/runs/{run_id} -> 200 (308.48 ms)
+[2026-11-16 01:24:05] INFO     cliptora.http: [request:c3e25740e8ed] GET /workflows/{project_id}/runs/{run_id} -> 200 (130.59 ms)
+[2026-11-16 01:24:07] INFO     cliptora.http: [request:07cd3d9be157] GET /workflows/{project_id}/runs/{run_id} -> 200 (178.90 ms)
+[2026-11-16 01:24:08] INFO     cliptora.http: [request:8ae720f1a8f0] GET /workflows/{project_id}/runs/{run_id} -> 200 (236.35 ms)
+[2026-11-16 01:24:10] INFO     cliptora.http: [request:e42e3b737762] GET /workflows/{project_id}/runs/{run_id} -> 200 (96.59 ms)
+[2026-11-16 01:24:11] INFO     cliptora.http: [request:629d93486247] GET /workflows/{project_id}/runs -> 200 (658.80 ms)
+[2026-11-16 01:24:11] INFO     cliptora.http: [request:5ba9ac36b714] GET /workflows/{project_id}/runs/{run_id} -> 200 (326.63 ms)
+[2026-11-16 01:24:14] INFO     cliptora.http: [request:f70b773c3dfc] GET /workflows/{project_id}/runs/{run_id} -> 200 (1015.51 ms)
+[2026-11-16 01:24:14] INFO     cliptora.http: [request:e6dc290733e9] GET /workflows/{project_id}/runs/{run_id} -> 200 (372.96 ms)
+[2026-11-16 01:24:15] INFO     cliptora.http: [request:c3e9a8cd11b7] GET /workflows/{project_id}/runs/{run_id} -> 200 (142.77 ms)
+[2026-11-16 01:24:17] INFO     cliptora.http: [request:baa4789e8cd2] GET /workflows/{project_id}/runs/{run_id} -> 200 (528.61 ms)
+[2026-11-16 01:24:19] INFO     cliptora.http: [request:de00a92cad49] GET /workflows/{project_id}/runs -> 200 (1532.17 ms)
+[2026-11-16 01:24:19] INFO     cliptora.http: [request:ac7e2c3b3fbe] GET /workflows/{project_id}/runs/{run_id} -> 200 (248.54 ms)
+[2026-11-16 01:24:20] INFO     cliptora.http: [request:ed516f8de48b] GET /workflows/{project_id}/runs/{run_id} -> 200 (284.06 ms)
+[2026-11-16 01:24:21] INFO     cliptora.http: [request:faf373b56742] GET /workflows/{project_id}/runs/{run_id} -> 200 (468.34 ms)
+[2026-11-16 01:24:23] INFO     cliptora.http: [request:623a6ed02f2e] GET /workflows/{project_id}/runs/{run_id} -> 200 (469.02 ms)
+[2026-11-16 01:24:24] INFO     cliptora.http: [request:cf5f385b2c6c] GET /workflows/{project_id}/runs/{run_id} -> 200 (288.48 ms)
+[2026-11-16 01:24:26] INFO     cliptora.http: [request:f8ef1b8c1c80] GET /workflows/{project_id}/runs -> 200 (1692.47 ms)
+[2026-11-16 01:24:26] INFO     cliptora.http: [request:45f8008f76a9] GET /workflows/{project_id}/runs/{run_id} -> 200 (433.72 ms)
+[2026-11-16 01:24:27] INFO     cliptora.http: [request:0f7e3d7d2866] GET /workflows/{project_id}/runs/{run_id} -> 200 (321.96 ms)
+[2026-11-16 01:24:28] INFO     cliptora.http: [request:834f75273dd9] GET /workflows/{project_id}/runs/{run_id} -> 200 (595.29 ms)
+[2026-11-16 01:24:30] INFO     cliptora.http: [request:bf51a319d1c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (440.45 ms)
+[2026-11-16 01:24:31] INFO     cliptora.http: [request:8d09e693e9d5] GET /workflows/{project_id}/runs/{run_id} -> 200 (563.34 ms)
+[2026-11-16 01:24:33] INFO     cliptora.http: [request:0404677e3608] GET /workflows/{project_id}/runs -> 200 (1407.80 ms)
+[2026-11-16 01:24:34] INFO     cliptora.http: [request:78ab5ec1a67c] GET /workflows/{project_id}/runs/{run_id} -> 200 (827.53 ms)
+[2026-11-16 01:24:34] INFO     cliptora.http: [request:e997916ac825] GET /workflows/{project_id}/runs/{run_id} -> 200 (878.98 ms)
+[2026-11-16 01:24:35] INFO     cliptora.http: [request:9fcf5ad5c264] GET /workflows/{project_id}/runs/{run_id} -> 200 (369.63 ms)
+[2026-11-16 01:24:37] INFO     cliptora.http: [request:fea6375fd576] GET /workflows/{project_id}/runs/{run_id} -> 200 (638.17 ms)
+[2026-11-16 01:24:39] INFO     cliptora.http: [request:5d3e52a422a9] GET /workflows/{project_id}/runs/{run_id} -> 200 (919.08 ms)
+[2026-11-16 01:24:41] INFO     cliptora.http: [request:daf318f3c262] GET /workflows/{project_id}/runs/{run_id} -> 200 (2271.36 ms)
+[2026-11-16 01:24:41] INFO     cliptora.http: [request:727b90d1798e] GET /workflows/{project_id}/runs -> 200 (2712.41 ms)
+[2026-11-16 01:24:42] INFO     cliptora.http: [request:915c496b810a] GET /workflows/{project_id}/runs/{run_id} -> 200 (520.44 ms)
+[2026-11-16 01:24:42] INFO     cliptora.http: [request:3975a624c28a] GET /workflows/{project_id}/runs/{run_id} -> 200 (604.18 ms)
+[2026-11-16 01:24:44] INFO     cliptora.http: [request:63d9dbb42b50] GET /workflows/{project_id}/runs/{run_id} -> 200 (665.50 ms)
+[2026-11-16 01:24:45] INFO     cliptora.http: [request:a2d7a6332852] GET /workflows/{project_id}/runs/{run_id} -> 200 (635.91 ms)
+[2026-11-16 01:24:48] INFO     cliptora.http: [request:c07812514403] GET /workflows/{project_id}/runs -> 200 (3089.00 ms)
+[2026-11-16 01:24:49] INFO     cliptora.http: [request:c4c3219c602a] GET /workflows/{project_id}/runs/{run_id} -> 200 (751.63 ms)
+[2026-11-16 01:24:50] INFO     cliptora.http: [request:ea8ac4b36f2f] GET /workflows/{project_id}/runs/{run_id} -> 200 (856.93 ms)
+[2026-11-16 01:24:50] INFO     cliptora.http: [request:1909ada226e9] GET /workflows/{project_id}/runs/{run_id} -> 200 (813.68 ms)
+[2026-11-16 01:24:51] INFO     cliptora.http: [request:5165d371e188] GET /workflows/{project_id}/runs/{run_id} -> 200 (538.04 ms)
+[2026-11-16 01:24:52] INFO     cliptora.http: [request:f8d91408d1e6] GET /workflows/{project_id}/runs/{run_id} -> 200 (580.12 ms)
+[2026-11-16 01:24:54] INFO     cliptora.http: [request:4241dc54fb0e] GET /workflows/{project_id}/runs -> 200 (1920.46 ms)
+[2026-11-16 01:24:55] INFO     cliptora.http: [request:9cb3926c66fb] GET /workflows/{project_id}/runs/{run_id} -> 200 (615.17 ms)
+[2026-11-16 01:24:55] INFO     cliptora.http: [request:47d894629ef5] GET /workflows/{project_id}/runs/{run_id} -> 200 (214.68 ms)
+[2026-11-16 01:24:56] INFO     cliptora.http: [request:de769ed82708] GET /workflows/{project_id}/runs/{run_id} -> 200 (181.21 ms)
+[2026-11-16 01:24:58] INFO     cliptora.http: [request:6865f684f1e4] GET /workflows/{project_id}/runs/{run_id} -> 200 (157.71 ms)
+[2026-11-16 01:24:59] INFO     cliptora.http: [request:b792b35caffd] GET /workflows/{project_id}/runs/{run_id} -> 200 (288.01 ms)
+[2026-11-16 01:25:01] INFO     cliptora.http: [request:c3a8e6864619] GET /workflows/{project_id}/runs/{run_id} -> 200 (761.47 ms)
+[2026-11-16 01:25:03] INFO     cliptora.http: [request:244b420bf31f] GET /workflows/{project_id}/runs/{run_id} -> 200 (535.18 ms)
+[2026-11-16 01:25:03] INFO     cliptora.http: [request:f5506ebeb925] GET /workflows/{project_id}/runs/{run_id} -> 200 (608.51 ms)
+[2026-11-16 01:25:05] INFO     cliptora.http: [request:d80006fcbb96] GET /workflows/{project_id}/runs/{run_id} -> 200 (420.28 ms)
+[2026-11-16 01:25:06] INFO     cliptora.http: [request:4f68d6282998] GET /workflows/{project_id}/runs/{run_id} -> 200 (106.28 ms)
+[2026-11-16 01:25:07] INFO     cliptora.http: [request:d544ffd2506c] GET /workflows/{project_id}/runs/{run_id} -> 200 (182.36 ms)
+[2026-11-16 01:25:09] INFO     cliptora.http: [request:4017083df3f5] GET /workflows/{project_id}/runs/{run_id} -> 200 (227.58 ms)
+[2026-11-16 01:25:10] INFO     cliptora.http: [request:ad78bef8337f] GET /workflows/{project_id}/runs -> 200 (1038.39 ms)
+[2026-11-16 01:25:11] INFO     cliptora.http: [request:e0011729fc85] GET /workflows/{project_id}/runs/{run_id} -> 200 (265.30 ms)
+[2026-11-16 01:25:11] INFO     cliptora.http: [request:dcaaa5ba29cd] GET /workflows/{project_id}/runs/{run_id} -> 200 (214.15 ms)
+[2026-11-16 01:25:13] INFO     cliptora.http: [request:1aab18ad7f3f] GET /workflows/{project_id}/runs/{run_id} -> 200 (407.98 ms)
+[2026-11-16 01:25:14] INFO     cliptora.http: [request:6464a7082371] GET /workflows/{project_id}/runs/{run_id} -> 200 (162.20 ms)
+[2026-11-16 01:25:15] INFO     cliptora.http: [request:fc02c61f0730] GET /workflows/{project_id}/runs/{run_id} -> 200 (146.78 ms)
+[2026-11-16 01:25:17] INFO     cliptora.http: [request:6575b042b718] GET /workflows/{project_id}/runs -> 200 (723.04 ms)
+[2026-11-16 01:25:17] INFO     cliptora.http: [request:c7a2d64733f8] GET /workflows/{project_id}/runs/{run_id} -> 200 (237.14 ms)
+[2026-11-16 01:25:18] INFO     cliptora.http: [request:344041e2c747] GET /workflows/{project_id}/runs/{run_id} -> 200 (315.41 ms)
+[2026-11-16 01:25:20] INFO     cliptora.http: [request:3956173915aa] GET /workflows/{project_id}/runs/{run_id} -> 200 (200.05 ms)
+[2026-11-16 01:25:21] INFO     cliptora.http: [request:61f2f79b97c7] GET /workflows/{project_id}/runs/{run_id} -> 200 (198.63 ms)
+[2026-11-16 01:25:23] INFO     cliptora.http: [request:49cadd04de40] GET /workflows/{project_id}/runs/{run_id} -> 200 (207.90 ms)
+[2026-11-16 01:25:24] INFO     cliptora.http: [request:7a25d87d964f] GET /workflows/{project_id}/runs -> 200 (706.26 ms)
+[2026-11-16 01:25:24] INFO     cliptora.http: [request:40158ed15fbb] GET /workflows/{project_id}/runs/{run_id} -> 200 (159.14 ms)
+[2026-11-16 01:25:25] INFO     cliptora.http: [request:5d822ad17a9d] GET /workflows/{project_id}/runs/{run_id} -> 200 (160.82 ms)
+[2026-11-16 01:25:27] INFO     cliptora.http: [request:1d2a1219e734] GET /workflows/{project_id}/runs/{run_id} -> 200 (101.48 ms)
+[2026-11-16 01:25:28] INFO     cliptora.http: [request:fce95a9296cc] GET /workflows/{project_id}/runs/{run_id} -> 200 (116.57 ms)
+[2026-11-16 01:25:30] INFO     cliptora.http: [request:0bc05b76162b] GET /workflows/{project_id}/runs/{run_id} -> 200 (256.56 ms)
+[2026-11-16 01:25:32] INFO     cliptora.http: [request:3ce0d69d5710] GET /workflows/{project_id}/runs -> 200 (1313.83 ms)
+[2026-11-16 01:25:32] INFO     cliptora.http: [request:69475ce939fc] GET /workflows/{project_id}/runs/{run_id} -> 200 (1435.18 ms)
+[2026-11-16 01:25:33] INFO     cliptora.http: [request:8db73d80821b] GET /workflows/{project_id}/runs/{run_id} -> 200 (525.49 ms)
+[2026-11-16 01:25:34] INFO     cliptora.http: [request:5cdc548c430c] GET /workflows/{project_id}/runs/{run_id} -> 200 (224.56 ms)
+[2026-11-16 01:25:35] INFO     cliptora.http: [request:b0629ec7cd87] GET /workflows/{project_id}/runs/{run_id} -> 200 (101.10 ms)
+[2026-11-16 01:25:36] INFO     cliptora.http: [request:4ad106d8cd51] GET /workflows/{project_id}/runs/{run_id} -> 200 (177.30 ms)
+[2026-11-16 01:25:38] INFO     cliptora.http: [request:84b865645e9d] GET /workflows/{project_id}/runs -> 200 (645.26 ms)
+[2026-11-16 01:25:38] INFO     cliptora.http: [request:56c20586dfbf] GET /workflows/{project_id}/runs/{run_id} -> 200 (155.13 ms)
+[2026-11-16 01:25:39] INFO     cliptora.http: [request:b923f3e0709d] GET /workflows/{project_id}/runs/{run_id} -> 200 (112.10 ms)
+[2026-11-16 01:25:41] INFO     cliptora.http: [request:518d23cb854c] GET /workflows/{project_id}/runs/{run_id} -> 200 (94.88 ms)
+[2026-11-16 01:25:42] INFO     cliptora.http: [request:f912d9991105] GET /workflows/{project_id}/runs/{run_id} -> 200 (104.13 ms)
+[2026-11-16 01:25:43] INFO     cliptora.http: [request:eccda044f867] GET /workflows/{project_id}/runs/{run_id} -> 200 (209.61 ms)
+[2026-11-16 01:25:47] INFO     cliptora.http: [request:1488345aafae] GET /workflows/{project_id}/runs -> 200 (3075.38 ms)
+[2026-11-16 01:25:47] INFO     cliptora.http: [request:634e1d83f662] GET /workflows/{project_id}/runs/{run_id} -> 200 (2729.50 ms)
+[2026-11-16 01:25:48] INFO     cliptora.http: [request:b635891b0479] GET /workflows/{project_id}/runs/{run_id} -> 200 (477.10 ms)
+[2026-11-16 01:25:48] INFO     cliptora.http: [request:7a3c0aa4a163] GET /workflows/{project_id}/runs/{run_id} -> 200 (266.21 ms)
+[2026-11-16 01:25:49] INFO     cliptora.http: [request:b8b72406329f] GET /workflows/{project_id}/runs/{run_id} -> 200 (146.57 ms)
+[2026-11-16 01:25:50] INFO     cliptora.http: [request:fbc1f76eb800] GET /workflows/{project_id}/runs/{run_id} -> 200 (89.43 ms)
+[2026-11-16 01:25:52] INFO     cliptora.http: [request:1e7f98d25594] GET /workflows/{project_id}/runs -> 200 (735.81 ms)
+[2026-11-16 01:25:52] INFO     cliptora.http: [request:2a02941fd429] GET /workflows/{project_id}/runs/{run_id} -> 200 (143.96 ms)
+[2026-11-16 01:25:53] INFO     cliptora.http: [request:6255128232c9] GET /workflows/{project_id}/runs/{run_id} -> 200 (134.36 ms)
+[2026-11-16 01:25:55] INFO     cliptora.http: [request:3bcb0d7f96ba] GET /workflows/{project_id}/runs/{run_id} -> 200 (81.11 ms)
+[2026-11-16 01:25:56] INFO     cliptora.http: [request:c985b9410190] GET /workflows/{project_id}/runs/{run_id} -> 200 (150.16 ms)
+[2026-11-16 01:25:57] INFO     cliptora.http: [request:a248bea8b31f] GET /workflows/{project_id}/runs/{run_id} -> 200 (98.28 ms)
+[2026-11-16 01:25:59] INFO     cliptora.http: [request:1b1545b30071] GET /workflows/{project_id}/runs -> 200 (937.43 ms)
+[2026-11-16 01:25:59] INFO     cliptora.http: [request:ee6cbb71617f] GET /workflows/{project_id}/runs/{run_id} -> 200 (147.23 ms)
+[2026-11-16 01:26:03] INFO     cliptora.http: [request:b2699c6ba9ba] GET /workflows/{project_id}/runs/{run_id} -> 200 (460.20 ms)
+[2026-11-16 01:26:04] INFO     cliptora.http: [request:4167223e60b1] GET /workflows/{project_id}/runs/{run_id} -> 200 (400.88 ms)
+[2026-11-16 01:26:10] INFO     cliptora.http: [request:0d6969a71131] GET /workflows/{project_id}/runs/{run_id} -> 200 (3236.01 ms)
+[2026-11-16 01:26:10] INFO     cliptora.http: [request:02a5fdb9cc60] GET /workflows/{project_id}/runs -> 200 (3345.27 ms)
+[2026-11-16 01:26:10] INFO     cliptora.http: [request:0ff1cf5bb1dc] GET /workflows/{project_id}/runs/{run_id} -> 200 (386.35 ms)
+[2026-11-16 01:26:10] INFO     cliptora.http: [request:3946f02a13fb] GET /workflows/{project_id}/runs/{run_id} -> 200 (240.44 ms)
+[2026-11-16 01:26:11] INFO     cliptora.http: [request:e99d1857633c] GET /workflows/{project_id}/runs/{run_id} -> 200 (335.56 ms)
+[2026-11-16 01:26:13] INFO     cliptora.http: [request:9700b54afa96] GET /workflows/{project_id}/runs/{run_id} -> 200 (2777.64 ms)
+[2026-11-16 01:26:13] INFO     cliptora.http: [request:0549069a508c] GET /workflows/catalog -> 200 (2739.82 ms)
+[2026-11-16 01:26:14] INFO     cliptora.http: [request:216f8c5f5018] GET /workflows/templates -> 200 (2936.60 ms)
+[2026-11-16 01:26:16] INFO     cliptora.http: [request:467a1161d926] GET /workflows/{project_id}/sources -> 200 (5637.13 ms)
+[2026-11-16 01:26:17] INFO     cliptora.http: [request:067d7670993f] GET /workflows/{project_id}/runs -> 200 (5810.35 ms)
+[2026-11-16 01:26:17] INFO     cliptora.http: [request:a0d18ab5877e] GET /workflows/{project_id}/runs/{run_id} -> 200 (3142.05 ms)
+[2026-11-16 01:26:17] INFO     cliptora.http: [request:4c2fb22b1a9f] GET /workflows/{project_id}/definitions -> 200 (6483.80 ms)
+[2026-11-16 01:26:18] INFO     cliptora.http: [request:6f9b8e5b3da2] GET /workflows/{project_id}/runs/{run_id} -> 200 (1003.62 ms)
+[2026-11-16 01:26:18] INFO     cliptora.http: [request:2c7df3bc30ed] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (4980.52 ms)
+[2026-11-16 01:26:19] INFO     cliptora.http: [request:7e06b7b57f0c] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (2383.27 ms)
+[2026-11-16 01:26:19] INFO     cliptora.http: [request:fbf88938d97b] GET /workflows/{project_id}/runs/{run_id} -> 200 (1328.63 ms)
+[2026-11-16 01:26:23] INFO     cliptora.http: [request:d742b05c211a] GET /workflows/{project_id}/runs/{run_id} -> 200 (4446.74 ms)
+[2026-11-16 01:26:24] INFO     cliptora.http: [request:ce1767944e6e] GET /workflows/{project_id}/runs -> 200 (5371.04 ms)
+[2026-11-16 01:26:32] INFO     cliptora.http: [request:084ab580bc3b] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (14593.07 ms)
+[2026-11-16 01:26:32] INFO     cliptora.http: [request:2d8566fcf64d] GET /workflows/{project_id}/runs/{run_id} -> 200 (11948.70 ms)
+[2026-11-16 01:26:32] INFO     cliptora.http: [request:229842a2e311] GET /workflows/{project_id}/runs/{run_id} -> 200 (8000.64 ms)
+[2026-11-16 01:26:32] INFO     cliptora.http: [request:5967bcdea317] GET /workflows/{project_id}/runs/{run_id} -> 200 (326.61 ms)
+[2026-11-16 01:26:33] INFO     cliptora.http: [request:e61d4c39b57a] GET /workflows/{project_id}/runs -> 200 (1316.99 ms)
+[2026-11-16 01:26:33] INFO     cliptora.http: [request:0237f350f430] GET /workflows/{project_id}/runs/{run_id} -> 200 (1502.31 ms)
+[2026-11-16 01:26:35] INFO     cliptora.http: [request:e2aca85cc0e2] GET /workflows/{project_id}/runs -> 200 (2114.28 ms)
+[2026-11-16 01:26:35] INFO     cliptora.http: [request:519fddb0a1a4] GET /workflows/{project_id}/runs/{run_id} -> 200 (399.18 ms)
+[2026-11-16 01:26:36] INFO     cliptora.http: [request:4df1c1d27faa] GET /workflows/{project_id}/runs/{run_id} -> 200 (279.53 ms)
+[2026-11-16 01:26:36] INFO     cliptora.http: [request:a8c37998464a] GET /workflows/{project_id}/runs/{run_id} -> 200 (420.61 ms)
+[2026-11-16 01:26:36] INFO     cliptora.http: [request:59206fd1ee4d] GET /workflows/{project_id}/runs/{run_id} -> 200 (380.17 ms)
+[2026-11-16 01:26:36] INFO     cliptora.http: [request:159ddfb04c69] GET /workflows/{project_id}/runs/{run_id} -> 200 (246.49 ms)
+[2026-11-16 01:26:37] INFO     cliptora.http: [request:9d34e8fb6fd9] GET /workflows/{project_id}/runs/{run_id} -> 200 (455.96 ms)
+[2026-11-16 01:26:37] INFO     cliptora.http: [request:44f69bb91e49] GET /workflows/{project_id}/runs/{run_id} -> 200 (513.17 ms)
+[2026-11-16 01:26:37] INFO     cliptora.http: [request:b031ecad849a] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (734.56 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:d83a62a00952] GET /workflows/{project_id}/runs/{run_id} -> 200 (365.80 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:21e2400011c4] GET /workflows/{project_id}/runs/{run_id} -> 200 (175.46 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:0df68f6c968d] GET /workflows/{project_id}/runs/{run_id} -> 200 (239.16 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:d3d00d8e42d8] GET /workflows/{project_id}/runs/{run_id} -> 200 (205.09 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:0e0ea9976517] GET /workflows/{project_id}/runs/{run_id} -> 200 (261.82 ms)
+[2026-11-16 01:26:38] INFO     cliptora.http: [request:981ae79beb87] GET /workflows/{project_id}/runs/{run_id} -> 200 (306.74 ms)
+[2026-11-16 01:26:40] INFO     cliptora.http: [request:6e85e3b8a91c] GET /workflows/{project_id}/runs -> 200 (1062.37 ms)
+[2026-11-16 01:26:40] INFO     cliptora.http: [request:12315559997d] GET /workflows/{project_id}/runs/{run_id} -> 200 (381.96 ms)
+[2026-11-16 01:26:41] INFO     cliptora.http: [request:211a8299b490] GET /workflows/{project_id}/runs/{run_id} -> 200 (216.75 ms)
+[2026-11-16 01:26:42] INFO     cliptora.http: [request:757e5d5b5934] GET /workflows/{project_id}/runs/{run_id} -> 200 (350.23 ms)
+[2026-11-16 01:26:43] INFO     cliptora.http: [request:8d6ef4bbc398] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (162.95 ms)
+[2026-11-16 01:26:44] INFO     cliptora.http: [request:d8e6886c6aaf] GET /workflows/{project_id}/runs/{run_id} -> 200 (304.65 ms)
+[2026-11-16 01:26:45] INFO     cliptora.http: [request:53240000b5ed] GET /workflows/{project_id}/runs/{run_id} -> 200 (96.93 ms)
+[2026-11-16 01:26:45] INFO     cliptora.http: [request:5b671b604aba] GET /workflows/{project_id}/runs/{run_id} -> 200 (102.09 ms)
+[2026-11-16 01:26:47] INFO     cliptora.http: [request:9405e336591c] GET /workflows/{project_id}/runs -> 200 (1041.78 ms)
+[2026-11-16 01:26:47] INFO     cliptora.http: [request:6058e8b516b9] GET /workflows/{project_id}/runs/{run_id} -> 200 (270.65 ms)
+[2026-11-16 01:26:48] INFO     cliptora.http: [request:d1a33736902c] GET /workflows/{project_id}/runs/{run_id} -> 200 (292.97 ms)
+[2026-11-16 01:26:48] INFO     cliptora.http: [request:5683ba201ea7] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (371.24 ms)
+[2026-11-16 01:26:49] INFO     cliptora.http: [request:948e45d5918d] GET /workflows/{project_id}/runs/{run_id} -> 200 (109.32 ms)
+[2026-11-16 01:26:51] INFO     cliptora.http: [request:71c5ed5705e3] GET /workflows/{project_id}/runs/{run_id} -> 200 (146.71 ms)
+[2026-11-16 01:26:53] INFO     cliptora.http: [request:2efaf3affc2b] GET /workflows/{project_id}/runs/{run_id} -> 200 (585.68 ms)
+[2026-11-16 01:26:57] INFO     cliptora.http: [request:52915ad16c1b] GET /workflows/{project_id}/runs -> 200 (4357.76 ms)
+[2026-11-16 01:26:58] INFO     cliptora.http: [request:4f5d2385544e] GET /workflows/{project_id}/runs/{run_id} -> 200 (419.18 ms)
+[2026-11-16 01:26:58] INFO     cliptora.http: [request:08542cde73d4] GET /workflows/{project_id}/runs/{run_id} -> 200 (440.56 ms)
+[2026-11-16 01:27:00] INFO     cliptora.http: [request:1d73d70e5716] GET /workflows/{project_id}/runs/{run_id} -> 200 (1775.85 ms)
+[2026-11-16 01:27:04] INFO     cliptora.http: [request:8c65b2edaf3b] GET /workflows/{project_id}/runs -> 200 (3220.38 ms)
+[2026-11-16 01:27:04] INFO     cliptora.http: [request:f65e1653cf24] GET /workflows/{project_id}/runs/{run_id} -> 200 (3082.72 ms)
+[2026-11-16 01:27:05] INFO     cliptora.http: [request:abc39f2140cf] GET /workflows/{project_id}/runs/{run_id} -> 200 (542.77 ms)
+[2026-11-16 01:27:06] INFO     cliptora.http: [request:ff6759cbb23a] GET /workflows/{project_id}/runs/{run_id} -> 200 (835.90 ms)
+[2026-11-16 01:27:06] INFO     cliptora.http: [request:e4dfe05bfb81] GET /workflows/{project_id}/runs/{run_id} -> 200 (537.97 ms)
+[2026-11-16 01:27:06] INFO     cliptora.http: [request:7b34886bf81e] GET /workflows/{project_id}/runs/{run_id} -> 200 (484.09 ms)
+[2026-11-16 01:27:07] INFO     cliptora.http: [request:25d26f3612dd] GET /workflows/{project_id}/runs/{run_id} -> 200 (807.18 ms)
+[2026-11-16 01:27:09] INFO     cliptora.http: [request:2b54c03ea728] GET /workflows/{project_id}/runs -> 200 (2625.51 ms)
+[2026-11-16 01:27:10] INFO     cliptora.http: [request:398a395b0c96] GET /workflows/{project_id}/runs/{run_id} -> 200 (2304.34 ms)
+[2026-11-16 01:27:10] INFO     cliptora.http: [request:3bb6780e0107] GET /workflows/{project_id}/runs/{run_id} -> 200 (934.48 ms)
+[2026-11-16 01:27:11] INFO     cliptora.http: [request:ba7d20a1d5c4] GET /workflows/{project_id}/runs/{run_id} -> 200 (705.81 ms)
+[2026-11-16 01:27:12] INFO     cliptora.http: [request:a6fac6205849] GET /workflows/{project_id}/runs/{run_id} -> 200 (764.34 ms)
+[2026-11-16 01:27:14] INFO     cliptora.http: [request:652b329476e3] GET /workflows/{project_id}/runs/{run_id} -> 200 (1190.38 ms)
+[2026-11-16 01:27:15] INFO     cliptora.http: [request:52153f46e65a] GET /workflows/{project_id}/runs/{run_id} -> 200 (932.49 ms)
+[2026-11-16 01:27:15] INFO     cliptora.http: [request:ef3b820b34c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (1153.78 ms)
+[2026-11-16 01:27:18] INFO     cliptora.http: [request:db12490ddf37] GET /workflows/{project_id}/runs -> 200 (3908.48 ms)
+[2026-11-16 01:27:18] INFO     cliptora.http: [request:a745121835e8] GET /workflows/{project_id}/runs/{run_id} -> 200 (3574.35 ms)
+[2026-11-16 01:27:18] INFO     cliptora.http: [request:7c33b2e92753] GET /workflows/{project_id}/runs/{run_id} -> 200 (720.15 ms)
+[2026-11-16 01:27:19] INFO     cliptora.http: [request:f34f53a4e6cc] GET /workflows/{project_id}/runs/{run_id} -> 200 (746.35 ms)
+[2026-11-16 01:27:19] INFO     cliptora.http: [request:c7369dc980fa] GET /workflows/{project_id}/runs/{run_id} -> 200 (498.57 ms)
+[2026-11-16 01:27:19] INFO     cliptora.http: [request:722e4219374b] GET /workflows/{project_id}/runs/{run_id} -> 200 (357.75 ms)
+[2026-11-16 01:27:20] INFO     cliptora.http: [request:2981a1fd0e18] POST /workflows/{project_id}/runs/{run_id}/cancel -> 200 (733.00 ms)
+[2026-11-16 01:27:20] INFO     cliptora.http: [request:1a0eed1d5eb1] GET /workflows/{project_id}/runs/{run_id} -> 200 (322.38 ms)
+[2026-11-16 01:27:22] INFO     cliptora.http: [request:434596636405] GET /workflows/{project_id}/runs -> 200 (1235.23 ms)
+[2026-11-16 01:27:22] INFO     cliptora.http: [request:b1036adb2b27] GET /workflows/{project_id}/runs/{run_id} -> 200 (413.17 ms)
+[2026-11-16 01:27:22] INFO     cliptora.http: [request:611fcef93322] GET /workflows/{project_id}/runs/{run_id} -> 200 (233.13 ms)
+[2026-11-16 01:27:23] INFO     cliptora.http: [request:15dcf06858ac] GET /workflows/{project_id}/runs/{run_id} -> 200 (252.54 ms)
+[2026-11-16 01:27:25] INFO     cliptora.http: [request:a36e66612187] GET /workflows/{project_id}/runs/{run_id} -> 200 (556.13 ms)
+[2026-11-16 01:27:26] INFO     cliptora.http: [request:f8034c961d19] GET /workflows/{project_id}/runs/{run_id} -> 200 (860.06 ms)
+[2026-11-16 01:27:27] INFO     cliptora.http: [request:c539a8fbac97] GET /workflows/{project_id}/runs/{run_id} -> 200 (886.11 ms)
+[2026-11-16 01:27:27] INFO     cliptora.http: [request:895aeea4feed] GET /workflows/{project_id}/runs/{run_id} -> 200 (414.76 ms)
+[2026-11-16 01:27:28] INFO     cliptora.http: [request:65f7b7f25793] GET /workflows/{project_id}/runs/{run_id} -> 200 (356.86 ms)
+[2026-11-16 01:27:32] INFO     cliptora.http: [request:c8e560d9a164] GET /workflows/{project_id}/runs -> 200 (3870.39 ms)
+[2026-11-16 01:27:32] INFO     cliptora.http: [request:efe79dd8b2af] GET /workflows/{project_id}/runs/{run_id} -> 200 (382.23 ms)
+[2026-11-16 01:27:39] INFO     cliptora.http: [request:c3a000e510eb] GET /workflows/{project_id}/runs/{run_id} -> 200 (132.31 ms)
+[2026-11-16 01:27:39] INFO     cliptora.http: [request:d4daf047da0f] GET /workflows/{project_id}/runs -> 200 (583.63 ms)
+[2026-11-16 01:27:44] INFO     uvicorn.error: Shutting down
+[2026-11-16 01:27:45] INFO     uvicorn.error: Waiting for background tasks to complete. (CTRL+C to force quit)
+[2026-11-16 01:28:21] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:28:21] INFO     cliptora: HTTP and exception logging installed
+[2026-11-16 01:28:21] INFO     uvicorn.error: Started server process [4952]
+[2026-11-16 01:28:21] INFO     uvicorn.error: Waiting for application startup.
+[2026-11-16 01:28:21] INFO     uvicorn.error: Application startup complete.
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:bbcfb1681014] GET /auth/me -> 200 (226.27 ms)
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:67c07c53a66a] GET /auth/me -> 200 (31.22 ms)
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:58f1ee69884a] GET /projects/{project_id} -> 200 (165.31 ms)
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:23cf7b89aca8] GET /projects/{project_id} -> 200 (55.56 ms)
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:fc80a4f13c50] GET /projects/{project_id}/timeline -> 200 (232.66 ms)
+[2026-11-16 01:28:32] INFO     cliptora.http: [request:4eadf4ceb8b9] GET /projects/{project_id}/timeline -> 200 (84.48 ms)
+[2026-11-16 01:28:33] INFO     cliptora.http: [request:739d00c84736] GET /api/v1/workflow-type-catalog -> 200 (345.57 ms)
+[2026-11-16 01:28:33] INFO     cliptora.http: [request:0b0ec0c93920] GET /api/v1/workflow-type-catalog -> 200 (42.17 ms)
+[2026-11-16 01:28:33] INFO     cliptora.http: [request:24d8d3e623b1] GET /workflows/templates -> 200 (285.45 ms)
+[2026-11-16 01:28:33] INFO     cliptora.http: [request:af54faf79aef] GET /workflows/catalog -> 200 (388.72 ms)
+[2026-11-16 01:28:33] INFO     cliptora.http: [request:c63076a7d134] GET /workflows/templates -> 200 (122.14 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:984e4c3f2d5d] GET /workflows/catalog -> 200 (221.65 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:131f2e21f4c0] GET /workflows/{project_id}/definitions -> 200 (699.22 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:933a56caf48c] GET /workflows/{project_id}/sources -> 200 (723.10 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:68e47266db87] GET /workflows/{project_id}/runs -> 200 (1153.90 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:e8243e34d2f8] GET /workflows/{project_id}/sources -> 200 (431.81 ms)
+[2026-11-16 01:28:34] INFO     cliptora.http: [request:3c23ec991282] GET /workflows/{project_id}/definitions -> 200 (446.49 ms)
+[2026-11-16 01:28:35] INFO     cliptora.http: [request:3d08f9ad6f85] GET /workflows/{project_id}/runs -> 200 (374.17 ms)
+[2026-11-16 01:28:36] INFO     cliptora.http: [request:13c66d1d8780] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (2108.65 ms)
+[2026-11-16 01:28:36] INFO     cliptora.http: [request:4c6dc6bbc03c] GET /workflows/{project_id}/runs/{run_id} -> 200 (69.55 ms)
+[2026-11-16 01:28:38] INFO     cliptora.http: [request:c56ae7690d80] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1810.18 ms)
+[2026-11-16 01:28:38] INFO     cliptora.http: [request:5077390db022] GET /workflows/{project_id}/runs/{run_id} -> 200 (69.83 ms)
+[2026-11-16 01:28:39] INFO     cliptora.http: [request:00af354fe76a] GET /workflows/{project_id}/runs/{run_id} -> 200 (165.73 ms)
+[2026-11-16 01:28:40] INFO     cliptora.http: [request:811909b09844] GET /workflows/{project_id}/runs/{run_id} -> 200 (109.84 ms)
+[2026-11-16 01:28:41] INFO     cliptora.http: [request:29bedc4b9e28] GET /workflows/{project_id}/runs/{run_id} -> 200 (71.34 ms)
+[2026-11-16 01:28:41] INFO     cliptora.http: [request:417580e696f0] GET /workflows/{project_id}/runs/{run_id} -> 200 (98.77 ms)
+[2026-11-16 01:28:43] INFO     cliptora.http: [request:43e6f3fcc13b] GET /workflows/{project_id}/runs/{run_id} -> 200 (62.88 ms)
+[2026-11-16 01:28:43] INFO     cliptora.http: [request:a067bca962e6] GET /workflows/{project_id}/runs/{run_id} -> 200 (69.53 ms)
+[2026-11-16 01:28:44] INFO     cliptora.http: [request:402e2f238fbc] GET /workflows/{project_id}/runs/{run_id} -> 200 (143.70 ms)
+[2026-11-16 01:28:44] INFO     cliptora.http: [request:1f69274cbb17] GET /workflows/{project_id}/runs -> 200 (247.22 ms)
+[2026-11-16 01:28:45] INFO     cliptora.http: [request:8644ea22f1f6] GET /workflows/{project_id}/runs/{run_id} -> 200 (56.72 ms)
+[2026-11-16 01:28:46] INFO     cliptora.http: [request:9cb538fff791] GET /workflows/{project_id}/runs/{run_id} -> 200 (104.59 ms)
+[2026-11-16 01:28:46] INFO     cliptora.http: [request:b76cf42d11eb] GET /workflows/{project_id}/runs/{run_id} -> 200 (55.84 ms)
+[2026-11-16 01:28:47] INFO     cliptora.http: [request:21b85118a6c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (88.97 ms)
+[2026-11-16 01:28:48] INFO     cliptora.http: [request:b795f31e77c6] GET /workflows/{project_id}/runs/{run_id} -> 200 (56.37 ms)
+[2026-11-16 01:28:49] INFO     cliptora.http: [request:979e1dfbd741] GET /workflows/{project_id}/runs/{run_id} -> 200 (97.26 ms)
+[2026-11-16 01:28:50] INFO     cliptora.http: [request:7c9ee6851ef9] GET /workflows/{project_id}/runs/{run_id} -> 200 (133.47 ms)
+[2026-11-16 01:28:51] INFO     cliptora.http: [request:793bcc54c5fd] GET /workflows/{project_id}/runs/{run_id} -> 200 (65.92 ms)
+[2026-11-16 01:28:51] INFO     cliptora.http: [request:d74cd8490924] GET /workflows/{project_id}/runs/{run_id} -> 200 (48.14 ms)
+[2026-11-16 01:28:51] INFO     cliptora.http: [request:6b501a98d089] GET /workflows/{project_id}/runs -> 200 (244.90 ms)
+[2026-11-16 01:28:52] INFO     cliptora.http: [request:1c2a690d6eb5] GET /workflows/{project_id}/runs/{run_id} -> 200 (55.48 ms)
+[2026-11-16 01:28:53] INFO     cliptora.http: [request:3e223139cd19] GET /workflows/{project_id}/runs/{run_id} -> 200 (76.82 ms)
+[2026-11-16 01:28:54] INFO     cliptora.http: [request:8f287803d11d] GET /workflows/{project_id}/runs/{run_id} -> 200 (47.12 ms)
+[2026-11-16 01:28:55] INFO     cliptora.http: [request:d63e29503ff0] GET /workflows/{project_id}/runs/{run_id} -> 200 (60.30 ms)
+[2026-11-16 01:28:57] INFO     cliptora.http: [request:9731ffe0441c] GET /workflows/{project_id}/runs/{run_id} -> 200 (64.48 ms)
+[2026-11-16 01:28:59] INFO     cliptora.http: [request:4da1acb47a89] GET /workflows/{project_id}/runs/{run_id} -> 200 (76.91 ms)
+[2026-11-16 01:28:59] INFO     cliptora.http: [request:e7cd7dafc5b5] GET /workflows/{project_id}/runs -> 200 (297.22 ms)
+[2026-11-16 01:29:00] INFO     cliptora.http: [request:f998e97c8b5b] GET /workflows/{project_id}/runs/{run_id} -> 200 (56.30 ms)
+[2026-11-16 01:29:01] INFO     cliptora.http: [request:b6f7f0d80ddd] GET /workflows/{project_id}/runs/{run_id} -> 200 (80.26 ms)
+[2026-11-16 01:29:02] INFO     cliptora.http: [request:51395542dfa1] GET /workflows/{project_id}/runs/{run_id} -> 200 (93.55 ms)
+[2026-11-16 01:29:04] INFO     cliptora.http: [request:527ba458dd70] GET /workflows/{project_id}/runs/{run_id} -> 200 (46.77 ms)
+[2026-11-16 01:29:05] INFO     cliptora.http: [request:90a68fbadfcb] GET /workflows/{project_id}/runs/{run_id} -> 200 (126.59 ms)
+[2026-11-16 01:29:06] INFO     cliptora.http: [request:02a8ff651dae] GET /workflows/{project_id}/runs -> 200 (491.14 ms)
+[2026-11-16 01:29:07] INFO     cliptora.http: [request:3464aa3c192d] GET /workflows/{project_id}/runs/{run_id} -> 200 (97.39 ms)
+[2026-11-16 01:29:08] INFO     cliptora.http: [request:96038027135a] GET /workflows/{project_id}/runs/{run_id} -> 200 (96.65 ms)
+[2026-11-16 01:29:09] INFO     cliptora.http: [request:0568bac9604c] GET /workflows/{project_id}/runs/{run_id} -> 200 (46.94 ms)
+[2026-11-16 01:29:11] INFO     cliptora.http: [request:51170e4a0e41] GET /workflows/{project_id}/runs/{run_id} -> 200 (93.67 ms)
+[2026-11-16 01:29:12] INFO     cliptora.http: [request:e795c9e6df66] GET /workflows/{project_id}/runs/{run_id} -> 200 (63.77 ms)
+[2026-11-16 01:29:12] INFO     cliptora.http: [request:f5f3ddf6565a] GET /workflows/{project_id}/runs -> 200 (339.06 ms)
+[2026-11-16 01:29:14] INFO     cliptora.http: [request:c7d3ed7a4e05] GET /workflows/{project_id}/runs/{run_id} -> 200 (71.80 ms)
+[2026-11-16 01:29:15] INFO     cliptora.http: [request:762cc08192c0] GET /workflows/{project_id}/runs/{run_id} -> 200 (81.97 ms)
+[2026-11-16 01:29:16] INFO     cliptora.http: [request:1d655c5bdb27] GET /workflows/{project_id}/runs/{run_id} -> 200 (94.65 ms)
+[2026-11-16 01:29:18] INFO     cliptora.http: [request:1cd05515a78f] GET /workflows/{project_id}/runs/{run_id} -> 200 (49.33 ms)
+[2026-11-16 01:29:19] INFO     cliptora.http: [request:619635248f8d] GET /workflows/{project_id}/runs/{run_id} -> 200 (43.85 ms)
+[2026-11-16 01:29:19] INFO     cliptora.http: [request:9386ffe1ae9b] GET /workflows/{project_id}/runs -> 200 (241.50 ms)
+[2026-11-16 01:29:21] INFO     cliptora.http: [request:77b74d601c09] GET /workflows/{project_id}/runs/{run_id} -> 200 (64.96 ms)
+[2026-11-16 01:29:22] INFO     cliptora.http: [request:7e7f9b28b8e0] GET /workflows/{project_id}/runs/{run_id} -> 200 (129.74 ms)
+[2026-11-16 01:29:23] INFO     cliptora.http: [request:40d861595501] GET /workflows/{project_id}/runs/{run_id} -> 200 (46.37 ms)
+[2026-11-16 01:29:25] INFO     cliptora.http: [request:590729bf34ae] GET /workflows/{project_id}/runs/{run_id} -> 200 (173.81 ms)
+[2026-11-16 01:29:26] INFO     cliptora.http: [request:1dd9292a4d24] GET /workflows/{project_id}/runs/{run_id} -> 200 (94.59 ms)
+[2026-11-16 01:29:27] INFO     cliptora.http: [request:ea197e384ae5] GET /workflows/{project_id}/runs -> 200 (326.17 ms)
+[2026-11-16 01:29:28] INFO     cliptora.http: [request:31277b29e7ad] GET /workflows/{project_id}/runs/{run_id} -> 200 (113.49 ms)
+[2026-11-16 01:29:29] INFO     cliptora.http: [request:2994f07e12c5] GET /workflows/{project_id}/runs/{run_id} -> 200 (59.30 ms)
+[2026-11-16 01:29:30] INFO     cliptora.http: [request:887ed0679d8c] GET /workflows/{project_id}/runs/{run_id} -> 200 (115.88 ms)
+[2026-11-16 01:29:32] INFO     cliptora.http: [request:18e14dc60f20] GET /workflows/{project_id}/runs/{run_id} -> 200 (57.28 ms)
+[2026-11-16 01:29:33] INFO     cliptora.http: [request:8d71ba95e1a4] GET /workflows/{project_id}/runs/{run_id} -> 200 (147.18 ms)
+[2026-11-16 01:29:34] INFO     cliptora.http: [request:b3a3faf1114a] GET /workflows/{project_id}/runs -> 200 (570.03 ms)
+[2026-11-16 01:29:35] INFO     cliptora.http: [request:4a3951f43f70] GET /workflows/{project_id}/runs/{run_id} -> 200 (82.10 ms)
+[2026-11-16 01:29:36] INFO     cliptora.http: [request:e3a2ae30a1bd] GET /workflows/{project_id}/runs/{run_id} -> 200 (89.50 ms)
+[2026-11-16 01:29:37] INFO     cliptora.http: [request:555e8189475f] GET /workflows/{project_id}/runs/{run_id} -> 200 (47.94 ms)
+[2026-11-16 01:29:39] INFO     cliptora.http: [request:19e37e44ca6f] GET /workflows/{project_id}/runs/{run_id} -> 200 (44.18 ms)
+[2026-11-16 01:29:40] INFO     cliptora.http: [request:30cd57aafeda] GET /workflows/{project_id}/runs/{run_id} -> 200 (49.42 ms)
+[2026-11-16 01:29:40] INFO     cliptora.http: [request:d5116eb3cfab] GET /workflows/{project_id}/runs -> 200 (298.68 ms)
+[2026-11-16 01:29:42] INFO     cliptora.http: [request:4eb4554591a2] GET /workflows/{project_id}/runs/{run_id} -> 200 (144.69 ms)
+[2026-11-16 01:29:43] INFO     cliptora.http: [request:f73169fabf35] GET /workflows/{project_id}/runs/{run_id} -> 200 (131.86 ms)
+[2026-11-16 01:29:44] INFO     cliptora.http: [request:640ddf0d638a] GET /workflows/{project_id}/runs/{run_id} -> 200 (63.31 ms)
+[2026-11-16 01:29:46] INFO     cliptora.http: [request:98f11dfb21c8] GET /workflows/{project_id}/runs/{run_id} -> 200 (94.89 ms)
+[2026-11-16 01:29:47] INFO     cliptora.http: [request:9135b06fa3e7] GET /workflows/{project_id}/runs/{run_id} -> 200 (107.23 ms)
+[2026-11-16 01:29:47] INFO     cliptora.http: [request:73c67394110a] GET /workflows/{project_id}/runs -> 200 (204.91 ms)
+[2026-11-16 01:29:49] INFO     cliptora.http: [request:841b9d658920] GET /workflows/{project_id}/runs/{run_id} -> 200 (103.10 ms)
+[2026-11-16 01:29:50] INFO     cliptora.http: [request:35c0c606e924] GET /workflows/{project_id}/runs/{run_id} -> 200 (97.53 ms)
+[2026-11-16 01:29:51] INFO     cliptora.http: [request:9c6df1f11098] GET /workflows/{project_id}/runs/{run_id} -> 200 (104.15 ms)
+[2026-11-16 01:29:53] INFO     cliptora.http: [request:f66320bdbb27] GET /workflows/{project_id}/runs/{run_id} -> 200 (48.86 ms)
+[2026-11-16 01:29:54] INFO     cliptora.http: [request:eae3d3469127] GET /workflows/{project_id}/runs/{run_id} -> 200 (174.94 ms)
+[2026-11-16 01:29:54] INFO     cliptora.http: [request:583617f79a31] GET /workflows/{project_id}/runs -> 200 (238.35 ms)
+[2026-11-16 01:29:55] INFO     cliptora.http: [request:e6243b437776] GET /workflows/{project_id}/runs/{run_id} -> 200 (62.80 ms)
+[2026-11-16 01:29:57] INFO     cliptora.http: [request:b14e9b2cec0b] GET /workflows/{project_id}/runs/{run_id} -> 200 (134.87 ms)
+[2026-11-16 01:29:59] INFO     cliptora.http: [request:097d0684dda0] GET /workflows/{project_id}/runs/{run_id} -> 200 (84.65 ms)
+[2026-11-16 01:30:00] INFO     cliptora.http: [request:a1fb1980f45b] GET /workflows/{project_id}/runs/{run_id} -> 200 (102.13 ms)
+[2026-11-16 01:30:01] INFO     cliptora.http: [request:bf37c3150c9b] GET /workflows/{project_id}/runs/{run_id} -> 200 (53.56 ms)
+[2026-11-16 01:30:01] INFO     cliptora.http: [request:5125d400a869] GET /workflows/{project_id}/runs -> 200 (305.59 ms)
+[2026-11-16 01:30:03] INFO     cliptora.http: [request:afcf96fbee78] GET /workflows/{project_id}/runs/{run_id} -> 200 (61.74 ms)
+[2026-11-16 01:30:05] INFO     cliptora.http: [request:2a9ddd64f4e8] GET /workflows/{project_id}/runs/{run_id} -> 200 (52.09 ms)
+[2026-11-16 01:30:06] INFO     cliptora.http: [request:f74a8efa8ac2] GET /workflows/{project_id}/runs/{run_id} -> 200 (45.79 ms)
+[2026-11-16 01:30:07] INFO     cliptora.http: [request:7342fd45d404] GET /workflows/{project_id}/runs/{run_id} -> 200 (68.24 ms)
+[2026-11-16 01:30:09] INFO     cliptora.http: [request:b05fc260a0ab] GET /workflows/{project_id}/runs/{run_id} -> 200 (123.56 ms)
+[2026-11-16 01:30:09] INFO     cliptora.http: [request:b98ded504890] GET /workflows/{project_id}/runs -> 200 (465.07 ms)
+[2026-11-16 01:30:10] INFO     cliptora.http: [request:92d7ad693f32] GET /workflows/{project_id}/runs/{run_id} -> 200 (46.53 ms)
+[2026-11-16 01:30:12] INFO     cliptora.http: [request:c8bb62661745] GET /workflows/{project_id}/runs/{run_id} -> 200 (49.25 ms)
+[2026-11-16 01:30:13] INFO     cliptora.http: [request:aefd14073723] GET /workflows/{project_id}/runs/{run_id} -> 200 (83.83 ms)
+[2026-11-16 01:30:14] INFO     cliptora.http: [request:38243ec7b281] GET /workflows/{project_id}/runs/{run_id} -> 200 (55.99 ms)
+[2026-11-16 01:30:16] INFO     cliptora.http: [request:429b403d57ff] GET /workflows/{project_id}/runs/{run_id} -> 200 (78.81 ms)
+[2026-11-16 01:30:16] INFO     cliptora.http: [request:ddf8d415f15c] GET /workflows/{project_id}/runs -> 200 (267.92 ms)
+[2026-11-16 01:30:17] INFO     cliptora.http: [request:61fb157ef4f2] GET /workflows/{project_id}/runs/{run_id} -> 200 (58.93 ms)
+[2026-11-16 01:30:19] INFO     cliptora.http: [request:b07b7d61e108] GET /workflows/{project_id}/runs/{run_id} -> 200 (92.31 ms)
+[2026-11-16 01:30:20] INFO     cliptora.http: [request:71d50e5576c3] GET /workflows/{project_id}/runs/{run_id} -> 200 (61.91 ms)
+[2026-11-16 01:30:21] INFO     cliptora.http: [request:e15c3e275e1d] GET /workflows/{project_id}/runs/{run_id} -> 200 (57.19 ms)
+[2026-11-16 01:30:23] INFO     cliptora.http: [request:2ef0d7eba9bf] GET /workflows/{project_id}/runs/{run_id} -> 200 (372.60 ms)
+[2026-11-16 01:30:23] INFO     cliptora.http: [request:95b62d8cdab3] GET /workflows/{project_id}/runs -> 200 (370.04 ms)
+[2026-11-16 01:30:24] INFO     cliptora.http: [request:742df636dc8b] GET /workflows/{project_id}/runs/{run_id} -> 200 (45.55 ms)
+[2026-11-16 01:30:26] INFO     cliptora.http: [request:1aa3ad81dda2] GET /workflows/{project_id}/runs/{run_id} -> 200 (78.52 ms)
+[2026-11-16 01:30:27] INFO     cliptora.http: [request:6447d4b9850f] GET /workflows/{project_id}/runs/{run_id} -> 200 (74.39 ms)
+[2026-11-16 01:30:28] INFO     cliptora.http: [request:53d02ecb14ed] GET /workflows/{project_id}/runs/{run_id} -> 200 (90.72 ms)
+[2026-11-16 01:30:30] INFO     cliptora.http: [request:f329c8db9664] GET /workflows/{project_id}/runs/{run_id} -> 200 (134.20 ms)
+[2026-11-16 01:30:30] INFO     cliptora.http: [request:ffe4b76f370b] GET /workflows/{project_id}/runs -> 200 (493.66 ms)
+[2026-11-16 01:30:31] INFO     cliptora.http: [request:c1f1698d891f] GET /workflows/{project_id}/runs/{run_id} -> 200 (60.99 ms)
+[2026-11-16 01:30:33] INFO     cliptora.http: [request:282cb67d0eb3] GET /workflows/{project_id}/runs/{run_id} -> 200 (48.26 ms)
+[2026-11-16 01:30:34] INFO     cliptora.http: [request:f7cbde363f3f] GET /workflows/{project_id}/runs/{run_id} -> 200 (60.62 ms)
+[2026-11-16 01:30:35] INFO     cliptora.http: [request:4b40bb2a8f75] GET /workflows/{project_id}/runs/{run_id} -> 200 (126.94 ms)
+[2026-11-16 01:30:37] INFO     cliptora.http: [request:64070f9f6d61] GET /workflows/{project_id}/runs/{run_id} -> 200 (398.30 ms)
+[2026-11-16 01:30:37] INFO     cliptora.http: [request:13b147602c5e] GET /workflows/{project_id}/runs -> 200 (406.49 ms)
+[2026-11-16 01:30:38] INFO     cliptora.http: [request:e56bcb13ed4d] GET /workflows/{project_id}/runs/{run_id} -> 200 (59.43 ms)
+[2026-11-16 01:30:40] INFO     cliptora.http: [request:2c2bef33a3f9] GET /workflows/{project_id}/runs/{run_id} -> 200 (50.29 ms)
+[2026-11-16 01:30:41] INFO     cliptora.http: [request:fa5bd4454f57] GET /workflows/{project_id}/runs/{run_id} -> 200 (57.48 ms)
+[2026-11-16 01:30:42] INFO     cliptora.http: [request:421f1c47c17b] GET /workflows/{project_id}/runs/{run_id} -> 200 (44.65 ms)
+[2026-11-16 01:30:44] INFO     cliptora.http: [request:062a317a945b] GET /workflows/{project_id}/runs/{run_id} -> 200 (100.35 ms)
+[2026-11-16 01:30:44] INFO     cliptora.http: [request:e59db279aa14] GET /workflows/{project_id}/runs -> 200 (365.67 ms)
+[2026-11-16 01:30:45] INFO     cliptora.http: [request:6c1cbeb55391] GET /workflows/{project_id}/runs/{run_id} -> 200 (89.17 ms)
+[2026-11-16 01:30:47] INFO     cliptora.http: [request:913a5f8977eb] GET /workflows/{project_id}/runs/{run_id} -> 200 (59.57 ms)
+[2026-11-16 01:30:48] INFO     cliptora.http: [request:3cec1c06c57d] GET /workflows/{project_id}/runs/{run_id} -> 200 (90.44 ms)
+[2026-11-16 01:30:48] INFO     uvicorn.error: Shutting down
+[2026-11-16 01:30:48] INFO     uvicorn.error: Waiting for application shutdown.
+[2026-11-16 01:30:48] INFO     uvicorn.error: Application shutdown complete.
+[2026-11-16 01:30:48] INFO     uvicorn.error: Finished server process [4952]
+[2026-11-16 01:35:12] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:36:59] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:36:59] INFO     cliptora: HTTP and exception logging installed
+[2026-11-16 01:36:59] INFO     uvicorn.error: Started server process [5384]
+[2026-11-16 01:36:59] INFO     uvicorn.error: Waiting for application startup.
+[2026-11-16 01:37:00] INFO     uvicorn.error: Application startup complete.
+[2026-11-16 01:37:09] INFO     cliptora.http: [request:8020eeb2d69e] GET /auth/me -> 200 (226.34 ms)
+[2026-11-16 01:37:09] INFO     cliptora.http: [request:d92d8411b95d] GET /auth/me -> 200 (28.84 ms)
+[2026-11-16 01:37:09] INFO     cliptora.http: [request:fe538b6da927] GET /projects/{project_id} -> 200 (196.88 ms)
+[2026-11-16 01:37:09] INFO     cliptora.http: [request:65ebb58d6f17] GET /projects/{project_id} -> 200 (44.30 ms)
+[2026-11-16 01:37:09] INFO     cliptora.http: [request:8c55cdabee41] GET /projects/{project_id}/timeline -> 200 (234.56 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:46f7b9015639] GET /projects/{project_id}/timeline -> 200 (70.73 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:2542dd6e117c] GET /api/v1/workflow-type-catalog -> 200 (272.92 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:5069b6e278ed] GET /api/v1/workflow-type-catalog -> 200 (201.89 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:8c666ca63fb5] GET /workflows/catalog -> 200 (317.27 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:90452f845457] GET /workflows/templates -> 200 (411.67 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:60dbe8fee298] GET /workflows/catalog -> 200 (121.55 ms)
+[2026-11-16 01:37:10] INFO     cliptora.http: [request:460bb2f9b4e6] GET /workflows/templates -> 200 (32.85 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:30a953295f6e] GET /workflows/{project_id}/sources -> 200 (638.14 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:b457299b65d8] GET /workflows/{project_id}/definitions -> 200 (609.76 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:03381b8f6b03] GET /workflows/{project_id}/runs -> 200 (974.73 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:8a6ebfc0dff6] GET /workflows/{project_id}/sources -> 200 (410.57 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:c883f0c36d6b] GET /workflows/{project_id}/definitions -> 200 (395.65 ms)
+[2026-11-16 01:37:11] INFO     cliptora.http: [request:0b66d924bf71] GET /workflows/{project_id}/runs -> 200 (290.96 ms)
+[2026-11-16 01:37:13] INFO     cliptora.http: [request:d9a1db150840] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1560.33 ms)
+[2026-11-16 01:37:15] INFO     cliptora.http: [request:1a846e416d11] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1945.81 ms)
+[2026-11-16 01:37:23] INFO     cliptora.http: [request:de5ecbc84a76] GET /workflows/{project_id}/runs/{run_id} -> 200 (56.58 ms)
+[2026-11-16 01:37:25] INFO     cliptora.http: [request:ec4b289c121a] GET /workflows/{project_id}/runs -> 200 (300.67 ms)
+[2026-11-16 01:37:32] INFO     cliptora.http: [request:cca96862f1d0] GET /workflows/{project_id}/runs -> 200 (397.25 ms)
+[2026-11-16 01:37:39] INFO     cliptora.http: [request:cde3c7d12135] GET /workflows/{project_id}/runs -> 200 (498.03 ms)
+[2026-11-16 01:37:42] INFO     cliptora.http: [request:c895e7d9fa4a] GET /auth/csrf -> 200 (3.47 ms)
+[2026-11-16 01:37:42] INFO     cliptora.http: [request:44dcdb413b40] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (51.24 ms)
+[2026-11-16 01:37:42] WARNING  cliptora.http: [request:9b913d38e10e] POST /workflows/{project_id}/runs -> 409 (59.83 ms)
+[2026-11-16 01:37:44] INFO     uvicorn.error: Shutting down
+[2026-11-16 01:37:44] INFO     uvicorn.error: Waiting for application shutdown.
+[2026-11-16 01:37:44] INFO     uvicorn.error: Application shutdown complete.
+[2026-11-16 01:37:44] INFO     uvicorn.error: Finished server process [5384]
+[2026-11-16 01:38:36] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:38:36] INFO     cliptora: HTTP and exception logging installed
+[2026-11-16 01:38:36] INFO     uvicorn.error: Started server process [19596]
+[2026-11-16 01:38:36] INFO     uvicorn.error: Waiting for application startup.
+[2026-11-16 01:38:37] INFO     uvicorn.error: Application startup complete.
+[2026-11-16 01:38:47] INFO     cliptora.http: [request:1dc7df9d5a3d] GET /auth/me -> 200 (152.52 ms)
+[2026-11-16 01:38:47] INFO     cliptora.http: [request:4300ac35f725] GET /auth/me -> 200 (42.23 ms)
+[2026-11-16 01:38:47] INFO     cliptora.http: [request:dca0c222ba5b] GET /projects/{project_id} -> 200 (210.90 ms)
+[2026-11-16 01:38:48] INFO     cliptora.http: [request:fc78e2b6701e] GET /projects/{project_id} -> 200 (65.98 ms)
+[2026-11-16 01:38:48] INFO     cliptora.http: [request:5741e162e5a6] GET /projects/{project_id}/timeline -> 200 (275.16 ms)
+[2026-11-16 01:38:48] INFO     cliptora.http: [request:ddabb1769fd9] GET /projects/{project_id}/timeline -> 200 (78.88 ms)
+[2026-11-16 01:38:48] INFO     cliptora.http: [request:0518bee22035] GET /api/v1/workflow-type-catalog -> 200 (388.72 ms)
+[2026-11-16 01:38:48] INFO     cliptora.http: [request:e06d8837b92f] GET /api/v1/workflow-type-catalog -> 200 (140.40 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:6a43efb2f9d2] GET /workflows/catalog -> 200 (424.47 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:863e186acced] GET /workflows/templates -> 200 (447.08 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:a2888b84010a] GET /workflows/catalog -> 200 (180.86 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:93e5b3c7abd5] GET /workflows/templates -> 200 (173.92 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:0df9746cf4d8] GET /workflows/{project_id}/sources -> 200 (850.38 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:9f645a2b9288] GET /workflows/{project_id}/definitions -> 200 (860.29 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:e1a67ce50860] GET /workflows/{project_id}/runs -> 200 (1144.18 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:a7946b9fd7a5] GET /workflows/{project_id}/sources -> 200 (557.09 ms)
+[2026-11-16 01:38:49] INFO     cliptora.http: [request:c36d9d9ad41c] GET /workflows/{project_id}/definitions -> 200 (416.39 ms)
+[2026-11-16 01:38:50] INFO     cliptora.http: [request:c1f5e1fb745a] GET /workflows/{project_id}/runs -> 200 (435.21 ms)
+[2026-11-16 01:38:51] INFO     cliptora.http: [request:a1366e044416] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1921.68 ms)
+[2026-11-16 01:38:53] INFO     cliptora.http: [request:3df09d84caba] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (1394.48 ms)
+[2026-11-16 01:39:01] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 01:39:01] INFO     cliptora: HTTP and exception logging installed
+[2026-11-16 01:39:01] INFO     uvicorn.error: Started server process [24756]
+[2026-11-16 01:39:01] INFO     uvicorn.error: Waiting for application startup.
+[2026-11-16 01:39:01] INFO     uvicorn.error: Application startup complete.
+[2026-11-16 01:39:06] INFO     cliptora.http: [request:09ead7b6b972] GET /api/v1/health -> 200 (8.67 ms)
+[2026-11-16 01:39:11] INFO     cliptora.http: [request:ecf36ca52ab2] GET /auth/csrf -> 200 (6.81 ms)
+[2026-11-16 01:39:12] INFO     cliptora.http: [request:0f30ebf79a24] PUT /workflows/{project_id}/definitions/{definition_id} -> 200 (57.28 ms)
+[2026-11-16 01:39:14] INFO     cliptora.http: [request:636339cf7df8] GET /workflows/{project_id}/runs/{run_id} -> 200 (52.03 ms)
+[2026-11-16 01:39:15] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=core_schedule_trigger | previous_run_id=210
+[2026-11-16 01:39:15] INFO     cliptora.http: [request:7aa7d1e425f5] GET /workflows/{project_id}/runs/{run_id} -> 200 (39.38 ms)
+[2026-11-16 01:39:15] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=media_probe | previous_run_id=210
+[2026-11-16 01:39:15] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_extract | previous_run_id=210
+[2026-11-16 01:39:15] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_transcribe | previous_run_id=210
+[2026-11-16 01:39:17] INFO     cliptora.http: [request:25992d5a9d1d] GET /workflows/{project_id}/runs/{run_id} -> 200 (503.11 ms)
+[2026-11-16 01:39:18] INFO     cliptora.http: [request:bccf17b8c650] GET /workflows/{project_id}/runs/{run_id} -> 200 (505.58 ms)
+[2026-11-16 01:39:20] INFO     cliptora.http: [request:f608c7b3f1cb] GET /workflows/{project_id}/runs/{run_id} -> 200 (347.33 ms)
+[2026-11-16 01:39:20] INFO     cliptora.http: [request:7529daf96784] GET /workflows/{project_id}/runs -> 200 (813.74 ms)
+[2026-11-16 01:39:21] INFO     cliptora.http: [request:6115d3deb3df] GET /workflows/{project_id}/runs/{run_id} -> 200 (76.45 ms)
+[2026-11-16 01:39:22] INFO     cliptora.http: [request:eb31c8ca7a41] GET /workflows/{project_id}/runs/{run_id} -> 200 (53.01 ms)
+[2026-11-16 01:39:23] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=ai_batch | node_type=ai.batch | attempt=1 | retry_limit=1 | error_type=RuntimeError | error=Batch stopped at chunk chunk_000001 after 1 attempt(s)
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 719, in run
+    processor(
+    ~~~~~~~~~^
+        request_chunk,
+        ^^^^^^^^^^^^^^
+        context,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\ProviderAdapter.py", line 324, in process
+    result = executor(node_type)(
+        node,
+    ...<2 lines>...
+        self.workdir,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 146, in execute_operation
+    return self.message_model(node, outputs)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1394, in message_model
+    response = GeminiNode._request(model, cfg, prompt, system)
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 955, in _request
+    raise GeminiNode._sanitize_api_error(exc.code, exc.read(4096), api_key) from None
+RuntimeError: Gemini API request failed (HTTP 503). This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 507, in run_graph
+    candidate = node_executor(node_type)(
+        execution_node, deps, source, workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\AIBatch.py", line 560, in execute_operation
+    result = processor.run(
+        copy.deepcopy(chunks),
+    ...<24 lines>...
+        strategy=strategy,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 780, in run
+    raise RuntimeError(
+    ...<2 lines>...
+    ) from failure
+RuntimeError: Batch stopped at chunk chunk_000001 after 1 attempt(s)
+[2026-11-16 01:39:24] INFO     cliptora.http: [request:7af0a3672693] GET /workflows/{project_id}/runs/{run_id} -> 200 (129.57 ms)
+[2026-11-16 01:39:25] INFO     cliptora.http: [request:6cb7eeea76fa] GET /workflows/{project_id}/runs/{run_id} -> 200 (156.40 ms)
+[2026-11-16 01:39:27] INFO     cliptora.http: [request:d560a1458eaa] GET /workflows/{project_id}/runs -> 200 (1156.28 ms)
+[2026-11-16 01:39:27] INFO     cliptora.http: [request:ba94adddf12e] GET /workflows/{project_id}/runs/{run_id} -> 200 (1103.36 ms)
+[2026-11-16 01:39:28] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=ai_gemini | node_type=ai.gemini | attempt=1 | retry_limit=1 | error_type=ValueError | error=Gemini Highlights needs a direct connection from Transcribe Every Word (audio_transcribe). No connected output contains a words array. Current connected node IDs: ai_batch. Add the audio_transcribe -> ai_gemini edge and ensure audio_transcribe has executed. A Settings JSON alone cannot create this connection.
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 507, in run_graph
+    candidate = node_executor(node_type)(
+        execution_node, deps, source, workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 146, in execute_operation
+    return self.message_model(node, outputs)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1361, in message_model
+    return GeminiNode._highlights(node, cfg, outputs, model)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1220, in _highlights
+    words = GeminiNode._upstream_words(outputs)
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 821, in _upstream_words
+    raise ValueError(
+    ...<5 lines>...
+    )
+ValueError: Gemini Highlights needs a direct connection from Transcribe Every Word (audio_transcribe). No connected output contains a words array. Current connected node IDs: ai_batch. Add the audio_transcribe -> ai_gemini edge and ensure audio_transcribe has executed. A Settings JSON alone cannot create this connection.
+[2026-11-16 01:39:29] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=ai_gemini | node_type=ai.gemini | attempt=2 | retry_limit=1 | error_type=ValueError | error=Gemini Highlights needs a direct connection from Transcribe Every Word (audio_transcribe). No connected output contains a words array. Current connected node IDs: ai_batch. Add the audio_transcribe -> ai_gemini edge and ensure audio_transcribe has executed. A Settings JSON alone cannot create this connection.
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 507, in run_graph
+    candidate = node_executor(node_type)(
+        execution_node, deps, source, workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 146, in execute_operation
+    return self.message_model(node, outputs)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1361, in message_model
+    return GeminiNode._highlights(node, cfg, outputs, model)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1220, in _highlights
+    words = GeminiNode._upstream_words(outputs)
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 821, in _upstream_words
+    raise ValueError(
+    ...<5 lines>...
+    )
+ValueError: Gemini Highlights needs a direct connection from Transcribe Every Word (audio_transcribe). No connected output contains a words array. Current connected node IDs: ai_batch. Add the audio_transcribe -> ai_gemini edge and ensure audio_transcribe has executed. A Settings JSON alone cannot create this connection.
+[2026-11-16 01:39:29] ERROR    cliptora.workflows.engine: Workflow node permanently failed | node_id=ai_gemini | node_type=ai.gemini | attempts=2 | elapsed_seconds=0.55 | error=Node ai_gemini failed after 2 attempt(s): Gemini Highlights needs a direct connection from Transcribe Every Word (audio_transcribe). No connected output contains a words array. Current connected node IDs: ai_batch. Add the audio_transcribe -> ai_gemini edge and ensure audio_transcribe has executed. A Settings JSON alone cannot create this connection.
+[2026-11-16 01:39:29] INFO     cliptora.http: [request:c0f8e597d12c] POST /workflows/{project_id}/runs -> 202 (17279.62 ms)
+[2026-11-16 20:30:54] INFO     cliptora.http: [request:3c77aa6a4889] GET /workflows/{project_id}/runs/{run_id} -> 200 (307.22 ms)
+[2026-11-16 20:30:55] INFO     cliptora.http: [request:4203157e215a] GET /workflows/{project_id}/runs -> 200 (651.37 ms)
+[2026-11-16 20:30:55] INFO     cliptora.http: [request:d17b78c79d45] GET /workflows/{project_id}/runs/{run_id} -> 200 (458.16 ms)
+[2026-11-16 20:31:01] INFO     cliptora.http: [request:d40a256fca4e] GET /workflows/{project_id}/runs -> 200 (1532.90 ms)
+[2026-11-16 20:31:02] INFO     cliptora.http: [request:a35f2b226549] GET /auth/me -> 200 (131.77 ms)
+[2026-11-16 20:31:02] INFO     cliptora.http: [request:a95c51458be0] GET /auth/me -> 200 (208.46 ms)
+[2026-11-16 20:31:03] INFO     cliptora.http: [request:cafddf8f316d] GET /projects/{project_id} -> 200 (301.71 ms)
+[2026-11-16 20:31:03] INFO     cliptora.http: [request:30cbd132b32f] GET /projects/{project_id}/timeline -> 200 (426.56 ms)
+[2026-11-16 20:31:03] INFO     cliptora.http: [request:5421dbcf64cd] GET /projects/{project_id} -> 200 (203.23 ms)
+[2026-11-16 20:31:03] INFO     cliptora.http: [request:6be975150c4c] GET /projects/{project_id}/timeline -> 200 (352.69 ms)
+[2026-11-16 20:31:03] INFO     cliptora.http: [request:abfa030a895a] GET /api/v1/workflow-type-catalog -> 200 (129.73 ms)
+[2026-11-16 20:31:04] INFO     cliptora.http: [request:1147e4e27c65] GET /api/v1/workflow-type-catalog -> 200 (203.21 ms)
+[2026-11-16 20:31:04] INFO     cliptora.http: [request:1c8079fdd8c5] GET /workflows/{project_id}/sources -> 200 (978.30 ms)
+[2026-11-16 20:31:04] INFO     cliptora.http: [request:ae3a806f84dc] GET /workflows/catalog -> 200 (1075.58 ms)
+[2026-11-16 20:31:04] INFO     cliptora.http: [request:7de323d31e77] GET /workflows/templates -> 200 (1073.76 ms)
+[2026-11-16 20:31:04] INFO     cliptora.http: [request:f6935a638a97] GET /workflows/{project_id}/runs -> 200 (1251.48 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:7e7fb9e3105c] GET /workflows/{project_id}/definitions -> 200 (1436.74 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:da8e68ccc0c6] GET /workflows/catalog -> 200 (566.97 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:bd674b33242f] GET /workflows/templates -> 200 (569.12 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:76bd8e66e50b] GET /workflows/{project_id}/runs -> 200 (1007.14 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:dd02a132deba] GET /workflows/{project_id}/definitions -> 200 (680.79 ms)
+[2026-11-16 20:31:05] INFO     cliptora.http: [request:175b3d701aa7] GET /workflows/{project_id}/sources -> 200 (1213.38 ms)
+[2026-11-16 20:31:08] INFO     cliptora.http: [request:1822a376fb55] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (3229.70 ms)
+[2026-11-16 20:31:10] INFO     cliptora.http: [request:ff4bc76c232b] GET /workflows/{project_id}/definitions/{definition_id}/versions -> 200 (2420.67 ms)
+[2026-11-16 20:31:21] INFO     cliptora: Centralized logging enabled: C:\xampp\htdocs\CLIPTORA\storage\logs\cliptora.log
+[2026-11-16 20:31:21] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=core_schedule_trigger | previous_run_id=215
+[2026-11-16 20:31:21] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=media_probe | previous_run_id=215
+[2026-11-16 20:31:21] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_extract | previous_run_id=215
+[2026-11-16 20:31:21] INFO     cliptora.workflows.engine: Reused completed upstream output | node_id=audio_transcribe | previous_run_id=215
+[2026-11-16 20:31:27] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=ai_batch | node_type=ai.batch | attempt=1 | retry_limit=1 | error_type=RuntimeError | error=Batch stopped at chunk chunk_000001 after 1 attempt(s)
+Traceback (most recent call last):
+  File "C:\Python314\Lib\urllib\request.py", line 1321, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              encode_chunked=req.has_header('Transfer-encoding'))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1367, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1413, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1362, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1122, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1066, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1501, in connect
+    super().connect()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1032, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\socket.py", line 850, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+               ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\socket.py", line 987, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11001] getaddrinfo failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 952, in _request
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 487, in open
+    response = self._open(req, data)
+  File "C:\Python314\Lib\urllib\request.py", line 504, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "C:\Python314\Lib\urllib\request.py", line 464, in _call_chain
+    result = func(*args)
+  File "C:\Python314\Lib\urllib\request.py", line 1369, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        context=self._context)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 1324, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 11001] getaddrinfo failed>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 719, in run
+    processor(
+    ~~~~~~~~~^
+        request_chunk,
+        ^^^^^^^^^^^^^^
+        context,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\ProviderAdapter.py", line 324, in process
+    result = executor(node_type)(
+        node,
+    ...<2 lines>...
+        self.workdir,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 146, in execute_operation
+    return self.message_model(node, outputs)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1394, in message_model
+    response = GeminiNode._request(model, cfg, prompt, system)
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 957, in _request
+    raise RuntimeError(f'Cannot reach Gemini API: {type(exc).__name__}. Check Docker DNS/internet access.') from exc
+RuntimeError: Cannot reach Gemini API: URLError. Check Docker DNS/internet access.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 507, in run_graph
+    candidate = node_executor(node_type)(
+        execution_node, deps, source, workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\AIBatch.py", line 560, in execute_operation
+    result = processor.run(
+        copy.deepcopy(chunks),
+    ...<24 lines>...
+        strategy=strategy,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 780, in run
+    raise RuntimeError(
+    ...<2 lines>...
+    ) from failure
+RuntimeError: Batch stopped at chunk chunk_000001 after 1 attempt(s)
+[2026-11-16 20:31:28] ERROR    cliptora.workflows.engine: Workflow node attempt failed | node_id=ai_batch | node_type=ai.batch | attempt=2 | retry_limit=1 | error_type=RuntimeError | error=Batch stopped at chunk chunk_000001 after 1 attempt(s)
+Traceback (most recent call last):
+  File "C:\Python314\Lib\urllib\request.py", line 1321, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              encode_chunked=req.has_header('Transfer-encoding'))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1367, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1413, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1362, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1122, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Python314\Lib\http\client.py", line 1066, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1501, in connect
+    super().connect()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\http\client.py", line 1032, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\socket.py", line 850, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+               ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\socket.py", line 987, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11001] getaddrinfo failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 952, in _request
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 487, in open
+    response = self._open(req, data)
+  File "C:\Python314\Lib\urllib\request.py", line 504, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "C:\Python314\Lib\urllib\request.py", line 464, in _call_chain
+    result = func(*args)
+  File "C:\Python314\Lib\urllib\request.py", line 1369, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        context=self._context)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\urllib\request.py", line 1324, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 11001] getaddrinfo failed>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 719, in run
+    processor(
+    ~~~~~~~~~^
+        request_chunk,
+        ^^^^^^^^^^^^^^
+        context,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\ProviderAdapter.py", line 324, in process
+    result = executor(node_type)(
+        node,
+    ...<2 lines>...
+        self.workdir,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 146, in execute_operation
+    return self.message_model(node, outputs)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 1394, in message_model
+    response = GeminiNode._request(model, cfg, prompt, system)
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\Gemini.py", line 957, in _request
+    raise RuntimeError(f'Cannot reach Gemini API: {type(exc).__name__}. Check Docker DNS/internet access.') from exc
+RuntimeError: Cannot reach Gemini API: URLError. Check Docker DNS/internet access.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Engine.py", line 507, in run_graph
+    candidate = node_executor(node_type)(
+        execution_node, deps, source, workspace,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 410, in execute
+    return cls().execute(
+           ~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 74, in execute
+    return self._execute_once(
+           ~~~~~~~~~~~~~~~~~~^
+        operation, node, outputs, source, workdir
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\Node.py", line 162, in _execute_once
+    result = self.execute_operation(
+        operation, node, data_view, source, workdir
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\workflows\nodes\AIBatch.py", line 560, in execute_operation
+    result = processor.run(
+        copy.deepcopy(chunks),
+    ...<24 lines>...
+        strategy=strategy,
+    )
+  File "C:\xampp\htdocs\CLIPTORA\backend\app\services\context\AIBatchProcessor.py", line 780, in run
+    raise RuntimeError(
+    ...<2 lines>...
+    ) from failure
+RuntimeError: Batch stopped at chunk chunk_000001 after 1 attempt(s)
+[2026-11-16 20:31:28] ERROR    cliptora.workflows.engine: Workflow node permanently failed | node_id=ai_batch | node_type=ai.batch | attempts=2 | elapsed_seconds=2.73 | error=Node ai_batch failed after 2 attempt(s): Batch stopped at chunk chunk_000001 after 1 attempt(s)
+[2026-11-16 20:31:43] INFO     cliptora.http: [request:b2ea853daea7] GET /workflows/{project_id}/runs -> 200 (163.35 ms)
+[2026-11-16 20:31:50] INFO     cliptora.http: [request:383640550e8c] GET /workflows/{project_id}/runs -> 200 (131.31 ms)
+[2026-11-16 20:31:58] INFO     cliptora.http: [request:acfe1c6764c3] GET /workflows/{project_id}/runs -> 200 (432.68 ms)
+[2026-11-16 20:32:05] INFO     cliptora.http: [request:19f583f4fd26] GET /workflows/{project_id}/runs -> 200 (225.65 ms)
+[2026-11-16 20:32:12] INFO     cliptora.http: [request:7c18bf743332] GET /workflows/{project_id}/runs -> 200 (200.51 ms)
+[2026-11-16 20:32:19] INFO     cliptora.http: [request:a40c4c10a711] GET /workflows/{project_id}/runs -> 200 (214.58 ms)
+[2026-11-16 20:32:26] INFO     cliptora.http: [request:31a1cb951c77] GET /workflows/{project_id}/runs -> 200 (227.47 ms)
+[2026-11-16 20:32:33] INFO     cliptora.http: [request:d496b67a1142] GET /workflows/{project_id}/runs -> 200 (211.43 ms)
+[2026-11-16 20:32:40] INFO     cliptora.http: [request:6c4c3e776880] GET /workflows/{project_id}/runs -> 200 (261.48 ms)
+[2026-11-16 20:32:47] INFO     cliptora.http: [request:c682e527d6a2] GET /workflows/{project_id}/runs -> 200 (163.90 ms)
+[2026-11-16 20:32:54] INFO     cliptora.http: [request:41ed0e036bc1] GET /workflows/{project_id}/runs -> 200 (224.26 ms)
+[2026-11-16 20:33:53] INFO     cliptora.http: [request:059586367ad1] GET /workflows/{project_id}/runs -> 200 (202.05 ms)
+[2026-11-16 20:34:32] INFO     cliptora.http: [request:bd06ed4b4c63] GET /api/v1/health -> 200 (1.69 ms)
+[2026-11-16 20:34:53] INFO     cliptora.http: [request:347ac8f174fb] GET /workflows/{project_id}/runs -> 200 (304.63 ms)

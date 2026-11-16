@@ -28,6 +28,7 @@ MAX_FILE_BYTES = 1024 * 1024 * 1024
 
 REUSABLE_TYPES = frozenset({
     "core.manual_trigger",
+    "core.schedule_trigger",
     "core.video_source",
     "media.probe",
     "audio.extract",

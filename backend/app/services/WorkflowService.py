@@ -675,6 +675,31 @@ class WorkflowService:
     def start_run(self, project_id: int, body: StartRun, background: BackgroundTasks, db: Session = Depends(wf_db), user: User = Depends(current_user)):
         authorize(db, project_id, user.id)
         definition = owner(db, WorkflowDefinition, body.workflow_id, user.id, project_id)
+
+        # Serialize starts for one workflow definition.  The row lock closes
+        # the race where two near-simultaneous POST requests both check before
+        # either has inserted its queued run.
+        db.execute(
+            select(WorkflowDefinition.id).where(
+                WorkflowDefinition.id == definition.id,
+                WorkflowDefinition.user_id == user.id,
+                WorkflowDefinition.project_id == project_id,
+            ).with_for_update()
+        ).scalar_one()
+
+        active_run = db.scalar(
+            select(WorkflowRun).where(
+                WorkflowRun.user_id == user.id,
+                WorkflowRun.project_id == project_id,
+                WorkflowRun.workflow_id == definition.id,
+                WorkflowRun.state.in_(("queued", "running", "cancelling")),
+            ).order_by(WorkflowRun.id.desc()).limit(1)
+        )
+        if active_run is not None:
+            raise HTTPException(
+                409,
+                f"Workflow execution #{active_run.id} is already {active_run.state}",
+            )
         
         try:
             nodes = execution_nodes(

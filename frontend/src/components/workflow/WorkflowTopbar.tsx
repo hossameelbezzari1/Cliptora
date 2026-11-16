@@ -28,6 +28,7 @@ export function WorkflowTopbar({
     name,
     setName,
     run,
+    runs,
     activeId,
     waitingNodes,
     completedNodes,
@@ -49,6 +50,8 @@ export function WorkflowTopbar({
   } = studio
 
   const [saving, setSaving] = useState(false)
+  const hasActiveRun = activeId !== null && runs.some(item =>
+    item.workflow_id === activeId && ['queued', 'running', 'cancelling'].includes(item.state))
 
   const saveWorkflow = async () => {
     if (saving || working) return
@@ -224,8 +227,8 @@ export function WorkflowTopbar({
           type="button"
           className={accent}
           onClick={() => void start()}
-          disabled={working || nodes.length === 0 || !name.trim()}
-          title="Run workflow"
+          disabled={working || hasActiveRun || nodes.length === 0 || !name.trim()}
+          title={hasActiveRun ? 'This workflow already has an active execution' : 'Run workflow'}
         >
           {working
             ? <LoaderCircle size={16} className="animate-spin" />

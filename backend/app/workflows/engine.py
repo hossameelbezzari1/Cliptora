@@ -44,7 +44,7 @@ def run_graph(
     from app.workflows.Credentials import bind_for_node
     from app.workflows.Reuse import STEP_TARGET_KEY
     from app.workflows.ItemExecution import (
-        execution_settings, run_item_execution, describe_collections, live_snapshot_from_result,
+        describe_collections, live_snapshot_from_result,
     )
 
     ordered = validate_workflow(nodes)
@@ -496,9 +496,6 @@ def run_graph(
                         if port == "tool" and source_id in by_node_id
                     }
 
-                mode = execution_settings(
-                    node.get("settings") or {}, node_type, node["depends_on"]
-                )["mode"]
                 with bind_for_node(execution_node):
                     if node_type in CONTROLLERS:
                         candidate, body_outputs = run_loop_controller(
@@ -506,19 +503,9 @@ def run_graph(
                             cancelled, node_progress_callback,
                         )
                         prepared_body_outputs.update(body_outputs)
-                    elif mode == "once":
+                    else:
                         candidate = node_executor(node_type)(
                             execution_node, deps, source, workspace,
-                        )
-                    else:
-                        def invoke_item(item_node: dict, item_deps: dict) -> dict:
-                            return node_executor(node_type)(
-                                item_node, item_deps, source, workspace,
-                            )
-
-                        candidate = run_item_execution(
-                            execution_node, deps, source, workspace,
-                            invoke_item, cancelled, node_progress_callback,
                         )
 
                 if not isinstance(candidate, dict):
