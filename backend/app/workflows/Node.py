@@ -62,8 +62,8 @@ class Node(ABC):
         # changing the engine or registering hardcoded Python types.
         cfg = node.get("settings") or {}
         type_mode = cfg.get("type_validation_mode", "legacy")
-        if type_mode not in ("legacy", "strict"):
-            raise ValueError("Type Validation Mode must be legacy or strict")
+        if type_mode not in ("legacy", "strict", "adapt", "auto"):
+            raise ValueError("Type Validation Mode must be legacy, strict, adapt, or auto")
 
         if type_mode == "strict":
             from .TypeEngine import TypeContractError, validate_value
@@ -88,8 +88,22 @@ class Node(ABC):
                         "Input contract failed: " + "; ".join(issues[:5])
                     )
 
+        # DTE V2 is ADDITIVE: the original Strict checks above are retained.
+        # The bridge only supplies a private transformed view for Adapt/Auto;
+        # legacy and strict operations keep the original upstream objects.
+        data_view = outputs
+        if type_mode in ("strict", "adapt", "auto"):
+            from .TypeRuntime import prepare_typed_inputs
+
+            data_view, _type_adaptation = prepare_typed_inputs(
+                cfg,
+                self.operations[operation],
+                outputs,
+                node.get("depends_on") or [],
+            )
+
         result = self.execute_operation(
-            operation, node, outputs, source, workdir
+            operation, node, data_view, source, workdir
         )
 
         if not isinstance(result, dict):
@@ -97,7 +111,7 @@ class Node(ABC):
                 f"Node operation {operation} must return a JSON object"
             )
 
-        if type_mode == "strict":
+        if type_mode in ("strict", "adapt", "auto"):
             from .TypeEngine import TypeContractError, validate_value
 
             output_schema = (
@@ -142,6 +156,9 @@ class Node(ABC):
                     "execution_empty_policy": "stop",
                     "type_validation_mode": "legacy",
                     "type_input_path": "",
+                    "type_target_path": "",
+                    "type_adapter_rule": {},
+                    "type_source_schema": {},
                     "type_input_schema": {},
                     "type_output_schema": {},
                 }
@@ -231,7 +248,7 @@ class Node(ABC):
                     "type_validation_mode": {
                         "type": "string",
                         "title": "Type Validation Mode",
-                        "enum": ["legacy", "strict"],
+                        "enum": ["legacy", "strict", "adapt", "auto"],
                         "group": "Type System",
                         "description": (
                             "Legacy keeps current behavior. Strict checks "
@@ -243,6 +260,25 @@ class Node(ABC):
                         "title": "Type Input Path",
                         "widget": "upstream",
                         "accepts": ["json"],
+                        "group": "Type System",
+                    },
+                    "type_target_path": {
+                        "type": "string",
+                        "title": "Adapted Target Path",
+                        "widget": "upstream",
+                        "accepts": ["json"],
+                        "group": "Type System",
+                        "description": "Where to inject adapted data into the local input view.",
+                    },
+                    "type_adapter_rule": {
+                        "type": "object",
+                        "title": "Approved Versioned Adapter Rule",
+                        "group": "Type System",
+                        "description": "Only explicit approved mappings and unit conversions are used.",
+                    },
+                    "type_source_schema": {
+                        "type": "object",
+                        "title": "Source Semantic Contract",
                         "group": "Type System",
                     },
                     "type_input_schema": {
@@ -294,7 +330,7 @@ class Node(ABC):
                 "input_contract": deepcopy(meta.get("input_contract") or {}),
                 "output_contract": deepcopy(meta.get("output_contract") or {}),
                 "type_system": {
-                    "version": 1,
+                    "version": 2,
                     "discovery": True,
                     "mapping": True,
                     "runtime_validation": True,

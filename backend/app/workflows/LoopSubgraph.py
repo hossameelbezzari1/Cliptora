@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.workflows.InputResolver import resolve_input_path
-from app.workflows.ItemExecution import ITEM_MARKER, _item_record, _text_value, _digest, _write_json
+from app.workflows.ItemExecution import ITEM_MARKER, _item_record, _text_value, _digest, _write_json, LiveItemTracker
 
 CONTROLLERS = frozenset({"items.loop", "items.repeat_until"})
 MAX_BODY_STEPS = 12
@@ -180,6 +180,12 @@ def run_loop_controller(
     collected: dict[str, list[dict[str, Any]]] = {step: [] for step in body_ids}
     condition_met = False
     max_count = max_iterations if repeating else len(data)
+    tracker = LiveItemTracker("repeat_until" if repeating else "for_each_subgraph", [
+        {"id": str(data[i]["id"]), "label": str(data[i].get("label") or data[i]["id"])}
+        for i in range(max_count) if not repeating
+    ])
+    if not repeating:
+        tracker.emit(progress, stage="loop_ready", message=f"{max_count} loop items ready", force=True)
 
     for ix in range(max_count):
         if cancelled():
@@ -190,6 +196,10 @@ def run_loop_controller(
         local: dict[str, Any] = dict(outer_outputs)
         local[ident] = _scoped_current(item, ix, max_count, previous if repeating else None)
         iterations += 1
+        if repeating:
+            tracker.append(f"repeat_{ix+1:04d}", f"Iteration {ix+1}")
+        tracker.set(ix, "running")
+        tracker.emit(progress, stage="loop", message=f"Loop iteration {ix+1}/{max_count} running", force=ix < 3)
         try:
             for body_index, step in enumerate(body):
                 if cancelled():
@@ -235,18 +245,19 @@ def run_loop_controller(
                 condition_met = _predicate(actual, str(cfg.get("condition_operator", "truthy")),
                                            cfg.get("condition_value", True))
                 previous = final
+            tracker.set(ix, "completed")
         except Exception as exc:
+            tracker.set(ix, "failed", f"{type(exc).__name__}: {exc}")
+            tracker.emit(progress, stage="loop", message=f"Loop iteration {ix+1} failed", force=True)
             failures.append({"id": str(item["id"]), "index": ix,
                              "error": f"{type(exc).__name__}: {exc}"[:400]})
             if repeating or cfg.get("error_policy", "stop") == "stop":
                 raise ValueError(f"Loop {ident} iteration {ix+1}/{max_count} failed: {exc}") from exc
-        if callable(progress):
-            progress({"stage": "loop", "message": f"Loop {ix+1}/{max_count}",
-                      "unit": "iterations", "processed": ix + 1, "total": max_count,
-                      "progress": round(100 * (ix + 1) / max_count, 2)})
+        tracker.emit(progress, stage="loop", message=f"Loop {ix+1}/{max_count}", force=ix < 3)
         if repeating and condition_met:
             break
 
+    tracker.emit(progress, stage="loop_complete", message=f"Loop finished after {iterations} iterations", force=True)
     if repeating and not condition_met and cfg.get("on_limit", "error") == "error":
         raise ValueError(f"Repeat Until {ident} exhausted {max_iterations} iterations without meeting condition")
 

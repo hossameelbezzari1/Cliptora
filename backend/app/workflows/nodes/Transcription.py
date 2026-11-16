@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -32,6 +31,21 @@ class TranscriptionNode(Node):
                 'include_confidence': True,
             },
         },
+    }
+
+    operations['audio.transcribe']['output_contract'] = {
+        'type': 'object',
+        'properties': {
+            'text': {'type': 'string'},
+            'words': {'type': 'array', 'items': {'type': 'object', 'properties': {
+                'text': {'type': 'string'},
+                'start': {'type': 'number', 'x-unit': 's', 'x-semantic': 'timestamp'},
+                'end': {'type': 'number', 'x-unit': 's', 'x-semantic': 'timestamp'},
+            }, 'required': ['text', 'start', 'end']}},
+            'segments': {'type': 'array', 'items': {'type': 'object'}},
+            'word_count': {'type': 'integer', 'minimum': 0},
+        },
+        'required': ['text', 'words'],
     }
 
     parameter_fields = {

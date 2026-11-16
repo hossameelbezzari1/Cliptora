@@ -13,6 +13,24 @@ import type {
 } from './workflowTypes'
 import type { StudioFlowNode } from './WorkflowNodeCard'
 import { clone, errorMessage, preferredNode, uid } from './workflowUtils'
+import type { DteSchema } from './types/dteContracts'
+import { previewTypedLink } from './types/workflowConnectionTypes'
+import {
+  fetchWorkflowTypeCatalog, checkWorkflowTypeConnection,
+  type WorkflowTypeCatalogResponse, type WorkflowTypeStatus,
+} from './types/workflowLiveTypeRegistry'
+
+export type TypeLinkDecision = {
+  allowed: boolean
+  status: WorkflowTypeStatus
+  issues: string[]
+  message: string
+}
+
+const asContract = (value: unknown): DteSchema | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length
+    ? value as DteSchema : undefined
+
 
 export type WorkflowStudioProps = {
   projectId: number
@@ -74,6 +92,9 @@ export function useWorkflowStudio({
   onClose,
 }: WorkflowStudioProps) {
   const [catalog, setCatalog] = useState<WorkflowCatalogItem[]>([])
+  const [typeCatalog, setTypeCatalog] = useState<WorkflowTypeCatalogResponse | null>(null)
+  const [typeCatalogError, setTypeCatalogError] = useState<string | null>(null)
+
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([])
   const [definitions, setDefinitions] = useState<WorkflowDefinition[]>([])
   const [sources, setSources] = useState<WorkflowSource[]>([])
@@ -98,6 +119,15 @@ export function useWorkflowStudio({
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [page, setPage] = useState<Mode>('nodes')
+  // Live loop view is presentation-only; never stored in a workflow definition.
+  const [liveLoopView, setLiveLoopView] = useState(() => {
+    try { return window.localStorage.getItem('cliptora.workflow.live-loop') === 'true' }
+    catch { return false }
+  })
+  useEffect(() => {
+    try { window.localStorage.setItem('cliptora.workflow.live-loop', String(liveLoopView)) }
+    catch { /* Private/disabled storage is fine. */ }
+  }, [liveLoopView])
   const [nodeSearch, setNodeSearch] = useState('')
   const [nodeGroup, setNodeGroup] = useState('All')
   const [inspectorTab, setInspectorTab] = useState<'settings' | 'wiring'>('settings')
@@ -196,6 +226,90 @@ export function useWorkflowStudio({
   const importInput = useRef<HTMLInputElement>(null)
   const flow = useRef<ReactFlowInstance<StudioFlowNode, Edge> | null>(null)
   const selected = nodes.find(node => node.id === selectedId) ?? null
+  // Live contracts are optional: older installations keep their legacy wiring.
+  // The server (not the exported TypeScript file) remains the source of truth.
+  const refreshTypeCatalog = useCallback(async () => {
+    try {
+      const next = await fetchWorkflowTypeCatalog()
+      setTypeCatalog(next)
+      setTypeCatalogError(null)
+    } catch (reason) {
+      setTypeCatalogError(errorMessage(reason))
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void fetchWorkflowTypeCatalog().then(next => {
+      if (active) { setTypeCatalog(next); setTypeCatalogError(null) }
+    }).catch(reason => {
+      if (active) setTypeCatalogError(errorMessage(reason))
+    })
+    return () => { active = false }
+  }, [projectId])
+
+  const localTypeDecision = useCallback((
+    sourceType: string, targetType: string,
+    targetSettings: Record<string, unknown> = {},
+    sourceSettings: Record<string, unknown> = {},
+  ): TypeLinkDecision => {
+    const sourceEntry = typeCatalog?.nodes.find(item => item.node_type === sourceType)
+    const targetEntry = typeCatalog?.nodes.find(item => item.node_type === targetType)
+    const source = asContract(sourceSettings.type_output_schema) ?? asContract(sourceEntry?.output_contract)
+    const target = asContract(targetSettings.type_input_schema) ?? asContract(targetEntry?.input_contract)
+    const report = previewTypedLink(source, target)
+    const mode = String(targetSettings.type_validation_mode ?? 'legacy')
+    const strict = mode === 'strict' || mode === 'auto'
+    const blocked = strict && report.status === 'requires_mapping'
+    const message = report.status === 'requires_mapping'
+      ? `Type mismatch: ${report.issues.slice(0, 3).join('; ')}. ${blocked ? 'Choose Adapt and approve a mapping before connecting.' : 'Connection kept in legacy mode; configure a mapping before typed execution.'}`
+      : report.status === 'unknown'
+        ? 'Type contract not fully declared; the backend will validate at execution.'
+        : 'Type contracts are compatible.'
+    return { allowed: !blocked, status: report.status, issues: report.issues, message }
+  }, [typeCatalog])
+
+  const checkTypeConnection = useCallback(async (
+    sourceType: string, targetType: string,
+    targetSettings: Record<string, unknown> = {},
+    sourceSettings: Record<string, unknown> = {},
+  ): Promise<TypeLinkDecision> => {
+    const local = localTypeDecision(sourceType, targetType, targetSettings, sourceSettings)
+    if (!local.allowed) return local
+    const sourceEntry = typeCatalog?.nodes.find(item => item.node_type === sourceType)
+    const targetEntry = typeCatalog?.nodes.find(item => item.node_type === targetType)
+    // Avoid calling a compatibility endpoint for undeclared contracts.
+    if (!sourceEntry || !targetEntry || sourceEntry.contract_status !== 'declared' ||
+        targetEntry.contract_status !== 'declared' ||
+        !Object.keys(sourceEntry.output_contract).length || !Object.keys(targetEntry.input_contract).length) return local
+    try {
+      const server = await checkWorkflowTypeConnection({ source_type: sourceType, target_type: targetType })
+      // Explicit per-node schema overrides are not visible to the catalog API.
+      // The local override check is conservative; runtime validation remains final.
+      const overridden = Boolean(asContract(sourceSettings.type_output_schema) || asContract(targetSettings.type_input_schema))
+      const status = overridden ? local.status : server.status
+      const issues = overridden ? local.issues : server.issues
+      const mode = String(targetSettings.type_validation_mode ?? 'legacy')
+      const blocked = (mode === 'strict' || mode === 'auto') && status === 'requires_mapping'
+      return {
+        allowed: !blocked, status, issues,
+        message: status === 'requires_mapping'
+          ? `Type mismatch: ${issues.slice(0, 3).join('; ')}. ${blocked ? 'Approve an adapter rule first.' : 'Legacy connection allowed with a mapping warning.'}`
+          : status === 'unknown' || status === 'runtime_check'
+            ? 'Connection added; actual input will be checked at runtime.'
+            : 'Type contracts compatible.',
+      }
+    } catch (reason) {
+      // Do not turn a network failure into a silent compatibility approval.
+      const mode = String(targetSettings.type_validation_mode ?? 'legacy')
+      if (mode === 'strict' || mode === 'auto') {
+        return { allowed: false, status: 'unknown', issues: [errorMessage(reason)],
+          message: 'Cannot verify a Strict/Auto typed connection while the Type Registry API is unavailable.' }
+      }
+      return { ...local, message: `Live type check unavailable (${errorMessage(reason)}); legacy link can be saved.` }
+    }
+  }, [localTypeDecision, typeCatalog])
+
   const selectedCatalog = catalog.find(item => item.type === selected?.type)
   const hasVideoSource = nodes.some(node => VIDEO_SOURCE_TYPES.has(node.type))
 
@@ -385,11 +499,15 @@ export function useWorkflowStudio({
     }))
   }
 
-  const updateSelectedSetting = (key: string, value: unknown) => {
+  const updateSelectedSettings = (patch: Record<string, unknown>) => {
     if (!selected) return
-    const settings = { ...selected.settings, [key]: value }
+    const settings = { ...selected.settings, ...patch }
     updateNode(selected.id, { settings })
     setJsonEditor(JSON.stringify(settings, null, 2))
+  }
+
+  const updateSelectedSetting = (key: string, value: unknown) => {
+    updateSelectedSettings({ [key]: value })
   }
 
   const addNode = (type: string, position?: { x: number; y: number }) => {
@@ -708,8 +826,10 @@ export function useWorkflowStudio({
       )
       setRun(next)
       setRuns(previous => [next, ...previous])
-      setPage('runs')
-      setMessage('Workflow queued. You can monitor each node here.')
+      setPage(liveLoopView ? 'nodes' : 'runs')
+      setMessage(liveLoopView
+        ? 'Workflow queued. Live loop view will display real task progress as it arrives.'
+        : 'Workflow queued. You can monitor each node here.')
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1182,6 +1302,7 @@ export function useWorkflowStudio({
 
   return {
     projectId, onClose,
+    typeCatalog, typeCatalogError, refreshTypeCatalog, localTypeDecision, checkTypeConnection,
     catalog, templates, definitions, sources, runs, versions, setVersions,
     activeId, setActiveId, name, setName,
     nodes, setNodes, setNodesTransient, replaceNodes, commitNodeHistory,
@@ -1190,12 +1311,13 @@ export function useWorkflowStudio({
     sourceId, setSourceId: setWorkflowSourceId,
     run, setRun, working, canvasDragging, setCanvasDragging,
     error, setError, message, setMessage,
-    page, setPage, nodeSearch, setNodeSearch, nodeGroup, setNodeGroup,
+    page, setPage, liveLoopView, setLiveLoopView,
+    nodeSearch, setNodeSearch, nodeGroup, setNodeGroup,
     inspectorTab, setInspectorTab, libraryOpen, setLibraryOpen,
     toolSearchRef, showToolLibrary,
     editorMedia, fileInput, importInput, flow, selected, selectedCatalog,
     hasVideoSource, groups, visibleCatalog,
-    updateNode, updateSelectedSetting, addNode, removeNode,
+    updateNode, updateSelectedSetting, updateSelectedSettings, addNode, removeNode,
     flowNodes, flowEdges, connect, applySettings, openDefinition, openTemplate,
     save, start, testStep, upload, useMediaSource, fetchArtifact, downloadVideo,
     applyCutPlan, cancel, retry, chooseRun, dropNode, exportWorkflow,

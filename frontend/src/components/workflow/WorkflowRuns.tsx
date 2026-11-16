@@ -30,9 +30,11 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import NodeProgress from './editor/NodeProgress'
+import { WorkflowRunItemHealth, type WorkflowRunNodeHealth } from './editor/WorkflowRunItemHealth'
 import { WorkflowAudioPreview } from './WorkflowAudioPreview'
 import { WorkflowBrowserPreview } from './WorkflowBrowserPreview'
 import type { WorkflowStudioState } from './useWorkflowStudio'
+import { api } from '../../lib/api'
 
 type Dict = Record<string, unknown>
 type FilterName = 'all' | 'completed' | 'failed' | 'running' | 'cancelled'
@@ -362,6 +364,33 @@ export function WorkflowRuns({
   const graphNodes = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graphSignature])
   const selectedInfo = selectedNode ? previewResults?.[selectedNode] : null
   const selectedDetails = asDict(selectedInfo)
+  const [healthArtifact, setHealthArtifact] = useState<Dict | null>(null)
+  const nodeHealth = selectedDetails as WorkflowRunNodeHealth
+  const partialOnSummary = nodeHealth.partial_result === true ||
+    (nodeHealth.failed_item_count ?? 0) > 0 ||
+    ['partial', 'invalid', 'limit_reached'].includes(nodeHealth.result_status ?? '')
+  useEffect(() => {
+    if (!selectedNode || !previewRun?.id || !partialOnSummary || !selectedDetails.artifact) {
+      setHealthArtifact(null)
+      return
+    }
+    let alive = true
+    setHealthArtifact(null)
+    void api<Dict>(`/workflows/${studio.projectId}/runs/${previewRun.id}/artifacts/${selectedNode}`)
+      .then(payload => { if (alive) setHealthArtifact(payload) })
+      .catch(() => { if (alive) setHealthArtifact(null) })
+    return () => { alive = false }
+  }, [selectedNode, previewRun?.id, partialOnSummary, selectedDetails.artifact, studio.projectId])
+  const itemPayload = healthArtifact ?? asDict(selectedDetails.result)
+  const failedRaw = Array.isArray(itemPayload.failed_items) ? itemPayload.failed_items
+    : Array.isArray(itemPayload.failed_voiceovers) ? itemPayload.failed_voiceovers
+      : Array.isArray(selectedDetails.failed_items) ? selectedDetails.failed_items : []
+  const failedItems = failedRaw.filter((value): value is { id?: string; index?: number; error?: string; instance_id?: string } =>
+    value !== null && typeof value === 'object' && !Array.isArray(value))
+  const selectedHealth = selectedDetails as WorkflowRunNodeHealth
+  const showItemHealth = selectedHealth.partial_result === true ||
+    (selectedHealth.failed_item_count ?? 0) > 0 || failedItems.length > 0 ||
+    ['partial', 'invalid', 'limit_reached'].includes(selectedHealth.result_status ?? '')
 
   const visibleRuns = scopedRuns.filter(item => {
     const state = item.state.toLowerCase()
@@ -514,6 +543,8 @@ export function WorkflowRuns({
         )}
 
         {' | '}ID#{previewRun.id}
+        {Object.values(previewResults).some(value => asDict(value)?.partial_result === true) &&
+          <span className="ml-2 font-medium text-amber-700">· Partial node results</span>}
       </p>
 
       {['queued', 'running', 'cancelling'].includes(previewRun.state) && (
@@ -666,6 +697,7 @@ export function WorkflowRuns({
                 />
               )}
 
+              {showItemHealth && <div className="mt-3"><WorkflowRunItemHealth health={selectedHealth} failedItems={failedItems} /></div>}
               {getString(selectedDetails, 'error') && <p className="mt-2 break-words text-xs text-red-600">{getString(selectedDetails, 'error')}</p>}
               {selectedDetails && <pre className="mt-3 max-h-[min(45vh,350px)] overflow-auto rounded-lg bg-[#f5f5f5] p-3 text-[11px] leading-5 text-[#333]">{JSON.stringify(selectedDetails, null, 2)}</pre>}
               {!selectedDetails && <p className="mt-3 text-xs leading-5 text-[#777]">You can inspect the workflow without activating it. Detailed node results require a saved execution payload.</p>}
@@ -696,5 +728,3 @@ export function WorkflowRuns({
     </section>
   )
 }
-
-

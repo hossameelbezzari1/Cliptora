@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Eye,
+  EyeOff,
   History,
   LoaderCircle,
   Play,
@@ -29,6 +31,8 @@ export function WorkflowTopbar({
     activeId,
     waitingNodes,
     completedNodes,
+    liveLoopView,
+    setLiveLoopView,
     showToolLibrary,
     working,
     nodes,
@@ -105,6 +109,25 @@ export function WorkflowTopbar({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <button
+          type="button"
+          aria-label={liveLoopView ? 'Turn off Live Loop view' : 'Turn on Live Loop view'}
+          aria-pressed={liveLoopView}
+          title={liveLoopView
+            ? 'Live Loop is on: click to return to the normal canvas'
+            : 'Show real execution iterations as temporary Ghost Nodes'}
+          onClick={() => {
+            setLiveLoopView(previous => !previous)
+            setPage('nodes')
+          }}
+          className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-semibold transition-colors ${liveLoopView
+            ? 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200'
+            : 'border-[#e5e7eb] bg-white text-[#626976] hover:bg-[#f6f4fb] dark:border-[#374151] dark:bg-cl-dark-panel dark:text-[#b8bec7]'}`}
+        >
+          {liveLoopView ? <Eye size={16} /> : <EyeOff size={16} />}
+          <span className="hidden md:inline">Live loop</span>
+          {liveLoopView && run?.state === 'running' && <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />}
+        </button>
         <ThemeToggle compact />
         <div
           className="flex shrink-0 items-center gap-1 rounded-xl border border-[#ededf0] dark:border-[#374151] bg-[#fafafa] dark:bg-[#1f2937] p-1"

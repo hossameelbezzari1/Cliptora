@@ -44,7 +44,7 @@ def run_graph(
     from app.workflows.Credentials import bind_for_node
     from app.workflows.Reuse import STEP_TARGET_KEY
     from app.workflows.ItemExecution import (
-        execution_settings, run_item_execution, describe_collections,
+        execution_settings, run_item_execution, describe_collections, live_snapshot_from_result,
     )
 
     ordered = validate_workflow(nodes)
@@ -139,6 +139,8 @@ def run_graph(
                 "cached": False, "progress": 100, "artifact": True,
                 "item_execution": result.get("item_execution", {}),
                 "collections": describe_collections(result),
+                "type_discovery": _safe_type_discovery(result),
+                **_result_health(result),
             }
             update(int(100 * (index + 1) / total_nodes), node_id, summary)
             continue
@@ -398,6 +400,12 @@ def run_graph(
 
                 if isinstance(event.get("unit"), str):
                     status["unit"] = event["unit"][:24]
+
+                # V1 live item snapshots contain bounded public metadata only.
+                # They are never part of workflow definition node settings.
+                live = event.get("item_execution_live")
+                if isinstance(live, dict) and isinstance(live.get("items"), list):
+                    status["item_execution_live"] = live
 
                 latest_status = status
 
@@ -699,6 +707,13 @@ def run_graph(
         # Arrays in a node output are Elements, not execution iterations.
         # Report both separately for Workflow Runs and the UI data picker.
         public["collections"] = describe_collections(result)
+        public["type_discovery"] = _safe_type_discovery(result)
+        live_items = previous_progress.get("item_execution_live")
+        if not isinstance(live_items, dict):
+            live_items = live_snapshot_from_result(result)
+        if isinstance(live_items, dict):
+            public["item_execution_live"] = live_items
+        public.update(_result_health(result))
         if isinstance(result.get("item_execution"), dict):
             public["item_execution"] = result["item_execution"]
         if "render" in result:
@@ -718,6 +733,7 @@ def run_graph(
 
     return {
         "status": "completed",
+        "has_partial_results": any(row.get("partial_result") is True for row in summary.values()),
         "nodes": summary,
     }
 
@@ -740,6 +756,37 @@ class WorkflowEngine:
             cancelled,
         )
         
+
+
+def _result_health(value: dict) -> dict:
+    """Separate transport completion from semantic completion for Workflow Runs.
+
+    The existing `state` contract is not changed; frontend can show a warning
+    through result_status/partial_result and offer per-item retry or inspection.
+    """
+    if not isinstance(value, dict):
+        return {"result_status": "unknown", "partial_result": False, "failed_item_count": 0}
+    status = value.get("status", "completed")
+    if not isinstance(status, str):
+        status = "unknown"
+    failed = value.get("failed_items")
+    if not isinstance(failed, list):
+        failed = value.get("failed_voiceovers")
+    if not isinstance(failed, list):
+        failed = []
+    loop = value.get("loop") if isinstance(value.get("loop"), dict) else {}
+    stats = value.get("item_execution") if isinstance(value.get("item_execution"), dict) else {}
+    numeric_failed = [n for n in (loop.get("failed"), stats.get("failed"))
+                      if type(n) is int and n >= 0]
+    count = max(len(failed), *numeric_failed) if numeric_failed else len(failed)
+    partial = status in {"partial", "limit_reached", "invalid"} or count > 0
+    info = {"result_status": status[:64], "partial_result": partial,
+            "failed_item_count": count}
+    if partial:
+        info["warning"] = (f"{count} item(s) failed" if count
+                           else f"Node returned {status} instead of full completion")
+    return info
+
 def _safe_type_discovery(value: dict) -> dict:
     """Discover run-output structure without changing node execution semantics."""
     try:
@@ -751,7 +798,7 @@ def _safe_type_discovery(value: dict) -> dict:
             return info
 
         return {
-            "version": 1,
+            "version": 2,
             "schema_id": info["schema_id"],
             "collections": info["collections"],
             "schema_truncated": True,
@@ -759,6 +806,6 @@ def _safe_type_discovery(value: dict) -> dict:
 
     except (TypeError, ValueError, RecursionError):
         return {
-            "version": 1,
+            "version": 2,
             "schema_skipped": True,
         }

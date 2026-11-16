@@ -168,6 +168,20 @@ class CollectionNode(Node):
         },
     }
 
+    for _kind, _fields in {
+        'items.prepare_loop': {'items': 'array', 'item_count': 'integer', 'source_path': 'string'},
+        'items.group': {'groups': 'array', 'group_count': 'integer', 'element_count': 'integer'},
+        'items.split': {'groups': 'array', 'group_count': 'integer', 'element_count': 'integer'},
+        'items.flatten': {'items': 'array', 'item_count': 'integer', 'source_path': 'string'},
+        'items.aggregate': {'items': 'array', 'item_count': 'integer', 'source_path': 'string'},
+    }.items():
+        operations[_kind]['output_contract'] = {
+            'type': 'object',
+            'properties': {name: {'type': item_type, **({'items': {}} if item_type == 'array' else {})}
+                           for name, item_type in _fields.items()},
+            'required': list(_fields),
+        }
+
     parameter_fields = {
         "items.loop": {
             "input_path": {"type":"string", "title":"Input Collection", "widget":"upstream", "accepts":["json"]},

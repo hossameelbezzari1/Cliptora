@@ -27,6 +27,7 @@ from typing import Any, Callable
 from app.workflows.Node import Node
 from app.workflows.MediaStorage import run_media_dir
 from app.workflows.InputResolver import resolve_input_path
+from app.workflows.ItemExecution import LiveItemTracker
 from app.workflows.nodes.VideoRemix import _manifest as _validated_clip_manifest
 
 DEFAULT_VOICE = "ar-MA-JamalNeural"
@@ -523,11 +524,19 @@ def _clip_voiceovers(node: dict[str, Any], outputs: dict[str, Any], workdir: Pat
 
     callback = node.get("_progress_callback")
     cancelled = node.get("_cancelled_callback")
+    tracker = LiveItemTracker("edge_tts_clips", [
+        {"id": str(clip.get("instance_id") or f"clip_{i+1}"),
+         "label": f"Clip {i+1}: {str(clip.get('instance_id') or '')[:44]}"}
+        for i, (_, clip) in enumerate(indexed)
+    ])
     def progress(done: int, stage: str, message: str) -> None:
         if callable(callback):
             callback({"stage": stage, "message": message,
                       "progress": round(100 * done / len(indexed), 2),
-                      "processed": done, "total": len(indexed), "unit": "clips"})
+                      "processed": done, "total": len(indexed), "unit": "clips",
+                      "item_execution_live": tracker.snapshot(),
+                      "force": stage in {"ready", "failed", "finished"} or done < 4})
+    progress(0, "ready", f"{len(indexed)} clip tasks queued")
 
     voiceovers: list[dict[str, Any]] = []
     audio_files: list[dict[str, Any]] = []
@@ -542,12 +551,15 @@ def _clip_voiceovers(node: dict[str, Any], outputs: dict[str, Any], workdir: Pat
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,120}", ident) or ident in seen:
             raise ValueError("Clip instance IDs must be unique, nonempty and safe")
         seen.add(ident)
+        tracker.set(idx - 1, "running")
+        progress(idx - 1, "synthesizing", f"Clip {idx}/{len(indexed)} running")
         clip.pop("voiceover", None)
         clip.pop("voiceover_error", None)
         script = _normal_text(_clip_script(group, clip), clean)
         clip["selected_text"] = script
         if not script:
             clip["voiceover_status"] = "skipped_no_text"
+            tracker.set(idx - 1, "skipped")
             skipped.append({"instance_id": ident, "reason": "no_text"})
             progress(idx, "skipping", f"Clip {idx}/{len(indexed)}: no speech text")
             continue
@@ -620,6 +632,7 @@ def _clip_voiceovers(node: dict[str, Any], outputs: dict[str, Any], workdir: Pat
                 clip["voiceover_status"] = "failed"
                 clip["voiceover_error"] = f"{type(problem).__name__}: {problem}"[:320]
                 failed.append({"instance_id": ident, "error": clip["voiceover_error"]})
+                tracker.set(idx - 1, "failed", clip["voiceover_error"])
                 progress(idx, "failed", f"Clip {idx}/{len(indexed)} failed")
                 if not allow_partial:
                     raise RuntimeError(
@@ -648,8 +661,10 @@ def _clip_voiceovers(node: dict[str, Any], outputs: dict[str, Any], workdir: Pat
             "duration": item["duration"], "format": "mp3", "mime_type": "audio/mpeg",
             "instance_id": ident, "track": len(audio_files), "voice": voice,
         })
+        tracker.set(idx - 1, "completed")
         progress(idx, "completed", f"Clip {idx}/{len(indexed)} ready")
 
+    progress(len(indexed), "finished", "Clip narration tasks finished")
     if failed and not allow_partial:
         raise RuntimeError(f"{len(failed)} clip voiceovers failed")
     return {
@@ -714,6 +729,22 @@ class EdgeTTSNode(Node):
                 "retry_delay_seconds": 2,
             },
         },
+    }
+
+    # Declarative contracts. The actual manifest is still verified by VideoRemix.
+    operations['audio.edge_tts_clips']['input_contract'] = {
+        'type': 'object', 'x-semantic': 'clip_manifest', 'x-contract-version': 1,
+        'properties': {
+            'version': {'type': 'integer', 'const': 1},
+            'groups': {'type': 'array', 'items': {'type': 'object'}},
+        }, 'required': ['version', 'groups'],
+    }
+    operations['audio.edge_tts_clips']['output_contract'] = {
+        'type': 'object', 'properties': {
+            'clip_manifest': {'type': 'object', 'x-semantic': 'clip_manifest', 'x-contract-version': 1},
+            'voiceovers': {'type': 'array', 'items': {'type': 'object'}},
+            'audio_files': {'type': 'array', 'items': {'type': 'object'}},
+        }, 'required': ['clip_manifest', 'voiceovers', 'audio_files'],
     }
 
     parameter_fields = {
@@ -895,11 +926,22 @@ class EdgeTTSNode(Node):
             if match else None
         )
 
+        parts_by_batch = [_split_text(text, chunk_size, split_by, split_enabled) for text in texts]
+        tasks = [(batch_i, segment_i)
+                 for batch_i, parts in enumerate(parts_by_batch)
+                 for segment_i in range(len(parts))]
+        tracker = LiveItemTracker("edge_tts_segments", [
+            {"id": f"batch_{batch_i+1}_segment_{segment_i+1}",
+             "label": f"Text {batch_i+1} · Segment {segment_i+1}"}
+            for batch_i, segment_i in tasks
+        ])
+        tracker.emit(callback, stage="segments_ready", message=f"{len(tasks)} speech segments prepared", force=True)
+        segment_offset = 0
         all_audio: list[dict[str, Any]] = []
         jobs: list[dict[str, Any]] = []
         track_index = 0
         for batch_index, text in enumerate(texts):
-            parts = _split_text(text, chunk_size, split_by, split_enabled)
+            parts = parts_by_batch[batch_index]
             if len(parts) > MAX_PARTS:
                 raise ValueError("Too many text segments")
             track = track_index
@@ -940,6 +982,11 @@ class EdgeTTSNode(Node):
                     segment_info: list[dict[str, Any]] = []
                     elapsed = 0.0
                     for segment_index, part_text in enumerate(parts):
+                        task_index = segment_offset + segment_index
+                        tracker.set(task_index, "running")
+                        tracker.emit(callback, stage="synthesizing",
+                                     message=f"Text {batch_index+1} segment {segment_index+1} running",
+                                     force=task_index < 3)
                         source_mp3 = tempdir / f"part_{segment_index:03d}.mp3"
                         for attempt in range(retries + 1):
                             try:
@@ -956,9 +1003,15 @@ class EdgeTTSNode(Node):
                             except Exception:
                                 source_mp3.unlink(missing_ok=True)
                                 if attempt == retries:
+                                    tracker.set(task_index, "failed", "Speech generation failed after retries")
+                                    tracker.emit(callback, stage="synthesizing", message="Speech generation failed", force=True)
                                     raise
                                 if retry_delay:
                                     time.sleep(retry_delay * (attempt + 1))
+                        tracker.set(task_index, "completed")
+                        tracker.emit(callback, stage="synthesizing",
+                                     message=f"Speech segment {segment_index+1}/{len(parts)} ready",
+                                     force=task_index < 3)
                         created.append(source_mp3)
                         seconds = _duration(source_mp3)
                         if seconds is None:
@@ -1071,6 +1124,9 @@ class EdgeTTSNode(Node):
                     }
                     sidecar.write_text(json.dumps({"signature": signature, "result": cached}, ensure_ascii=False), encoding="utf8")
             else:
+                for task_index in range(segment_offset, segment_offset + len(parts)):
+                    tracker.set(task_index, "completed")
+                tracker.emit(callback, stage="cache_hit", message="Reused cached speech segments", force=batch_index == 0)
                 # Re-map cached per-item tracks to the NEW batch track indices.
                 remapped: list[dict[str, Any]] = []
                 for old in cached.get("audio_files", []):
@@ -1081,6 +1137,7 @@ class EdgeTTSNode(Node):
                     track_index += 1
                 cached = dict(cached, audio_files=remapped, audio_file=remapped[0])
                 report("cache_hit", "Using existing generated speech", (batch_index + 1) * 100 / len(texts))
+            segment_offset += len(parts)
             all_audio.extend(cached["audio_files"])
             jobs.append({**cached, "batch_index": batch_index})
             report("batch_item_completed", f"Voiceover {batch_index + 1}/{len(texts)} completed",
@@ -1096,6 +1153,7 @@ class EdgeTTSNode(Node):
         result["batch_count"] = len(jobs)
         if batch:
             result["batch_items"] = jobs
+        tracker.emit(callback, stage="segments_complete", message="Speech segments completed", force=True)
         report("completed", "Audio ready; open the workflow audio preview to listen", 100)
         return result
 
@@ -1201,6 +1259,12 @@ def _cliptora_group_tts(node, outputs, workdir):
     fit = bool(cfg.get("fit_to_group", True))
     progress = node.get("_progress_callback")
     cancelled = node.get("_cancelled_callback")
+    tracker = LiveItemTracker("edge_tts_groups", [
+        {"id": str(group.get("group_id") or f"group_{i+1}"),
+         "label": f"Group {i+1}: {str(group.get('group_id') or '')[:40]}"}
+        for i, group in enumerate(groups)
+    ])
+    tracker.emit(progress, stage="groups_ready", message=f"{len(groups)} narration groups prepared", force=True)
 
     workspace = Path(workdir).resolve()
     project_id = workspace.parent.parent.name
@@ -1223,6 +1287,8 @@ def _cliptora_group_tts(node, outputs, workdir):
     for index, group in enumerate(groups, start=1):
         if callable(cancelled) and cancelled():
             raise RuntimeError("Group TTS cancelled")
+        tracker.set(index - 1, "running")
+        tracker.emit(progress, stage="group_narration", message=f"Group {index}/{len(groups)} running", force=index <= 3)
 
         gid = str(group.get("group_id") or "")
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,120}", gid):
@@ -1513,18 +1579,11 @@ def _cliptora_group_tts(node, outputs, workdir):
             "track": len(files),
         })
 
-        if callable(progress):
-            progress({
-                "stage": "group_narration",
-                "message": (
-                    f"Narration {index}/"
-                    f"{len(groups)} ready"
-                ),
-                "progress": round(
-                    100 * index / len(groups), 1
-                ),
-            })
+        tracker.set(index - 1, "completed")
+        tracker.emit(progress, stage="group_narration",
+                     message=f"Narration {index}/{len(groups)} ready", force=index <= 3)
 
+    tracker.emit(progress, stage="groups_complete", message="Narration groups completed", force=True)
     return {
         "status": "completed",
         "provider": "edge-tts",

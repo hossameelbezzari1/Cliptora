@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -175,7 +174,7 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
         settings = node["settings"]
         type_mode = settings.get("type_validation_mode", "legacy")
 
-        if type_mode not in {"legacy", "strict"}:
+        if type_mode not in {"legacy", "strict", "adapt", "auto"}:
             raise ValueError(
                 f"Invalid Type Validation Mode for {ident}"
             )
@@ -204,10 +203,27 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
                 if schema:
                     _check_schema(schema)
 
+        # Preserve the strict checks above; add V2 validation for
+        # semantic types, approved adapters and connected target paths.
+        if type_mode != "legacy":
+            from app.workflows.TypeRuntime import validate_type_settings
+
+            try:
+                validate_type_settings(
+                    settings,
+                    node["depends_on"],
+                    NODE_TYPES[node["type"]],
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid DTE type configuration for {ident}: {exc}"
+                ) from exc
+
         if node["type"] in {
             "data.inspect_type",
             "data.convert_type",
             "data.validate_type",
+            "data.check_compatibility",
         }:
             path = settings.get("input_path", "")
             if (
@@ -295,6 +311,11 @@ def validate_workflow(nodes: list[dict]) -> list[dict]:
 
     from app.workflows.LoopSubgraph import validate_subgraphs
     validate_subgraphs(ordered)
+
+    # DTE opt-in preflight: detect only proven, declared type mismatches.
+    # Legacy and undeclared connections keep existing behavior.
+    from app.workflows.TypeRegistry import preflight_graph_connections
+    preflight_graph_connections(ordered, NODE_TYPES)
 
     return ordered
 

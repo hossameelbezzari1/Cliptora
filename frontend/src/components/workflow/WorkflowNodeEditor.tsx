@@ -10,6 +10,8 @@ import { getObject } from './editor/WorkflowNodeFields'
 import { WorkflowNodeDataPanel, WorkflowNodePanelDivider } from './editor/WorkflowNodeDataPanel'
 import { WorkflowNodeParameters } from './editor/WorkflowNodeParameters'
 import { WorkflowNodeSettings } from './editor/WorkflowNodeSettings'
+import { WorkflowDynamicTypePanel } from './editor/WorkflowDynamicTypePanel'
+import type { DteSchema } from './types/dteContracts'
 import { WorkflowNodeSideRail } from './editor/WorkflowNodeSideRail'
 import { NodeProgress } from './editor/NodeProgress'
 type Props = {
@@ -30,6 +32,7 @@ function confirmedManualEvent(result: { state: string; [key: string]: unknown })
 export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCredentials }: Props) {
   const { projectId, selected, selectedCatalog, run, working, save, start } = studio
   const [tab, setTab] = useState<Tab>('parameters')
+  const [typePanelOpen, setTypePanelOpen] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('parameters')
   const [inputValue, setInputValue] = useState<unknown>(null)
   const [outputValue, setOutputValue] = useState<unknown>(null)
@@ -202,6 +205,30 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
   const providerCapability = selectedCatalog?.action_capabilities?.[providerAction]
   const title = providerNode ? (providerCapability?.label ?? selectedCatalog?.label ?? 'AI') : selectedCatalog?.label ?? selected?.type ?? 'Node'
   const selectedId = selected?.id
+  useEffect(() => {
+    setTypePanelOpen(Boolean(selected?.settings.type_validation_mode && selected.settings.type_validation_mode !== 'legacy'))
+  // Intentionally reset only when switching nodes, not on each field edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+  const inputSamples = getObject(inputValue)
+  const typeUpstream = (selected?.depends_on ?? []).flatMap(id => {
+    const node = studio.nodes.find(item => item.id === id)
+    if (!node) return []
+    const entry = studio.typeCatalog?.nodes.find(item => item.node_type === node.type)
+    const sourceSchema = node.settings.type_output_schema && typeof node.settings.type_output_schema === 'object'
+      ? node.settings.type_output_schema as DteSchema
+      : entry?.output_contract as DteSchema | undefined
+    return [{
+      path: id,
+      label: `${studio.catalog.find(item => item.type === node.type)?.label ?? node.type} · ${id}`,
+      sample: inputSamples[id],
+      sourceSchema,
+    }]
+  })
+  const catalogContract = studio.typeCatalog?.nodes.find(item => item.node_type === selected?.type)
+  const inputContract = selected?.settings.type_input_schema && typeof selected.settings.type_input_schema === 'object'
+    ? selected.settings.type_input_schema as DteSchema
+    : catalogContract?.input_contract as DteSchema | undefined
   useEffect(() => { setAgentMoreOpen(null) }, [selectedId])
   useEffect(() => {
     if (agentMoreOpen !== 'tool') return
@@ -435,6 +462,29 @@ export function WorkflowNodeEditor({ studio, onClose, onExecuteStep, onManageCre
             <NodeProgress run={inspectedRun} nodeId={selected.id} label={title} />
             {requiresOpenAI && openAIConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">OpenAI API key is not configured</strong>Add <code>OPENAI_API_KEY</code> to the backend environment, then recreate the backend container. Model execution stays disabled until the secret is available.</span></div>}
             {requiresGemini && geminiConfigured === false && <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 dark:border-amber-900/70 bg-amber-50 dark:bg-amber-950/35 p-3 text-[12px] leading-5 text-amber-900 dark:text-amber-300"><CircleAlert size={16} className="mt-0.5 shrink-0" /><span><strong className="block">Google Gemini credential is not selected</strong>Use Connect or select an existing saved credential in Parameters, then save the workflow. API keys are stored encrypted in MySQL.</span></div>}
+            {tab === 'parameters' && typeUpstream.length > 0 && !agentNode && (
+              <section className="space-y-3 border-t border-[#e7e7e7] pt-4 dark:border-[#374151]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-[#343434] dark:text-white">Dynamic Type Engine</p>
+                    <p className="text-[11px] text-[#888] dark:text-[#b8bec7]">Contracts, mapping and safe adapters</p>
+                  </div>
+                  <button type="button" onClick={() => setTypePanelOpen(open => !open)}
+                    aria-expanded={typePanelOpen}
+                    className="rounded-lg border border-[#dedee1] px-3 py-1.5 text-[11px] font-medium text-[#555] hover:bg-[#f7f7f8] dark:border-[#414753] dark:text-white">
+                    {typePanelOpen ? 'Hide types' : 'Configure types'}
+                  </button>
+                </div>
+                {typePanelOpen && <WorkflowDynamicTypePanel
+                  key={selected.id} nodeId={selected.id} upstream={typeUpstream}
+                  expectedSchema={inputContract ?? {}}
+                  settings={selected.settings}
+                  onChange={studio.updateSelectedSettings}
+                  disabled={working}
+                />}
+                {studio.typeCatalogError && <p className="text-[11px] text-amber-700 dark:text-amber-300">Live registry: {studio.typeCatalogError}</p>}
+              </section>
+            )}
             {tab === 'parameters'
               ? <WorkflowNodeParameters key={selected.id} studio={studio} inputValue={inputValue} onManageCredentials={onManageCredentials}
                 isManualTrigger={isManualTrigger} hasAgentModel={hasAgentModel} />

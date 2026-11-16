@@ -106,6 +106,17 @@ import {
 } from './WorkflowContextMenu'
 import { clone, uid } from './workflowUtils'
 import { CanvasStickyNotes, type CanvasStickyNotesHandle } from './CanvasStickyNotes'
+import {
+  GHOST_PREFIX,
+  GhostExecutionCard,
+  GhostExecutionDetails,
+  buildGhostNodes,
+  type GhostFlowNode,
+  type GhostSelection,
+  type GhostPreferences,
+  type GhostFilter,
+  type GhostSize,
+} from './WorkflowGhostExecution'
 
 type Position = { x: number; y: number }
 type CanvasInteractionMode = 'mouse' | 'hand' | 'lasso' | 'connect' | 'frame'
@@ -198,7 +209,7 @@ type FrameFlowNode = FlowNode<{
   onUngroup: (frameId: string) => void
 }, 'cliptora-frame'>
 
-type CanvasFlowNode = StudioFlowNode | FrameFlowNode
+type CanvasFlowNode = StudioFlowNode | FrameFlowNode | GhostFlowNode
 
 type FrameBounds = { x: number; y: number; width: number; height: number; ids: string[] }
 
@@ -796,6 +807,7 @@ function StudioNodeWithToolbar(props: NodeProps<StudioFlowNode>) {
 const workflowNodeTypes = {
   studio: StudioNodeWithToolbar,
   'cliptora-frame': GroupFrame,
+  'cliptora-ghost': GhostExecutionCard,
 }
 
 type WorkflowJsonView = 'definition' | 'snapshot'
@@ -1323,6 +1335,9 @@ export function WorkflowCanvas({
   } = studio
 
   const [bottomOpen, setBottomOpen] = useState(false)
+  const [ghostPreferences, setGhostPreferences] = useState<Record<string, GhostPreferences>>({})
+  const [ghostSizes, setGhostSizes] = useState<Record<string, GhostSize>>({})
+  const [ghostSelection, setGhostSelection] = useState<GhostSelection | null>(null)
   const [commandOpen, setCommandOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [commandTab, setCommandTab] = useState<CanvasSearchTab>('all')
@@ -1896,6 +1911,49 @@ export function WorkflowCanvas({
     return result
   }, [nodes])
 
+  const ghostActions = useMemo(() => ({
+    toggle: (originId: string) => setGhostPreferences(current => ({
+      ...current, [originId]: { ...current[originId], collapsed: !current[originId]?.collapsed },
+    })),
+    filter: (originId: string, filter: GhostFilter) => setGhostPreferences(current => ({
+      ...current, [originId]: { ...current[originId], filter, page: 0 },
+    })),
+    page: (originId: string, page: number) => setGhostPreferences(current => ({
+      ...current, [originId]: { ...current[originId], page: Math.max(0, page) },
+    })),
+    collection: (originId: string, collection: string) => {
+      setGhostSelection(null)
+      setGhostPreferences(current => ({
+        ...current, [originId]: { ...current[originId], collection, filter: 'all', page: 0 },
+      }))
+    },
+  }), [])
+
+  const ghostNodes = useMemo(() => studio.liveLoopView
+    ? buildGhostNodes(nodes, studio.run?.results, node => {
+        const custom = node.settings.__cliptora_ui_label
+        return typeof custom === 'string' && custom.trim()
+          ? custom.trim()
+          : catalog.find(item => item.type === node.type)?.label ?? node.type
+      }, ghostPreferences, ghostActions, ghostSizes)
+    : [], [studio.liveLoopView, studio.run?.results, nodes, catalog, ghostPreferences, ghostActions, ghostSizes])
+
+  // Select from the current live snapshot, so the details follow progress polling.
+  const currentGhostSelection = ghostSelection
+    ? (() => {
+        const current = ghostNodes.find(node =>
+          node.data.originId === ghostSelection.originId &&
+          node.data.task?.index === ghostSelection.task.index &&
+          node.data.task?.collection_path === ghostSelection.task.collection_path)
+        return current?.data.task
+          ? { ...ghostSelection, task: current.data.task }
+          : ghostSelection
+      })()
+    : null
+
+  useEffect(() => { setGhostSelection(null); setGhostPreferences({}) }, [studio.run?.id])
+  useEffect(() => { if (!studio.liveLoopView) setGhostSelection(null) }, [studio.liveLoopView])
+
   const canvasNodes = useMemo<CanvasFlowNode[]>(() => {
     const frames: FrameFlowNode[] = [...frameRects].map(([id, frame], index) => ({
       id: `${FRAME_PREFIX}${id}`,
@@ -1918,8 +1976,8 @@ export function WorkflowCanvas({
         position: parent ? { x: node.position.x - parent.x, y: node.position.y - parent.y } : node.position,
         selected: selectedNodeIds.includes(node.id),
       }
-    })]
-  }, [flowNodes, nodes, selectedNodeIds, frameRects, ungroupFrame])
+    }), ...ghostNodes]
+  }, [flowNodes, nodes, selectedNodeIds, frameRects, ungroupFrame, ghostNodes])
 
   const [
     visualNodes,
@@ -1938,6 +1996,20 @@ export function WorkflowCanvas({
   ) => {
     onVisualNodesChange(changes)
 
+    const measured = changes.filter(change => change.type === 'dimensions' &&
+      !change.id.startsWith(GHOST_PREFIX) && !change.id.startsWith(FRAME_PREFIX))
+    if (measured.length) setGhostSizes(previous => {
+      let next = previous
+      for (const change of measured) {
+        if (change.type !== 'dimensions' || !change.dimensions) continue
+        const { width, height } = change.dimensions
+        if (previous[change.id]?.width === width && previous[change.id]?.height === height) continue
+        if (next === previous) next = { ...previous }
+        next[change.id] = { width, height }
+      }
+      return next
+    })
+
     const selections = changes.filter(
       change => change.type === 'select',
     )
@@ -1947,7 +2019,7 @@ export function WorkflowCanvas({
         const next = new Set(previous)
 
         selections.forEach(change => {
-          if (change.type !== 'select' || change.id.startsWith(FRAME_PREFIX)) return
+          if (change.type !== 'select' || change.id.startsWith(FRAME_PREFIX) || change.id.startsWith(GHOST_PREFIX)) return
           if (change.selected) next.add(change.id)
           else next.delete(change.id)
         })
@@ -2280,7 +2352,22 @@ export function WorkflowCanvas({
       return
     }
 
-    setNodes(previous => previous.map(node => {
+    // React Flow onConnect is synchronous; verify the proposed data link
+    // asynchronously before committing it to the graph.
+    void (async () => {
+      let notice = 'Nodes connected. Save the workflow to persist changes.'
+      if (!isAgentPort) {
+        const decision = await studio.checkTypeConnection(
+          sourceNode.type, targetNode.type, targetNode.settings, sourceNode.settings,
+        )
+        if (!decision.allowed) {
+          setMessage(decision.message)
+          setSelectedId(targetNode.id)
+          return
+        }
+        if (decision.status !== 'compatible') notice += ` ${decision.message}`
+      }
+      setNodes(previous => previous.map(node => {
       if (node.id !== target) return node
       const isBranch = sourceNode.type === 'flow.if'
       const sourceHandles = isBranch
@@ -2305,8 +2392,10 @@ export function WorkflowCanvas({
           [typedConnectionKey]: typed,
         },
       }
-    }))
-  }, [nodes, setNodes, setMessage])
+      }))
+      setMessage(notice)
+    })()
+  }, [nodes, setNodes, setMessage, setSelectedId, studio.checkTypeConnection])
 
   const openQuickAdd = useCallback((
     sourceId: string,
@@ -2331,7 +2420,7 @@ export function WorkflowCanvas({
     })
   }, [])
 
-  const addAfter = useCallback((type: string) => {
+  const addAfter = useCallback(async (type: string) => {
     if (!quickAdd || nodes.length >= 100) return
 
     const template = catalog.find(
@@ -2385,6 +2474,11 @@ export function WorkflowCanvas({
         setQuickAdd(null)
         return
       }
+
+      const incoming = await studio.checkTypeConnection(source.type, type, template.settings, source.settings)
+      if (!incoming.allowed) { setMessage(incoming.message); return }
+      const outgoing = await studio.checkTypeConnection(type, target.type, target.settings, template.settings)
+      if (!outgoing.allowed) { setMessage(outgoing.message); return }
 
       const id = uid(type, nodes.map(node => node.id))
       const branch =
@@ -2489,6 +2583,18 @@ export function WorkflowCanvas({
         type === 'core.video_source'
       ) return
 
+      const inbound = nodes.filter(node => source.depends_on.includes(node.id))
+      const outbound = nodes.filter(node => node.depends_on.includes(source.id))
+      for (const parent of inbound) {
+        const result = await studio.checkTypeConnection(parent.type, type, template.settings, parent.settings)
+        if (!result.allowed) { setMessage(result.message); return }
+      }
+      for (const child of outbound) {
+        if (child.type === 'ai.agent') continue
+        const result = await studio.checkTypeConnection(type, child.type, child.settings, template.settings)
+        if (!result.allowed) { setMessage(result.message); return }
+      }
+
       setNodes(previous =>
         previous.map(node => {
           if (node.id === source.id) {
@@ -2531,6 +2637,8 @@ export function WorkflowCanvas({
       return
     }
 
+    const decision = await studio.checkTypeConnection(source.type, type, template.settings, source.settings)
+    if (!decision.allowed) { setMessage(decision.message); return }
     const id = uid(type, nodes.map(node => node.id))
     const siblingOffset =
       quickAdd.sourceHandle === 'false' ? 140
@@ -2571,9 +2679,9 @@ export function WorkflowCanvas({
     setNodes(previous => [...previous, next])
     setSelectedId(id)
     setJsonEditor(JSON.stringify(next.settings, null, 2))
-    setMessage('Node added and connected.')
+    setMessage(decision.status === 'compatible' ? 'Node added and connected.' : `Node added and connected. ${decision.message}`)
     setQuickAdd(null)
-  }, [catalog, nodes, quickAdd, setJsonEditor, setMessage, setNodes, setSelectedId])
+  }, [catalog, nodes, quickAdd, setJsonEditor, setMessage, setNodes, setSelectedId, studio.checkTypeConnection])
 
   const quickItems = useMemo(
     () => catalog.filter(item =>
@@ -3418,7 +3526,16 @@ export function WorkflowCanvas({
                     !flowEdges.some(edge =>
                       edge.source === connection.source &&
                       edge.target === connection.target,
-                    ),
+                    ) &&
+                    (() => {
+                      const sourceNode = nodes.find(item => item.id === connection.source)
+                      const targetNode = nodes.find(item => item.id === connection.target)
+                      if (!sourceNode || !targetNode) return false
+                      if (targetNode.type === 'ai.agent' && agentPortTypes.has(connection.targetHandle ?? '')) return true
+                      return studio.localTypeDecision(
+                        sourceNode.type, targetNode.type, targetNode.settings, sourceNode.settings,
+                      ).allowed
+                    })(),
                   )
                 }
                 connectionLineComponent={AnimatedConnectionLine}
@@ -3492,6 +3609,7 @@ export function WorkflowCanvas({
                 onNodeContextMenu={(event, node) => {
                   event.preventDefault()
                   event.stopPropagation()
+                  if (node.id.startsWith(GHOST_PREFIX)) return
                   if (node.id.startsWith(FRAME_PREFIX)) {
                     const frame = frameRects.get(node.id.slice(FRAME_PREFIX.length))
                     setSelectedNodeIds(frame?.ids ?? [])
@@ -3556,6 +3674,17 @@ export function WorkflowCanvas({
                 }}
 
                 onNodeClick={(_, node) => {
+                  if (node.id.startsWith(GHOST_PREFIX)) {
+                    const ghost = node as GhostFlowNode
+                    if (ghost.data.panel) return
+                    if (ghost.data.task) {
+                      setGhostSelection({
+                        originId: ghost.data.originId, originLabel: ghost.data.originLabel,
+                        mode: ghost.data.mode, total: ghost.data.total, task: ghost.data.task,
+                      })
+                    }
+                    return
+                  }
                   if (interactionMode === 'hand') return
                   if (node.id.startsWith(FRAME_PREFIX)) {
                     const frame = frameRects.get(node.id.slice(FRAME_PREFIX.length))
@@ -3587,7 +3716,7 @@ export function WorkflowCanvas({
                       sourceHandle: source.type === 'flow.if' ? 'true' : 'main',
                       targetHandle: targetNode?.type === 'ai.agent' ? inferredAgentHandle(source.type) : 'input',
                     })
-                    setMessage('Nodes connected. Save workflow to persist.')
+                    // The asynchronous type preflight decides whether this link is committed.
                     setConnectSourceId(null)
                     return
                   }
@@ -3599,7 +3728,7 @@ export function WorkflowCanvas({
                   setJsonEditor(JSON.stringify(nodes.find(item => item.id === node.id)?.settings ?? {}, null, 2))
                 }}
                 onNodeDoubleClick={(_, node) => {
-                  if (interactionMode !== 'mouse' || node.id.startsWith(FRAME_PREFIX) || Date.now() - draggedAt.current < 250) return
+                  if (interactionMode !== 'mouse' || node.id.startsWith(FRAME_PREFIX) || node.id.startsWith(GHOST_PREFIX) || Date.now() - draggedAt.current < 250) return
 
                   setSelectedId(node.id)
                   setJsonEditor(
@@ -3620,6 +3749,7 @@ export function WorkflowCanvas({
                 onNodeDragStop={(_, node) => {
                   draggedAt.current = Date.now()
 
+                  if (node.id.startsWith(GHOST_PREFIX)) return
                   if (node.id.startsWith(FRAME_PREFIX)) {
                     const id = node.id.slice(FRAME_PREFIX.length)
                     const original = frameRects.get(id)
@@ -3637,7 +3767,7 @@ export function WorkflowCanvas({
                   } else {
                     const positions = new Map<string, Position>()
                     for (const item of flow.current?.getNodes() ?? [node]) {
-                      if (item.id.startsWith(FRAME_PREFIX) || (item.id !== node.id && !item.selected)) continue
+                      if (item.id.startsWith(FRAME_PREFIX) || item.id.startsWith(GHOST_PREFIX) || (item.id !== node.id && !item.selected)) continue
                       const parentId = item.parentId?.startsWith(FRAME_PREFIX)
                         ? item.parentId.slice(FRAME_PREFIX.length) : null
                       const parent = parentId ? frameRects.get(parentId) : undefined
@@ -3699,7 +3829,7 @@ export function WorkflowCanvas({
                   )
                 }}
                 onNodesDelete={deleted => {
-                  deleted.forEach(node => removeNode(node.id))
+                  deleted.filter(node => !node.id.startsWith(GHOST_PREFIX)).forEach(node => removeNode(node.id))
                 }}
                 fitViewOptions={{
                   padding: 0.32,
@@ -4484,6 +4614,38 @@ export function WorkflowCanvas({
               )}
             </div>
           </div>
+        )}
+
+        {studio.liveLoopView && (
+          <div className="pointer-events-none absolute left-4 top-4 z-[60] max-w-[345px] rounded-xl border border-violet-200 bg-white/95 px-3 py-2 text-[11px] leading-4 text-slate-700 shadow-sm backdrop-blur-sm dark:border-violet-900 dark:bg-slate-900/95 dark:text-slate-200">
+            <span className="font-semibold text-violet-700 dark:text-violet-300">Live loop enabled</span>
+            <span className="ml-1.5 text-slate-500 dark:text-slate-400">
+              {studio.run ? `Run #${studio.run.id} · ${studio.run.state}` : 'No run selected'}
+            </span>
+            <p className="mt-1 text-slate-600 dark:text-slate-300">
+              {ghostNodes.length
+                ? `${ghostNodes.filter(node => Boolean(node.data.task) && node.data.task.state !== 'recorded').length} traced tasks and ${ghostNodes.filter(node => node.data.task?.state === 'recorded').length} output records visible. Filters and pagination are below each parent.`
+                : studio.run?.state === 'running' || studio.run?.state === 'queued'
+                  ? 'Waiting for a node to report individual tasks. Normal progress is still available.'
+                  : studio.run
+                    ? 'This run has no individual task trace. Start a new execution to see live transitions.'
+                    : 'Start a workflow run to see its real execution tasks.'}
+            </p>
+            {ghostNodes.some(node => node.data.task?.state === 'recorded') && (
+              <p className="mt-1 text-[10px] text-violet-600 dark:text-violet-300">
+                Dashed output shadows are collection entries, not separately executed tasks.
+              </p>
+            )}
+          </div>
+        )}
+
+        {studio.liveLoopView && currentGhostSelection && (
+          <GhostExecutionDetails
+            selection={currentGhostSelection}
+            projectId={studio.projectId}
+            runId={studio.run?.id ?? null}
+            onClose={() => setGhostSelection(null)}
+          />
         )}
 
         {!nodes.length && (

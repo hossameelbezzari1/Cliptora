@@ -97,7 +97,10 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
     if (!existing && candidate.type === 'core.video_source' && nodes.some(node => node.type === candidate.type)) return false
     const sourceCatalog = input ? catalog.find(item => item.type === candidate.type) : selectedCatalog
     const targetCatalog = input ? selectedCatalog : catalog.find(item => item.type === candidate.type)
-    return isCompatible(sourceCatalog, targetCatalog)
+    // Unknown types keep legacy behavior; declared schemas may offer an adapter.
+    const typed = Boolean(studio.typeCatalog?.nodes.find(row => row.node_type === sourceCatalog?.type && row.output_contract_id) &&
+      studio.typeCatalog?.nodes.find(row => row.node_type === targetCatalog?.type && row.input_contract_id))
+    return isCompatible(sourceCatalog, targetCatalog) || typed
   }
 
   const candidatesInFlow = nodes.filter(node => isPossible(node, true))
@@ -114,8 +117,17 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
   const newMatches = candidatesNew.filter(item => matches(`${item.label} ${item.group} ${item.description ?? ''}`))
   const limit = showAll ? 100 : 8
 
-  function attach(sourceId: string, targetId: string, branch?: Branch) {
+  async function attach(sourceId: string, targetId: string, branch?: Branch) {
     if (sourceId === targetId || hasAncestor(nodes, sourceId, targetId)) return
+    const source = nodes.find(node => node.id === sourceId)
+    const target = nodes.find(node => node.id === targetId)
+    if (!source || !target) return
+    let notice = 'Nodes connected. Save the workflow to persist changes.'
+    if (target.type !== 'ai.agent') {
+      const result = await studio.checkTypeConnection(source.type, target.type, target.settings, source.settings)
+      if (!result.allowed) { setMessage(result.message); return }
+      if (result.status !== 'compatible') notice += ` ${result.message}`
+    }
     setNodes(previous => previous.map(node => {
       if (node.id !== targetId || node.depends_on.includes(sourceId)) return node
       const next = { ...node, depends_on: [...node.depends_on, sourceId] }
@@ -125,17 +137,27 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
       }
       return next
     }))
-    setMessage('Nodes connected. Save the workflow to persist changes.')
+    setMessage(notice)
     setShowSuggestions(false)
     onClose?.()
   }
 
   function attachExisting(node: WorkflowNode, branch?: Branch) {
-    attach(input ? node.id : selected!.id, input ? selected!.id : node.id, branch)
+    void attach(input ? node.id : selected!.id, input ? selected!.id : node.id, branch)
   }
 
-  function addAndAttach(item: WorkflowCatalogItem, branch?: Branch) {
+  async function addAndAttach(item: WorkflowCatalogItem, branch?: Branch) {
     if (working || nodes.length >= 100) return
+    const sourceType = input ? item.type : selected!.type
+    const targetType = input ? selected!.type : item.type
+    const targetSettings = input ? selected!.settings : item.settings
+    const sourceSettings = input ? item.settings : selected!.settings
+    let notice = 'Node added and connected. Save the workflow to persist changes.'
+    if (targetType !== 'ai.agent') {
+      const result = await studio.checkTypeConnection(sourceType, targetType, targetSettings, sourceSettings)
+      if (!result.allowed) { setMessage(result.message); return }
+      if (result.status !== 'compatible') notice += ` ${result.message}`
+    }
     setNodes(previous => {
       if (previous.length >= 100 || !previous.some(node => node.id === selected!.id)) return previous
       const id = uid(item.type, previous.map(node => node.id))
@@ -164,7 +186,7 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
         settings: branch ? branchSettings(node.settings, sourceId, branch) : node.settings,
       } : node), newNode]
     })
-    setMessage('Node added and connected. Save the workflow to persist changes.')
+    setMessage(notice)
     setShowSuggestions(false)
     onClose?.()
   }
@@ -174,13 +196,13 @@ export function WorkflowNodeConnections({ studio, side, mode = 'inline', onClose
   const emptyLabel = input ? 'No incoming connection' : 'No outgoing connection'
   const actionClass = 'shrink-0 cursor-pointer rounded-md px-2 py-1 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40'
 
-  function actions(sourceType: string, activate: (branch?: Branch) => void, adding = false) {
+  function actions(sourceType: string, activate: (branch?: Branch) => void | Promise<void>, adding = false) {
     return sourceType === 'flow.if'
       ? <span className="flex shrink-0 items-center gap-1">
-          <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => activate('true')} title="Use the True branch">True</button>
-          <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => activate('false')} title="Use the False branch">False</button>
+          <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => void activate('true')} title="Use the True branch">True</button>
+          <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => void activate('false')} title="Use the False branch">False</button>
         </span>
-      : <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => activate()} aria-label="Connect node"><Plus size={16} /></button>
+      : <button type="button" className={actionClass} disabled={working || (adding && nodes.length >= 100)} onClick={() => void activate()} aria-label="Connect node"><Plus size={16} /></button>
   }
 
   return <div className={popover ? 'overflow-hidden rounded-xl border border-[#e4e4e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel' : 'shrink-0 border-b border-[#e4e4e7] dark:border-[#374151] bg-white dark:bg-cl-dark-panel'} data-connection-side={side}>

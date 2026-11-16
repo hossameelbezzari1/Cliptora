@@ -433,6 +433,18 @@ class VideoRemixNode(Node):
         PREFIX + 'render': _op.__func__('render', 'lucide:film', 'Render Remix MP4', {'include_audio': True, 'original_audio_volume': 0.18, 'require_group_voiceovers': False, 'require_clip_voiceovers': False}),
     }
 
+    for _action in ('cut', 'split', 'duplicate', 'shuffle', 'zoom', 'merge', 'attach_voice'):
+        operations[PREFIX + _action]['output_contract'] = {
+            'type': 'object', 'properties': {
+                'clip_manifest': {'type': 'object', 'x-semantic': 'clip_manifest', 'x-contract-version': 1,
+                                  'properties': {
+                                      'version': {'type': 'integer', 'const': 1},
+                                      'groups': {'type': 'array', 'items': {'type': 'object'}}},
+                                  'required': ['version', 'groups']},
+                'stats': {'type': 'object'},
+            }, 'required': ['clip_manifest', 'stats'],
+        }
+
     parameter_fields = {
         kind: {'input_path': {'type': 'string', 'title': 'Input Data', 'widget': 'upstream', 'accepts': ['json']}}
         for kind in operations

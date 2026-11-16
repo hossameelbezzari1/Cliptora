@@ -1,4 +1,3 @@
-
 """CLIPTORA Dynamic Type Engine nodes. Discovered automatically by Registry.
 
 Inspect → suggest → map/convert → validate, without executable expressions.
@@ -16,6 +15,7 @@ from app.workflows.TypeEngine import (
     TypeContractError, describe, discover_schema, validate_value,
     validate_mapping, map_value, suggest_mapping,
 )
+from app.workflows.TypeCompatibility import inspect_compatibility, apply_rule
 
 
 def _object(value: Any, label: str) -> dict:
@@ -51,6 +51,12 @@ class TypeAdapterNode(Node):
     icon = "lucide:git-compare"
 
     operations = {
+        "data.check_compatibility": {
+            "label": "Check Type Compatibility", "icon": "lucide:git-compare",
+            "settings": {"input_path": "", "expected_schema": {},
+                         "source_schema": {}, "aliases": {}},
+            "input_types": ["json"], "output_types": ["json"],
+        },
         "data.inspect_type": {
             "label": "Inspect Dynamic Type",
             "icon": "lucide:scan-search",
@@ -68,6 +74,7 @@ class TypeAdapterNode(Node):
             "settings": {
                 "input_path": "",
                 "field_mapping": {},
+                "adapter_rule": {},
                 "target_schema": {},
                 "aliases": {},
                 "auto_map": False,
@@ -93,6 +100,12 @@ class TypeAdapterNode(Node):
     }
 
     parameter_fields = {
+        "data.check_compatibility": {
+            "input_path": {"type": "string", "widget": "upstream", "accepts": ["json"], "title": "Source Data"},
+            "expected_schema": {"type": "object", "title": "Destination Contract"},
+            "source_schema": {"type": "object", "title": "Source Semantic Contract", "group": "Advanced"},
+            "aliases": {"type": "object", "title": "Alias Suggestions", "group": "Advanced"},
+        },
         "data.inspect_type": {
             "input_path": {
                 "type": "string",
@@ -117,6 +130,10 @@ class TypeAdapterNode(Node):
                 "widget": "upstream",
                 "accepts": ["json"],
                 "title": "Input Data / Array",
+            },
+            "adapter_rule": {
+                "type": "object", "title": "Saved Versioned Adapter Rule",
+                "description": "Approved field mappings and unit conversions stored in workflow settings.",
             },
             "field_mapping": {
                 "type": "object",
@@ -186,6 +203,15 @@ class TypeAdapterNode(Node):
             raise TypeContractError("Select a connected Input Data path")
         raw = resolve_input_path(outputs, path)
 
+        if operation == "data.check_compatibility":
+            expected = _object(cfg.get("expected_schema") or {}, "Destination Contract")
+            if not expected:
+                raise TypeContractError("Select destination Expected Schema")
+            return {"status": "completed", "input_path": path,
+                    "compatibility": inspect_compatibility(
+                        raw, expected, source_schema=cfg.get("source_schema") or None,
+                        aliases=cfg.get("aliases") or {})}
+
         if operation == "data.inspect_type":
             report = describe(raw)
             expected = _object(cfg.get("expected_schema") or {}, "Expected Schema")
@@ -227,26 +253,50 @@ class TypeAdapterNode(Node):
             _object(cfg.get("field_mapping") or {}, "Field Mapping")
         )
         target_schema = _object(cfg.get("target_schema") or {}, "Target Schema")
+        saved_rule = _object(cfg.get("adapter_rule") or {}, "Approved Adapter Rule")
+
+        # An approved rule has always taken precedence over a manual mapping.
+        # Reject ambiguous combinations rather than silently executing one
+        # mapping while reporting a different one in type_conversion.
+        if saved_rule:
+            from app.workflows.TypeCompatibility import validate_rule
+            validate_rule(saved_rule)
+            approved_mapping = validate_mapping(saved_rule.get("mapping") or {})
+            if mapping and mapping != approved_mapping:
+                raise TypeContractError(
+                    "Field Mapping conflicts with Approved Adapter Rule. "
+                    "Use the rule mapping, or clear adapter_rule to use manual mapping."
+                )
+            if cfg.get("auto_map") is True:
+                raise TypeContractError(
+                    "Auto Map cannot be combined with an Approved Adapter Rule; "
+                    "turn off Auto Map or clear adapter_rule."
+                )
+            mapping = approved_mapping
 
         if cfg.get("auto_map") is True:
             if not target_schema:
                 raise TypeContractError("Auto Map requires Target JSON Schema")
-            suggestion = suggest_mapping(
+            suggestion = inspect_compatibility(
                 raw,
                 target_schema,
                 aliases=cfg.get("aliases") or {},
             )
             if not suggestion["auto_safe"]:
                 raise TypeContractError(
-                    "Automatic conversion requires an exact, unambiguous field match; "
-                    "inspect suggestions and approve aliases explicitly. "
-                    f"Missing: {suggestion['missing_required']}; "
-                    f"review: {suggestion['requires_review']}"
+                    "Automatic conversion must be exact and non-lossy; "
+                    "approve a mapping rule to rename fields, change units or remove fields. "
+                    f"Details: {suggestion.get('requires_review', [])}; "
+                    f"missing: {suggestion.get('missing_required', [])}; "
+                    f"dropped: {suggestion.get('dropped_fields', [])}"
                 )
             mapping = {**suggestion["mapping"], **mapping}
             validate_mapping(mapping)
 
-        converted = (
+        if saved_rule:
+            converted = apply_rule(raw, saved_rule)
+        else:
+            converted = (
             map_value(
                 raw,
                 mapping,
@@ -255,7 +305,7 @@ class TypeAdapterNode(Node):
             )
             if mapping
             else deepcopy(raw)
-        )
+            )
 
         template = _object(cfg.get("output_template") or {}, "Output Template")
         rendered = _render(template, converted) if template else converted
@@ -282,8 +332,16 @@ class TypeAdapterNode(Node):
             "type_conversion": {
                 "source": path,
                 "field_mapping": mapping,
+                "mapping_source": (
+                    "approved_rule" if saved_rule else
+                    "auto_map" if cfg.get("auto_map") is True else
+                    "manual" if mapping else "identity"
+                ),
+                "unit_conversions": deepcopy(saved_rule.get("conversions") or []) if saved_rule else [],
                 "output_key": key,
                 "schema": discover_schema(rendered),
                 "mapped_elements": len(raw) if isinstance(raw, list) else 1,
+                "rule_id": saved_rule.get("id") if saved_rule else None,
+                "rule_version": saved_rule.get("version") if saved_rule else None,
             },
         }

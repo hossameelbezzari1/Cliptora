@@ -3,6 +3,7 @@ import {
   Bot,
   Check,
   Clock3,
+  Eye,
   LoaderCircle,
   LockKeyhole,
   Plus,
@@ -32,6 +33,10 @@ export type StudioFlowNode = FlowNode<{
   run?: WorkflowRun | null
   pinned?: boolean
   note?: string
+  /** Visual-only execution clone. Does not expose handles, quick-add, or fake progress. */
+  ghost?: boolean
+  /** Saved diagnostic with unknown historical execution state. */
+  ghostState?: 'recorded'
 }, 'studio'>
 
 export {
@@ -61,9 +66,12 @@ export function isManualTriggerNode(
 
 function StatusIcon({
   status,
+  recorded = false,
 }: {
   status: StudioFlowNode['data']['status']
+  recorded?: boolean
 }) {
+  if (recorded) return <Eye size={17} strokeWidth={2.1} />
   if (status === 'done') {
     return <Check size={18} strokeWidth={3} />
   }
@@ -139,9 +147,9 @@ function AIAgentCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
           className={`pointer-events-none absolute -bottom-[10px] right-[11px] z-30 grid size-[25px] place-items-center rounded-full border-[3px] border-white bg-[#f5f6f8] dark:border-[#232833] dark:bg-[#2b303b] ${
             data.status === 'done' ? 'text-emerald-600' : data.status === 'failed' ? 'text-red-500' : data.status === 'running' ? 'text-violet-600' : 'text-[#9299a6]'
           }`}
-          title={data.status}
+          title={data.ghostState ?? data.status}
         >
-          <StatusIcon status={data.status} />
+          <StatusIcon status={data.status} recorded={data.ghostState === 'recorded'} />
         </span>
       </div>
 
@@ -196,7 +204,7 @@ function AIAgentCard({ id, data, selected }: NodeProps<StudioFlowNode>) {
           <LockKeyhole size={13} />
         </span>
       )}
-      {(data.status === 'running' || data.status === 'failed') && (
+      {!data.ghost && (data.status === 'running' || data.status === 'failed') && (
         <NodeProgress run={data.run} nodeId={id} label={data.label} variant="compact" className="absolute left-0 top-[202px] w-full" />
       )}
       {data.note && (
@@ -238,7 +246,7 @@ function AgentSubNodeCard({
             <WorkflowToolIcon type={data.nodeType} label={data.label} nodeId={id} size={57} />
           </span>
           <span className={`pointer-events-none absolute -bottom-[9px] -right-[5px] z-20 grid size-[24px] place-items-center rounded-full border-[3px] border-white bg-[#f5f6f8] dark:border-cl-dark-line dark:bg-[#2b303b] ${data.status === 'failed' ? 'text-red-500' : data.status === 'done' ? 'text-emerald-600' : data.status === 'running' ? 'text-violet-600' : 'text-[#9299a6]'}`}>
-            <StatusIcon status={data.status} />
+            <StatusIcon status={data.status} recorded={data.ghostState === 'recorded'} />
           </span>
         </div>
       </div>
@@ -248,7 +256,7 @@ function AgentSubNodeCard({
       <strong className="mt-[7px] max-w-[190px] break-words text-[15px] font-semibold leading-[1.3] text-[#242424] dark:text-[#f3f4f6]">
         {data.label}
       </strong>
-      {(data.status === 'running' || data.status === 'failed') && (
+      {!data.ghost && (data.status === 'running' || data.status === 'failed') && (
         <NodeProgress run={data.run} nodeId={id} label={data.label} variant="compact" className="mt-2 w-full" />
       )}
       {data.note && (
@@ -466,7 +474,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
                 ? 'bg-[#fff0f2] dark:bg-[#1f2937] text-[#ed1933] dark:text-[#f79ea9]'
                 : 'bg-[#f5f6f6] dark:bg-[#1f2937] text-[#858585] dark:text-[#b8bec7]'
         }`}>
-          <StatusIcon status={data.status} />
+          <StatusIcon status={data.status} recorded={data.ghostState === 'recorded'} />
         </span>
       </div>
 
@@ -482,7 +490,7 @@ function StudioNodeCard(props: NodeProps<StudioFlowNode>) {
             : data.subtitle}
       </span>
 
-      {(data.status === 'running' || data.status === 'failed') && (
+      {!data.ghost && (data.status === 'running' || data.status === 'failed') && (
         <NodeProgress
           run={data.run}
           nodeId={id}

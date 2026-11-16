@@ -10,10 +10,135 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 import json
 import re
+from datetime import datetime, timezone
+from queue import SimpleQueue
+from concurrent.futures import wait, FIRST_COMPLETED
 from pathlib import Path
 from typing import Any, Callable
 
 from app.workflows.InputResolver import resolve_input_path
+
+class LiveItemTracker:
+    """Bounded, public per-task state. No input payloads or credentials are emitted.
+
+    Every transition originates in the real executor. The UI never guesses
+    whether a task has started. Running summaries stay small for large loops.
+    """
+
+    VISIBLE_FIRST = 40
+    VISIBLE_RECENT = 20
+
+    def __init__(self, mode: str, items: list[dict[str, Any]]) -> None:
+        self.mode = mode
+        self.items: list[dict[str, Any]] = [
+            {"id": str(item.get("id") or f"item_{i+1}")[:120],
+             "label": str(item.get("label") or item.get("id") or f"Item {i+1}")[:100],
+             "index": i, "state": "waiting"}
+            for i, item in enumerate(items)
+        ]
+        self._recent: list[int] = []
+        self._counts = {"waiting": len(items), "running": 0,
+                        "completed": 0, "failed": 0, "skipped": 0}
+
+    def append(self, identifier: str, label: str) -> int:
+        """Announce an iteration only after a Repeat Until loop actually starts it."""
+        index = len(self.items)
+        self.items.append({"id": str(identifier)[:120], "label": str(label)[:100],
+                           "index": index, "state": "waiting"})
+        self._counts["waiting"] += 1
+        return index
+
+    def set(self, index: int, state: str, error: str | None = None) -> None:
+        if not 0 <= index < len(self.items):
+            return
+        if state not in self._counts:
+            raise ValueError(f"Unknown live task state: {state}")
+        row = self.items[index]
+        old = str(row["state"])
+        if old != state:
+            self._counts[old] -= 1
+            self._counts[state] += 1
+        row["state"] = state
+        stamp = datetime.now(timezone.utc).isoformat()
+        if state == "running":
+            row["started_at"] = stamp
+        if state in {"completed", "failed", "skipped"}:
+            row["finished_at"] = stamp
+        if error:
+            row["error"] = str(error)[:240]
+        if index >= self.VISIBLE_FIRST:
+            if index in self._recent:
+                self._recent.remove(index)
+            self._recent.append(index)
+            del self._recent[:-self.VISIBLE_RECENT]
+
+    def snapshot(self) -> dict[str, Any]:
+        visible = set(range(min(self.VISIBLE_FIRST, len(self.items))))
+        visible.update(self._recent)
+        return {
+            "mode": self.mode, "total": len(self.items), **self._counts,
+            "items": [dict(self.items[index]) for index in sorted(visible)],
+            "truncated": len(visible) < len(self.items),
+        }
+
+    def emit(self, progress: Callable[[dict[str, Any]], None] | None,
+             *, stage: str, message: str, force: bool = False,
+             **extra: Any) -> None:
+        if not callable(progress):
+            return
+        completed = self._counts["completed"] + self._counts["failed"] + self._counts["skipped"]
+        progress({"stage": stage, "message": message[:200],
+                  "unit": "iterations", "processed": completed,
+                  "total": len(self.items),
+                  "progress": round(completed * 100 / max(1, len(self.items)), 2),
+                  "item_execution_live": self.snapshot(), "force": force,
+                  **extra})
+
+
+def live_snapshot_from_result(value: dict[str, Any]) -> dict[str, Any] | None:
+    """Make cached run artifacts inspectable without faking live transitions."""
+    if not isinstance(value, dict):
+        return None
+    completed = value.get("items")
+    failed = value.get("failed_items")
+    if not isinstance(completed, list) or not isinstance(failed, list):
+        # Historical/cached Edge TTS artifacts are reported as completed tasks,
+        # never as simulated "running" events.
+        voiceovers = value.get("voiceovers")
+        voice_failures = value.get("failed_voiceovers")
+        voice_skipped = value.get("skipped_voiceovers")
+        if isinstance(voiceovers, list):
+            voice_failures = voice_failures if isinstance(voice_failures, list) else []
+            voice_skipped = voice_skipped if isinstance(voice_skipped, list) else []
+            all_rows = [(row, "completed") for row in voiceovers] + [
+                (row, "failed") for row in voice_failures] + [
+                (row, "skipped") for row in voice_skipped]
+            if not all_rows:
+                return None
+            tracker = LiveItemTracker("edge_tts_voiceovers", [
+                {"id": row.get("instance_id") or row.get("group_id") or f"item_{i+1}",
+                 "label": row.get("instance_id") or row.get("group_id") or f"Voice {i+1}"}
+                if isinstance(row, dict) else {"id": f"item_{i+1}"}
+                for i, (row, _) in enumerate(all_rows)
+            ])
+            for i, (row, state) in enumerate(all_rows):
+                error = str(row.get("error") or "") if isinstance(row, dict) else None
+                tracker.set(i, state, error)
+            return tracker.snapshot()
+        return None
+    stats = value.get("item_execution") if isinstance(value.get("item_execution"), dict) else {}
+    loop = value.get("loop") if isinstance(value.get("loop"), dict) else {}
+    tracker = LiveItemTracker(str(stats.get("mode") or loop.get("mode") or "items"), [
+        {"id": item.get("id", f"item_{i+1}"), "label": item.get("label", item.get("id", f"Item {i+1}"))}
+        if isinstance(item, dict) else {"id": f"item_{i+1}"}
+        for i, item in enumerate(completed + failed)
+    ])
+    for i, item in enumerate(completed):
+        tracker.set(i, "completed")
+    for i, item in enumerate(failed, start=len(completed)):
+        tracker.set(i, "failed", str(item.get("error", "")) if isinstance(item, dict) else None)
+    return tracker.snapshot()
+
 
 ITEM_MARKER = "__cliptora_item"
 MAX_ITEMS = 2000
@@ -260,34 +385,62 @@ def run_item_execution(
                 _write_json(target, candidate)
         return candidate
 
+    tracker = LiveItemTracker(options["mode"], [
+        {"id": (current[0]["id"] if options["mode"] != "batch" else f"batch_{i+1:05d}"),
+         "label": (current[0]["label"] if options["mode"] != "batch" else f"Batch {i+1} ({len(current)} items)")}
+        for i, current in enumerate(sets)
+    ])
+    tracker.emit(progress, stage="items_ready", message=f"{len(sets)} iterations queued", force=True)
     outcomes: dict[int, dict[str, Any] | Exception] = {}
     if options["parallelism"] == 1:
         for index, current in enumerate(sets):
-            if callable(progress):
-                progress({"stage": "items", "message": f"Processing iteration {index+1}/{len(sets)}",
-                          "unit": "iterations", "processed": index, "total": len(sets),
-                          "progress": round(index * 100 / len(sets), 2)})
+            if cancelled():
+                raise RuntimeError("Item execution cancelled")
+            tracker.set(index, "running")
+            tracker.emit(progress, stage="items", message=f"Processing iteration {index+1}/{len(sets)}",
+                         force=index < 4)
             try:
                 outcomes[index] = work(index, current)
+                tracker.set(index, "completed")
             except Exception as exc:
+                outcomes[index] = exc
+                tracker.set(index, "failed", f"{type(exc).__name__}: {exc}")
+                tracker.emit(progress, stage="items", message=f"Iteration {index+1} failed", force=True)
                 if options["error_policy"] == "stop":
                     raise ValueError(f"Item iteration {index+1}/{len(sets)} ({current[0]['id']}) failed: {exc}") from exc
-                outcomes[index] = exc
+            tracker.emit(progress, stage="items", message=f"Processed {index+1}/{len(sets)} iterations",
+                         force=index < 4)
     else:
+        # Workers announce actual start through a thread-safe queue. Only the
+        # coordinating thread emits progress to Engine/MySQL, avoiding races.
+        started: SimpleQueue[int] = SimpleQueue()
+        def tracked_work(index: int, current: list[dict[str, Any]]) -> dict[str, Any]:
+            started.put(index)
+            return work(index, current)
+
         with ThreadPoolExecutor(max_workers=options["parallelism"]) as pool:
-            futures = {pool.submit(copy_context().run, work, index, current): index
-                       for index, current in enumerate(sets)}
-            for future in as_completed(futures):
-                index = futures[future]
-                try:
-                    outcomes[index] = future.result()
-                except Exception as exc:
-                    outcomes[index] = exc
-                if callable(progress):
-                    done = len(outcomes)
-                    progress({"stage": "items", "message": f"Completed {done}/{len(sets)} iterations",
-                              "unit": "iterations", "processed": done, "total": len(sets),
-                              "progress": round(100 * done / len(sets), 2)})
+            futures = {
+                pool.submit(copy_context().run, tracked_work, index, current): index
+                for index, current in enumerate(sets)
+            }
+            remaining = set(futures)
+            while remaining:
+                done, remaining = wait(remaining, timeout=0.25, return_when=FIRST_COMPLETED)
+                while not started.empty():
+                    index = started.get()
+                    tracker.set(index, "running")
+                    tracker.emit(progress, stage="items", message=f"Iteration {index+1} running",
+                                 force=index < 4)
+                for future in done:
+                    index = futures[future]
+                    try:
+                        outcomes[index] = future.result()
+                        tracker.set(index, "completed")
+                    except Exception as exc:
+                        outcomes[index] = exc
+                        tracker.set(index, "failed", f"{type(exc).__name__}: {exc}")
+                    tracker.emit(progress, stage="items", message=f"Processed {len(outcomes)}/{len(sets)} iterations",
+                                 force=isinstance(outcomes[index], Exception) or len(outcomes) <= 4)
         if cancelled():
             raise RuntimeError("Item execution cancelled")
         if options["error_policy"] == "stop":
@@ -311,10 +464,7 @@ def run_item_execution(
                               "input_item_ids": [r["id"] for r in current], "data": outcome})
         else:
             completed.append({**current[0], "status": "completed", "data": outcome})
-    if callable(progress):
-        progress({"stage": "items_complete", "message": "Item execution completed",
-                  "unit": "iterations", "processed": len(sets), "total": len(sets),
-                  "progress": 100, "force": True})
+    tracker.emit(progress, stage="items_complete", message="Item execution completed", force=True)
     return {"status": "partial" if failed else "completed",
             "items": completed, "failed_items": failed,
             "item_execution": {"mode": options["mode"], "source": options["path"],
