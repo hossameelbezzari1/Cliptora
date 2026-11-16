@@ -1,6 +1,6 @@
 /** Visual-only, bounded per-item execution view. Never persists nodes or edges. */
 import { useEffect, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import type { Node as FlowNode, NodeProps } from '@xyflow/react'
+import type { Edge, Node as FlowNode, NodeProps } from '@xyflow/react'
 import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Eye, LoaderCircle, X, XCircle, MinusCircle, AlertTriangle, ListFilter, FileJson2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { WorkflowNode } from './workflowTypes'
@@ -223,17 +223,21 @@ function liveFromRun(results: unknown, originId: string, requestedCollection?: s
 }
 
 /**
- * Pure layout builder: real workflow definitions/edges are never modified.
- * Pages are over actually reported items (not invented placeholders).
- * The first column is always the original node's X, unless a real graph
- * node or another ghost stack occupies that area.
+ * Build parallel, visually connected execution clones.
+ *
+ * One original studio node stays in place and keeps its persisted edges.
+ * Display-only siblings share its x-coordinate and branch from the same
+ * upstream nodes to the same downstream nodes (see buildGhostEdges).
+ * No clone, panel or connection ever enters the workflow definition.
+ *
+ * Pagination/filtering operate on real telemetry or saved collection metadata.
  */
 type Rect = { x: number; y: number; width: number; height: number }
-function collides(a: Rect, b: Rect, margin = 14): boolean {
+function collides(a: Rect, b: Rect, margin = 18): boolean {
   return a.x < b.x + b.width + margin && a.x + a.width + margin > b.x &&
     a.y < b.y + b.height + margin && a.y + a.height + margin > b.y
 }
-const taskHeight = (type: string) => type === 'ai.agent' ? 315 : 266
+const taskHeight = (type: string) => type === 'ai.agent' ? 320 : 270
 function taskCounts(snapshot: LiveTaskSnapshot): GhostSummary {
   const known = snapshot.items.reduce((result, task) => {
     if (task.state in result) result[task.state as keyof typeof result]++
@@ -263,16 +267,16 @@ export function buildGhostNodes(
     x: node.position?.x ?? 80,
     y: node.position?.y ?? 80,
     width: Math.max(190, measured[node.id]?.width ?? (node.type === 'ai.agent' ? 300 : 190)),
-    height: Math.max(170, measured[node.id]?.height ?? (node.type === 'ai.agent' ? 222 : 196)),
+    height: Math.max(160, measured[node.id]?.height ?? (node.type === 'ai.agent' ? 222 : 190)),
   }))
+
   for (const node of nodes) {
     const view = preferences[node.id] ?? {}
     const live = liveFromRun(results, node.id, view.collection)
     if (!live) continue
+
     const collapsed = view.collapsed === true
     const filter = view.filter ?? 'all'
-    // For output collections, page by array length without creating thousands
-    // of React objects. Actual live traces use only their reported task items.
     const recordedCollection = Boolean(live.collection_path)
     const matches = recordedCollection
       ? (filter === 'all' || filter === 'recorded' ? live.total : 0)
@@ -294,18 +298,27 @@ export function buildGhostNodes(
           }
         })
       : filtered.slice(first, first + GHOST_PAGE_SIZE)
+
     const origin = node.position ?? { x: 80, y: 80 }
-    const y = origin.y + Math.max(170, measured[node.id]?.height ?? (node.type === 'ai.agent' ? 222 : 196)) + 34
-    const heightPerTask = taskHeight(node.type)
-    const panelHeight = 150
-    const proposedHeight = panelHeight + (collapsed ? 0 : visible.length * heightPerTask + 24)
-    const offsets = Array.from({ length: 21 }, (_, i) => i === 0 ? 0 : (i % 2 ? -1 : 1) * Math.ceil(i / 2) * 265)
-    const x = offsets.map(offset => origin.x + offset).find(candidate => {
-      const test = { x: candidate, y, width: 242, height: proposedHeight }
-      return reserved.every(other => !collides(test, other))
-    }) ?? origin.x
-    const block: Rect = { x, y, width: 242, height: proposedHeight }
-    reserved.push(block)
+    const x = origin.x // parallel siblings, never reflow the original main row
+    const width = Math.max(190, measured[node.id]?.width ?? (node.type === 'ai.agent' ? 300 : 190))
+    const rowStep = taskHeight(node.type)
+    const panelHeight = collapsed ? 105 : 235
+    const cloneTopGap = 64
+    const panelGap = 46
+    const blockHeight = visible.length * rowStep + panelHeight + panelGap
+    const baseY = origin.y + Math.max(160, measured[node.id]?.height ?? 190) + cloneTopGap
+
+    // Avoid physical overlap with existing real nodes or other ghost stacks;
+    // search vertically to keep sibling x aligned with the original.
+    let y = baseY
+    for (let tries = 0; tries < 200; tries++) {
+      const candidate = { x, y, width: Math.max(width, 242), height: blockHeight }
+      const obstruction = reserved.find(other => collides(candidate, other))
+      if (!obstruction) break
+      y = Math.max(y + 28, obstruction.y + obstruction.height + 26)
+    }
+    reserved.push({ x, y, width: Math.max(width, 242), height: blockHeight })
 
     const common = {
       originId: node.id,
@@ -315,30 +328,76 @@ export function buildGhostNodes(
       total: live.total,
       hidden: Math.max(0, live.total - visible.length),
     }
+
+    visible.forEach((task, i) => ghosts.push({
+      id: `${GHOST_PREFIX}${node.id}:${task.index}`,
+      type: 'cliptora-ghost',
+      position: { x, y: y + i * rowStep },
+      zIndex: 8, draggable: false, selectable: false, connectable: false,
+      deletable: false, focusable: false,
+      data: { ...common, more: false, task },
+    }))
+
     ghosts.push({
-      id: `${GHOST_PREFIX}${node.id}:panel`, type: 'cliptora-ghost',
-      position: { x, y },
+      id: `${GHOST_PREFIX}${node.id}:panel`,
+      type: 'cliptora-ghost',
+      position: { x, y: y + visible.length * rowStep + (visible.length ? panelGap : 0) },
       zIndex: 7, draggable: false, selectable: false, connectable: false,
       deletable: false, focusable: false,
       data: {
         ...common, more: true, panel: true, collapsed, filter, page,
         pageCount, matches: resultCount, summary: taskCounts(live),
         collectionOptions: live.collection_options, activeCollection: live.collection_path,
-        actions, shifted: x !== origin.x,
+        actions, shifted: false,
       },
-    })
-    visible.forEach((task, i) => {
-      ghosts.push({
-        id: `${GHOST_PREFIX}${node.id}:${task.index}`,
-        type: 'cliptora-ghost',
-        position: { x, y: y + panelHeight + 24 + i * heightPerTask },
-        zIndex: 8, draggable: false, selectable: false, connectable: false,
-        deletable: false, focusable: false,
-        data: { ...common, more: false, task },
-      })
     })
   }
   return ghosts
+}
+
+/** Only presentation edges: the engine never receives these IDs. */
+export const GHOST_EDGE_PREFIX = '__cliptora-ghost-edge:'
+export function buildGhostEdges(
+  realEdges: readonly Edge[],
+  ghosts: readonly GhostFlowNode[],
+): Edge[] {
+  const visual: Edge[] = []
+  // Cap decorative fan-in/out to avoid spaghetti when a node has many real
+  // dependants. Every persisted connection remains visible in the main graph.
+  const maxVisualPerSide = 2
+  for (const ghost of ghosts) {
+    if (!ghost.data.task) continue
+    const originId = ghost.data.originId
+    const incoming = realEdges.filter(edge => edge.target === originId)
+    const outgoing = realEdges.filter(edge => edge.source === originId)
+
+    const edgeFor = (edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>, key: string): Edge => ({
+      id: `${GHOST_EDGE_PREFIX}${ghost.id}:${key}`,
+      type: 'cliptora-ghost-connection',
+      source: edge.source, target: edge.target,
+      sourceHandle: edge.sourceHandle ?? undefined,
+      targetHandle: edge.targetHandle ?? undefined,
+      selectable: false, deletable: false, reconnectable: false, focusable: false,
+      animated: false,
+      style: { stroke: '#a78bfa', strokeWidth: 1.8, strokeDasharray: '7 6', opacity: .55 },
+    })
+
+    // Duplicate *display* connections along the actual graph's parallel path.
+    for (const inbound of incoming.slice(0, maxVisualPerSide)) {
+      visual.push(edgeFor({
+        source: inbound.source, sourceHandle: inbound.sourceHandle,
+        target: ghost.id, targetHandle: inbound.targetHandle ?? 'input',
+      }, `in:${inbound.id}`))
+    }
+    // Root nodes may have no target/input handle; do not fabricate one.
+    for (const outbound of outgoing.slice(0, maxVisualPerSide)) {
+      visual.push(edgeFor({
+        source: ghost.id, sourceHandle: outbound.sourceHandle ?? 'main',
+        target: outbound.target, targetHandle: outbound.targetHandle ?? 'input',
+      }, `out:${outbound.id}`))
+    }
+  }
+  return visual
 }
 
 const studioStatus = (state: GhostState): StudioFlowNode['data']['status'] =>
@@ -378,7 +437,7 @@ function TaskControlPanel({ data }: { data: GhostFlowNode['data'] }) {
   return (
     <section className="nodrag nopan nowheel relative w-[242px] cursor-default rounded-xl border border-violet-200 bg-white/95 p-2.5 text-left shadow-[0_4px_18px_#0000000e] dark:border-violet-800 dark:bg-[#262b37]"
       aria-label={`${data.originLabel} live task controls`} onClick={onClick} onPointerDown={stopPointer}>
-      {!data.shifted && <span aria-hidden="true" className="pointer-events-none absolute -top-[35px] left-[94px] h-[35px] border-l-2 border-dashed border-violet-300 dark:border-violet-600" />}
+
       <div className="flex items-center gap-1.5">
         <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300"><ListFilter size={14}/></span>
         <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-800 dark:text-slate-100" title={data.originLabel}>{summary?.recorded ? 'Output records' : 'Task executions'}</span>
@@ -471,9 +530,9 @@ export function GhostExecutionCard(props: NodeProps<GhostFlowNode>) {
           : task.state === 'recorded' ? Eye : Clock3
   return (
     <div className="nodrag nopan relative w-[190px] cursor-pointer" title={`${data.originLabel} · ${task.label} · ${task.state}`}>
-      <span aria-hidden="true" className="pointer-events-none absolute -top-[29px] left-[94px] h-[29px] border-l-2 border-dashed border-violet-300/80 dark:border-violet-500/50" />
+
       <div className="pointer-events-none absolute -top-[25px] left-[114px] rounded-md border border-violet-200 bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-violet-600 shadow-sm dark:border-violet-900 dark:bg-slate-900/95 dark:text-violet-300">#{task.index + 1}</div>
-      <div style={{ opacity: taskOpacity[task.state] }} className="transition-opacity duration-150 hover:!opacity-[.85] [&_.react-flow__handle]:!hidden [&_button]:!hidden [&_.group\/node]:!cursor-pointer">
+      <div style={{ opacity: taskOpacity[task.state] }} className="transition-opacity duration-150 hover:!opacity-[.85] [&_.react-flow__handle]:!pointer-events-none [&_button]:!hidden [&_.group\/node]:!cursor-pointer">
         <WorkflowQuickAddContext.Provider value={null}>
           <OriginalNodeCard {...previewProps} />
         </WorkflowQuickAddContext.Provider>

@@ -111,6 +111,8 @@ import {
   GhostExecutionCard,
   GhostExecutionDetails,
   buildGhostNodes,
+  buildGhostEdges,
+  GHOST_EDGE_PREFIX,
   type GhostFlowNode,
   type GhostSelection,
   type GhostPreferences,
@@ -666,8 +668,24 @@ function ActionEdge({
   )
 }
 
+/** Decorative branch/merge lines for execution ghosts. Never selectable or editable. */
+function GhostConnectionEdge(props: EdgeProps) {
+  const [path] = getBezierPath({
+    sourceX: props.sourceX, sourceY: props.sourceY,
+    sourcePosition: props.sourcePosition,
+    targetX: props.targetX, targetY: props.targetY,
+    targetPosition: props.targetPosition,
+    curvature: 0.42,
+  })
+  return <BaseEdge id={props.id} path={path} style={{
+    stroke: '#a78bfa', strokeWidth: 1.8, strokeDasharray: '7 6',
+    strokeLinecap: 'round', opacity: .55, pointerEvents: 'none',
+  }} />
+}
+
 const workflowEdgeTypes = {
   'cliptora-action': ActionEdge,
+  'cliptora-ghost-connection': GhostConnectionEdge,
 }
 
 type WorkflowNodeToolbarActions = {
@@ -1830,6 +1848,8 @@ export function WorkflowCanvas({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         void flow.current?.fitView({
+          // Only saved workflow nodes; the ghost branches can be very tall.
+          nodes: nodes.map(node => ({ id: node.id })),
           padding: 0.16,
           duration: 450,
           maxZoom: 1,
@@ -2034,7 +2054,7 @@ export function WorkflowCanvas({
     }
 
     const removed = changes
-      .filter(change => change.type === 'remove')
+      .filter(change => change.type === 'remove' && !change.id.startsWith(GHOST_EDGE_PREFIX))
       .map(change => change.id)
 
     if (removed.length) {
@@ -2105,7 +2125,7 @@ export function WorkflowCanvas({
         const next = new Set(previous)
 
         selections.forEach(change => {
-          if (change.type !== 'select' || change.id.startsWith(FRAME_PREFIX)) return
+          if (change.type !== 'select' || change.id.startsWith(FRAME_PREFIX) || change.id.startsWith(GHOST_EDGE_PREFIX)) return
           if (change.selected) next.add(change.id)
           else next.delete(change.id)
         })
@@ -2322,6 +2342,10 @@ export function WorkflowCanvas({
       deleteEdge,
       renameEdge,
     ])
+
+  const ghostEdges = useMemo(() => buildGhostEdges(graphEdges, ghostNodes), [graphEdges, ghostNodes])
+  // Keep the saved workflow edges separate: presentation branches are render-only.
+  const visibleGraphEdges = useMemo<Edge[]>(() => [...graphEdges, ...ghostEdges], [graphEdges, ghostEdges])
 
   const onConnect = useCallback((connection: Connection) => {
     const { source, target, sourceHandle, targetHandle } = connection
@@ -3495,7 +3519,7 @@ export function WorkflowCanvas({
             <WorkflowNodeToolbarContext.Provider value={nodeToolbarActions}>
               <ReactFlow<CanvasFlowNode, Edge>
                 nodes={visualNodes}
-                edges={graphEdges}
+                edges={visibleGraphEdges}
                 defaultViewport={START_VIEWPORT}
                 onMoveEnd={(_, next) => {
                   updateZoomSlider(next.zoom)
@@ -3637,6 +3661,7 @@ export function WorkflowCanvas({
                   )
                 }}
                 onEdgeClick={(_, edge) => {
+                  if (edge.id.startsWith(GHOST_EDGE_PREFIX)) return
                   if (interactionMode === 'hand') return
                   closeContextMenu()
                   setSelectedNodeIds([])
@@ -3644,11 +3669,13 @@ export function WorkflowCanvas({
                   setSelectedEdges([edge.id])
                 }}
                 onEdgeDoubleClick={(event, edge) => {
+                  if (edge.id.startsWith(GHOST_EDGE_PREFIX)) return
                   if (interactionMode === 'hand') return
                   event.preventDefault()
                   renameEdge(edge.source, edge.target)
                 }}
                 onEdgeContextMenu={(event, edge) => {
+                  if (edge.id.startsWith(GHOST_EDGE_PREFIX)) return
                   event.preventDefault()
                   event.stopPropagation()
                   setSelectedNodeIds([])
@@ -3793,7 +3820,7 @@ export function WorkflowCanvas({
                   setNodes(previous =>
                     previous.map(node => {
                       const removed = deleted
-                        .filter(edge => edge.target === node.id)
+                        .filter(edge => edge.target === node.id && !edge.id.startsWith(GHOST_EDGE_PREFIX))
                         .map(edge => edge.source)
 
                       if (!removed.length) return node
@@ -4312,6 +4339,7 @@ export function WorkflowCanvas({
               onClick={() => {
                 if (nodes.length) {
                   void flow.current?.fitView({
+                    nodes: nodes.map(node => ({ id: node.id })),
                     padding: 0.25,
                     maxZoom: 1,
                     duration: 250,

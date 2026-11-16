@@ -19,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Callable
 from app.workflows.ModelConstants import OPENAI_TEXT_MODELS, OPENAI_IMAGE_MODELS, OPENAI_MODERATION_MODELS, OPENAI_REASONING_EFFORTS, GEMINI_TEXT_MODELS, GEMINI_IMAGE_MODELS
 from app.helpers.Transcript import input_path
@@ -83,6 +84,7 @@ class GeminiNode(Node):
             'min_clip_seconds': {'type': 'number', 'default': 3, 'visible_if': {'output_mode': 'highlights'}},
             'max_clip_seconds': {'type': 'number', 'default': 35, 'visible_if': {'output_mode': 'highlights'}},
             'chunk_chars': {'type': 'integer', 'default': 14000, 'visible_if': {'output_mode': 'highlights'}},
+            'empty_highlights_policy': {'type': 'string', 'title': 'If No Highlights', 'default': 'error', 'options': [{'value': 'error', 'label': 'Stop with clear error'}, {'value': 'fallback', 'label': 'Verified transcript fallback'}], 'visible_if': {'output_mode': 'highlights'}},
             'system_prompt': {'type': 'string', 'widget': 'textarea', 'group': 'Advanced', 'title': 'System instruction'},
             'max_output_tokens': {'type': 'integer', 'default': 2048, 'minimum': 128, 'maximum': 32768, 'group': 'Advanced'},
             'temperature': {'type': 'number', 'default': 0.2, 'minimum': 0, 'maximum': 2, 'group': 'Advanced'},
@@ -811,10 +813,24 @@ class GeminiNode(Node):
 
     @staticmethod
     def _upstream_words(outputs: dict[str, Any]) -> list[dict[str, Any]]:
-        matches = [item['words'] for item in outputs.values() if isinstance(item, dict) and isinstance(item.get('words'), list)]
+        matches = [(name, item['words']) for name, item in outputs.items()
+                   if isinstance(item, dict) and isinstance(item.get('words'), list)]
         if len(matches) != 1:
-            raise ValueError("Gemini Highlights requires exactly one connected Transcribe Every Word output containing 'words'")
-        raw_words = matches[0]
+            connected = ', '.join(sorted(str(name) for name in outputs)) or 'none'
+            if not matches:
+                raise ValueError(
+                    'Gemini Highlights needs a direct connection from Transcribe Every Word '
+                    '(audio_transcribe). No connected output contains a words array. '
+                    f'Current connected node IDs: {connected}. Add the '
+                    'audio_transcribe -> ai_gemini edge and ensure audio_transcribe '
+                    'has executed. A Settings JSON alone cannot create this connection.'
+                )
+            matched = ', '.join(name for name, _ in matches)
+            raise ValueError(
+                'Gemini Highlights found multiple connected word arrays '
+                f'({matched}). Connect exactly one Transcribe Every Word output.'
+            )
+        raw_words = matches[0][1]
         words: list[dict[str, Any]] = []
         previous = -1
         for item in raw_words:
@@ -1133,7 +1149,74 @@ class GeminiNode(Node):
         return sorted(accepted, key=lambda x: x['start'])
 
     @staticmethod
+    def _verified_transcript_fallback(
+        words: list[dict[str, Any]],
+        target_seconds: int,
+        min_seconds: float,
+        max_seconds: float,
+        max_highlights: int,
+    ) -> list[dict[str, Any]]:
+        """Use only existing word IDs/timestamps when the AI suggests no clips.
+
+        This is a clearly-labelled continuity fallback, NOT an AI relevance
+        ranking. It never invents scene descriptions or timestamps.
+        """
+        if not words:
+            return []
+        first = float(words[0]['start'])
+        last = max(float(item['end']) for item in words)
+        span = last - first
+        if span < min_seconds:
+            return []
+        per_clip = min(max_seconds, max(min_seconds, min(16.0, target_seconds / max(1, max_highlights))))
+        count = min(max_highlights, max(1, int(target_seconds // min_seconds)), max(1, int(span // min_seconds)))
+        # Even distribution across the actual transcript, not fabricated scene
+        # knowledge. Use sentence-ending punctuation where nearby.
+        result: list[dict[str, Any]] = []
+        previous_end = -1.0
+        for slot in range(count):
+            target_start = first + (span - per_clip) * (slot / max(count - 1, 1))
+            if count == 1:
+                target_start = first
+            candidates = [i for i, w in enumerate(words)
+                          if float(w['start']) >= max(target_start, previous_end)]
+            if not candidates:
+                continue
+            i = candidates[0]
+            start = float(words[i]['start'])
+            eligible = [j for j in range(i, len(words))
+                        if min_seconds <= float(words[j]['end']) - start <= per_clip
+                        and float(words[j]['start']) >= start]
+            if not eligible:
+                continue
+            # Prefer a natural sentence boundary near the desired duration.
+            near_end = [j for j in eligible
+                        if float(words[j]['end']) - start >= per_clip * 0.65
+                        and str(words[j].get('text') or '').rstrip().endswith(('.', '!', '?', '؟', '…'))]
+            j = near_end[-1] if near_end else eligible[-1]
+            end = float(words[j]['end'])
+            if end <= previous_end or end - start < min_seconds:
+                continue
+            result.append({
+                'start_word_id': words[i]['id'], 'end_word_id': words[j]['id'],
+                'start': round(start, 3), 'end': round(end, 3),
+                'score': 0.25,
+                'title': f'Review excerpt {len(result) + 1}',
+                'reason': 'Verified transcript fallback; review relevance before rendering',
+                'selection_source': 'verified_transcript_fallback',
+            })
+            previous_end = end
+            if len(result) >= max_highlights:
+                break
+        return result
+
+    @staticmethod
     def _highlights(node: dict[str, Any], cfg: dict[str, Any], outputs: dict[str, Any], model: str) -> dict[str, Any]:
+        """Run a single logical node across bounded real Gemini chunk requests.
+
+        Each request emits live per-chunk states for the existing Ghost UI. The
+        original node and workflow graph do not change. No artificial tasks.
+        """
         words = GeminiNode._upstream_words(outputs)
         target_seconds = GeminiNode._int_setting(cfg, 'target_duration', 120, 10, 7200)
         max_highlights = GeminiNode._int_setting(cfg, 'max_highlights', 12, 1, 100)
@@ -1146,22 +1229,126 @@ class GeminiNode(Node):
         system = str(cfg.get('system_prompt') or 'You are a precise transcript-only video editor.')
         goal = str(cfg.get('prompt') or 'Choose the most informative, impactful moments for a concise chronological recap.')[:8000]
         proposals: list[dict[str, Any]] = []
+        diagnostics: list[dict[str, Any]] = []
         input_tokens = output_tokens = 0
+        now = lambda: datetime.now(timezone.utc).isoformat()
+        tasks: list[dict[str, Any]] = [
+            {'id': f'chunk_{i + 1:06d}', 'label': f'Chunk {i + 1}',
+             'index': i, 'state': 'waiting', 'start_word_id': part[0]['id'],
+             'end_word_id': part[-1]['id']}
+            for i, part in enumerate(chunks)
+        ]
+
+        def snapshot() -> dict[str, Any]:
+            counts = {state: sum(row['state'] == state for row in tasks)
+                      for state in ('waiting', 'running', 'completed', 'failed', 'skipped')}
+            return {'mode': 'gemini_chunks', 'total': len(tasks), **counts,
+                    'items': [dict(row) for row in tasks], 'truncated': False}
+
+        def emit(stage: str, message: str, *, force: bool = True) -> None:
+            callback = node.get('_progress_callback')
+            if not callable(callback):
+                return
+            state = snapshot()
+            processed = state['completed'] + state['failed']
+            callback({
+                'stage': stage, 'message': message[:200],
+                'progress': round(min(99, processed * 95 / max(1, len(tasks))), 2),
+                'unit': 'chunks', 'processed': processed, 'total': len(tasks),
+                'item_execution_live': state, 'force': force,
+            })
+
+        emit('chunks_ready', f'{len(chunks)} Gemini transcript chunks queued')
         for i, chunk in enumerate(chunks):
-            GeminiNode._notify(node, stage='analyzing_transcript', message=f'Analyzing transcript chunk {i + 1}/{len(chunks)}', progress=i / len(chunks) * 95, processed=i, total=len(chunks))
-            lines = ' '.join((f"[{word['id']}] {word['text']}" for word in chunk))
-            prompt = f'Editing goal: {goal}\nTotal desired final duration: {target_seconds} seconds. Minimum clip {min_seconds} sec; maximum clip {max_seconds} sec. Select up to {min(12, max_highlights)} meaningful continuous spoken excerpts from THIS CHUNK, in the chronological order of the source. Use ONLY actual word IDs present in this text. Do not invent events, word IDs, or scenes. The source is text-only and may not describe visuals. Prefer coherent sentence boundaries and preserve context. Return JSON with highlights array; score from 0 to 100 and a brief reason. \n\nTRANSCRIPT:\n{lines}'
-            response = GeminiNode._request(model, cfg, prompt, system, json_schema=_HIGHLIGHTS_SCHEMA)
-            parsed = GeminiNode._json_content(response['text'])
-            if not isinstance(parsed, dict) or not isinstance(parsed.get('highlights'), list):
-                raise ValueError('Gemini Highlights returned JSON without a highlights array')
-            low, high = (chunk[0]['id'], chunk[-1]['id'])
-            proposals.extend((item for item in parsed['highlights'] if isinstance(item, dict) and str(item.get('start_word_id', '')).isdigit() and str(item.get('end_word_id', '')).isdigit() and (low <= int(item['start_word_id']) <= int(item['end_word_id']) <= high)))
-            input_tokens += int(response['usage'].get('promptTokenCount') or 0)
-            output_tokens += int(response['usage'].get('candidatesTokenCount') or 0)
-        highlights = GeminiNode._select_highlights(proposals, words, target_seconds, min_seconds, max_seconds, max_highlights)
-        GeminiNode._notify(node, stage='finalizing', message='Validating exact word timestamps', progress=99, processed=len(chunks), total=len(chunks))
-        return {'highlights': highlights, 'method': 'gemini', 'model': model, 'target_duration': target_seconds, 'selected_duration': round(sum((h['end'] - h['start'] for h in highlights)), 3), 'chunks_processed': len(chunks), 'usage': {'input_tokens': input_tokens, 'output_tokens': output_tokens}, 'word_count': len(words)}
+            task = tasks[i]
+            task['state'] = 'running'
+            task['started_at'] = now()
+            emit('analyzing_transcript', f'Analyzing Gemini chunk {i + 1}/{len(chunks)}')
+            try:
+                lines = ' '.join(f"[{word['id']}] {word['text']}" for word in chunk)
+                prompt = (
+                    f'Editing goal: {goal}\n'
+                    f'Total desired final duration: {target_seconds} seconds. '
+                    f'Minimum clip {min_seconds} sec; maximum clip {max_seconds} sec. '
+                    f'Select up to {min(12, max_highlights)} meaningful continuous spoken excerpts '
+                    'from THIS CHUNK, in the chronological order of the source. '
+                    'Use ONLY actual word IDs present in this text. Do not invent events, '
+                    'word IDs, or scenes. The source is text-only and may not describe visuals. '
+                    'Prefer coherent sentence boundaries and preserve context. '
+                    'Return JSON with highlights array; score from 0 to 100 and a brief reason. '
+                    f'\n\nTRANSCRIPT:\n{lines}'
+                )
+                response = GeminiNode._request(model, cfg, prompt, system, json_schema=_HIGHLIGHTS_SCHEMA)
+                parsed = GeminiNode._json_content(response['text'])
+                if not isinstance(parsed, dict) or not isinstance(parsed.get('highlights'), list):
+                    raise ValueError('Gemini Highlights returned JSON without a highlights array')
+                low, high = chunk[0]['id'], chunk[-1]['id']
+                candidates = [
+                    item for item in parsed['highlights']
+                    if isinstance(item, dict)
+                    and str(item.get('start_word_id', '')).isdigit()
+                    and str(item.get('end_word_id', '')).isdigit()
+                    and low <= int(item['start_word_id']) <= int(item['end_word_id']) <= high
+                ]
+                proposals.extend(candidates)
+                usage = response.get('usage') or {}
+                prompt_tokens = int(usage.get('promptTokenCount') or 0)
+                response_tokens = int(usage.get('candidatesTokenCount') or 0)
+                input_tokens += prompt_tokens
+                output_tokens += response_tokens
+                diagnostics.append({
+                    'chunk_id': task['id'], 'word_start': low, 'word_end': high,
+                    'candidate_highlights': len(candidates),
+                    'input_tokens': prompt_tokens, 'output_tokens': response_tokens,
+                    'status': 'completed',
+                })
+                task['state'] = 'completed'
+                task['finished_at'] = now()
+                emit('analyzing_transcript', f'Gemini chunk {i + 1}/{len(chunks)} completed')
+            except Exception as exc:
+                task['state'] = 'failed'
+                task['finished_at'] = now()
+                task['error'] = f'{type(exc).__name__}: {str(exc)[:180]}'
+                emit('analyzing_transcript', f'Gemini chunk {i + 1}/{len(chunks)} failed')
+                raise
+
+        highlights = GeminiNode._select_highlights(
+            proposals, words, target_seconds, min_seconds, max_seconds, max_highlights
+        )
+        selection_source = 'gemini'
+        warnings: list[str] = []
+        if not highlights:
+            policy = str(cfg.get('empty_highlights_policy') or 'error').strip().lower()
+            if policy not in ('error', 'fallback'):
+                raise ValueError('empty_highlights_policy must be error or fallback')
+            if policy == 'fallback':
+                highlights = GeminiNode._verified_transcript_fallback(
+                    words, target_seconds, min_seconds, max_seconds, max_highlights
+                )
+                if highlights:
+                    selection_source = 'verified_transcript_fallback'
+                    warnings.append(
+                        'Gemini selected no valid clips; used real word timestamps for '
+                        'provisional excerpts. Review these clips before rendering.'
+                    )
+            if not highlights:
+                raise ValueError(
+                    'Gemini selected zero valid clips. The workflow was stopped instead of '
+                    'marking an empty montage as completed. Check transcript word timestamps, '
+                    'model response and selected clip durations.'
+                )
+        emit('finalizing', 'Validating exact word timestamps')
+        return {
+            'highlights': highlights, 'method': 'gemini_highlights',
+            'selection_source': selection_source, 'warnings': warnings,
+            'model': model, 'target_duration': target_seconds,
+            'selected_duration': round(sum(h['end'] - h['start'] for h in highlights), 3),
+            'chunks_processed': len(chunks),
+            'chunk_diagnostics': diagnostics,
+            'item_execution_live': snapshot(),
+            'usage': {'input_tokens': input_tokens, 'output_tokens': output_tokens},
+            'word_count': len(words),
+        }
 
     @staticmethod
     def message_model(node: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
