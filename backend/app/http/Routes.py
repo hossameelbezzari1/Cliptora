@@ -1,3 +1,4 @@
+
 """HTTP v1 route group; keeps existing /api/v1 contracts."""
 
 from fastapi import APIRouter, HTTPException
@@ -12,6 +13,7 @@ from app.http.controllers.LibraryController import router as library_router
 from app.http.controllers.CommandsController import router as commands_router
 from app.http.controllers.WorkflowController import router as workflow_router
 from app.http.controllers.CredentialsController import router as credentials_router
+from app.http.controllers.WorkflowExternalController import router as workflow_external_router
 
 from app.workflows.ListNodes import get_nodes, get_families
 
@@ -29,6 +31,7 @@ for child in (
     commands_router,
     workflow_router,
     credentials_router,
+    workflow_external_router,
 ):
     router.include_router(child)
 
@@ -100,4 +103,3 @@ def workflow_type_compatibility(body: WorkflowTypeCompatibilityRequest):
         )
     except (TypeContractError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-

@@ -12,6 +12,7 @@ import json
 import math
 import os
 import re
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -881,6 +882,82 @@ class GeminiNode(Node):
         return RuntimeError(f'Gemini API request failed (HTTP {status}). ' + message)
 
     @staticmethod
+    def _curl_json_request(
+        url: str,
+        api_key: str,
+        payload: bytes,
+        timeout: int,
+    ) -> tuple[int, bytes]:
+        """Use Windows curl as a transport fallback without exposing the key.
+
+        Some Windows Python/OpenSSL installations cannot establish a direct
+        Google TLS connection even though the native Windows network stack can.
+        The curl configuration (including the API key) is sent over stdin, so
+        credentials never appear in the process command line or a temp file.
+        """
+        curl = shutil.which("curl.exe")
+        if os.name != "nt" or not curl:
+            raise RuntimeError("Native curl transport is unavailable")
+
+        def quote(value: str) -> str:
+            return value.replace("\\", "\\\\").replace('"', '\\"')
+
+        body_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                suffix=".json",
+                prefix="cliptora-gemini-",
+                delete=False,
+            ) as body_file:
+                body_file.write(payload)
+                body_path = Path(body_file.name)
+
+            config = "\n".join((
+                f'url = "{quote(url)}"',
+                'request = "POST"',
+                'proto = "=https"',
+                'header = "Content-Type: application/json"',
+                f'header = "X-goog-api-key: {quote(api_key)}"',
+                f'data-binary = "@{quote(str(body_path))}"',
+                f"max-time = {timeout}",
+                "silent",
+                "show-error",
+                'write-out = "\\n%{http_code}"',
+            )).encode("utf-8")
+
+            try:
+                completed = subprocess.run(
+                    [curl, "--config", "-"],
+                    input=config,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=timeout + 10,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise RuntimeError(
+                    f"Native curl transport failed: {type(exc).__name__}"
+                ) from exc
+
+            if completed.returncode != 0:
+                raise RuntimeError(
+                    f"Native curl transport failed with exit code "
+                    f"{completed.returncode}"
+                )
+
+            try:
+                response_body, status_bytes = completed.stdout.rsplit(b"\n", 1)
+                status = int(status_bytes.strip())
+            except (ValueError, TypeError) as exc:
+                raise RuntimeError("Native curl returned an invalid response") from exc
+
+            return status, response_body
+        finally:
+            if body_path is not None:
+                body_path.unlink(missing_ok=True)
+
+    @staticmethod
     def _request(model: str, cfg: dict[str, Any], user_prompt: str, system_prompt: str, *, json_schema: dict[str, Any] | None=None) -> dict[str, Any]:
         api_key = resolve_api_key('gemini')
         if not api_key:
@@ -946,7 +1023,9 @@ class GeminiNode(Node):
             if json_schema is not None:
                 generation['responseSchema'] = json_schema
         body['generationConfig'] = generation
-        request = urllib.request.Request(f'{API_ENDPOINT}/models/{model}:generateContent', data=json.dumps(body, ensure_ascii=False).encode('utf-8'), headers={'Content-Type': 'application/json', 'X-goog-api-key': api_key}, method='POST')
+        url = f'{API_ENDPOINT}/models/{model}:generateContent'
+        request_body = json.dumps(body, ensure_ascii=False).encode('utf-8')
+        request = urllib.request.Request(url, data=request_body, headers={'Content-Type': 'application/json', 'X-goog-api-key': api_key}, method='POST')
         timeout = GeminiNode._int_setting(cfg, 'timeout_seconds', 120, 15, 300)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -954,7 +1033,24 @@ class GeminiNode(Node):
         except urllib.error.HTTPError as exc:
             raise GeminiNode._sanitize_api_error(exc.code, exc.read(4096), api_key) from None
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise RuntimeError(f'Cannot reach Gemini API: {type(exc).__name__}. Check Docker DNS/internet access.') from exc
+            try:
+                status, payload = GeminiNode._curl_json_request(
+                    url,
+                    api_key,
+                    request_body,
+                    timeout,
+                )
+            except RuntimeError as fallback_exc:
+                raise RuntimeError(
+                    f'Cannot reach Gemini API: {type(exc).__name__}. '
+                    'The native Windows fallback also failed.'
+                ) from fallback_exc
+            if status >= 400:
+                raise GeminiNode._sanitize_api_error(
+                    status,
+                    payload[:4096],
+                    api_key,
+                ) from None
         if len(payload) > 8000000:
             raise ValueError('Gemini response too large')
         try:

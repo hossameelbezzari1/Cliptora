@@ -31,7 +31,6 @@ const asContract = (value: unknown): DteSchema | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length
     ? value as DteSchema : undefined
 
-
 export type WorkflowStudioProps = {
   projectId: number
   initialWorkflowId?: number | null
@@ -65,22 +64,138 @@ const workflowIdOfRun = (item: WorkflowRun): number | null => {
   return typeof id === 'number' && Number.isInteger(id) ? id : null
 }
 
+/**
+ * Run summaries are diagnostics, not the JSON output.
+ * A field like retry_count or failed_item_count must never be
+ * interpreted as the number of output items.
+ */
+type OutputPresentation = {
+  count: number | null
+  shape: 'Single' | 'List' | 'Empty' | 'Unknown'
+  execution: 'Batch' | 'Loop' | 'Stream' | null
+  executionTotal: number | null
+}
+
+const recordOf = (value: unknown): Record<string, unknown> | null =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+
+const nonnegativeInt = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : null
+
+function countInlineOutput(value: unknown): number {
+  if (value === undefined || value === null) return 0
+  if (Array.isArray(value)) return value.length
+
+  const object = recordOf(value)
+  if (!object) return 1
+
+  for (const key of ['items', 'data', 'rows']) {
+    if (Array.isArray(object[key])) return object[key].length
+  }
+
+  return 1
+}
+
+function explicitOutputCount(result: unknown): number | null {
+  const row = recordOf(result)
+  if (!row) return null
+
+  for (const key of [
+    'output_item_count',
+    'output_items_count',
+    'output_count',
+    'result_item_count',
+  ]) {
+    const value = nonnegativeInt(row[key])
+    if (value !== null) return value
+  }
+
+  for (const key of ['output', 'result', 'data']) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      return countInlineOutput(row[key])
+    }
+  }
+
+  return null
+}
+
+function outputPresentation(
+  result: unknown,
+  nodeType: string,
+  artifactCount: number | null,
+): OutputPresentation {
+  const row = recordOf(result)
+  const telemetry = recordOf(row?.item_execution_live)
+
+  const modeName = String(
+    telemetry?.mode ?? row?.execution_mode ?? row?.processing_mode ?? '',
+  ).toLowerCase()
+
+  const execution: OutputPresentation['execution'] =
+    /batch/.test(modeName) || nodeType === 'ai.batch'
+      ? 'Batch'
+      : /loop|iteration|for_?each|per_?item/.test(modeName) ||
+        /(?:^|[._])loop(?:$|[._])/.test(nodeType)
+        ? 'Loop'
+        : /stream/.test(modeName)
+          ? 'Stream'
+          : null
+
+  const executionTotal =
+    execution === 'Batch'
+      ? nonnegativeInt(row?.batch_count ?? telemetry?.batch_total)
+      : execution === 'Loop'
+        ? nonnegativeInt(telemetry?.total)
+        : null
+
+  const fromRun = explicitOutputCount(result)
+  const count = fromRun !== null ? fromRun : artifactCount
+
+  const shape: OutputPresentation['shape'] =
+    count === null
+      ? 'Unknown'
+      : count === 0
+        ? 'Empty'
+        : count === 1
+          ? 'Single'
+          : 'List'
+
+  return {
+    count,
+    shape,
+    execution,
+    executionTotal,
+  }
+}
+
 const VIDEO_SOURCE_TYPES = new Set([
-  'core.video_source', 'media.probe', 'audio.extract', 'video.render',
+  'core.video_source',
+  'media.probe',
+  'audio.extract',
+  'video.render',
 ])
 
 const sourceIdFromNodes = (nodes: WorkflowNode[]): number | null => {
   for (const type of VIDEO_SOURCE_TYPES) {
     for (const node of nodes) {
       if (node.type !== type) continue
+
       const value = node.settings.source_id
+
       if (
         typeof value === 'number' &&
         Number.isInteger(value) &&
         value > 0
-      ) return value
+      ) {
+        return value
+      }
     }
   }
+
   return null
 }
 
@@ -102,38 +217,64 @@ export function useWorkflowStudio({
   const [versions, setVersions] = useState<WorkflowVersion[]>([])
   const [activeId, setActiveId] = useState<number | null>(null)
   const [name, setName] = useState(initialName)
+
   const [nodes, setNodesState] = useState<WorkflowNode[]>([])
   const nodesRef = useRef<WorkflowNode[]>([])
   const [historyVersion, setHistoryVersion] = useState(0)
+
   const nodeHistory = useRef<{
     past: WorkflowNode[][]
     future: WorkflowNode[][]
   }>({ past: [], future: [] })
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [jsonEditor, setJsonEditor] = useState('{}')
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [sourceId, setSourceId] = useState<number | null>(null)
   const [run, setRun] = useState<WorkflowRun | null>(null)
+
+  // Only store output counts, not the complete artifact JSON.
+  const [artifactItemCounts, setArtifactItemCounts] =
+    useState<Record<string, number | null>>({})
+
+  const requestedArtifactCounts = useRef<Set<string>>(new Set())
+
   const [working, setWorking] = useState(false)
   const [canvasDragging, setCanvasDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [page, setPage] = useState<Mode>('nodes')
-  // Live loop view is presentation-only; never stored in a workflow definition.
+
   const [liveLoopView, setLiveLoopView] = useState(() => {
-    try { return window.localStorage.getItem('cliptora.workflow.live-loop') === 'true' }
-    catch { return false }
+    try {
+      return window.localStorage.getItem('cliptora.workflow.live-loop') === 'true'
+    } catch {
+      return false
+    }
   })
+
   useEffect(() => {
-    try { window.localStorage.setItem('cliptora.workflow.live-loop', String(liveLoopView)) }
-    catch { /* Private/disabled storage is fine. */ }
+    try {
+      window.localStorage.setItem(
+        'cliptora.workflow.live-loop',
+        String(liveLoopView),
+      )
+    } catch {
+      // Private or disabled browser storage.
+    }
   }, [liveLoopView])
+
   const [nodeSearch, setNodeSearch] = useState('')
   const [nodeGroup, setNodeGroup] = useState('All')
-  const [inspectorTab, setInspectorTab] = useState<'settings' | 'wiring'>('settings')
+
+  const [inspectorTab, setInspectorTab] =
+    useState<'settings' | 'wiring'>('settings')
+
   const [libraryOpen, setLibraryOpen] = useState(() => {
     try {
-      return window.localStorage.getItem('cliptora.workflow.libraryOpen') !== 'false'
+      return window.localStorage.getItem(
+        'cliptora.workflow.libraryOpen',
+      ) !== 'false'
     } catch {
       return true
     }
@@ -146,27 +287,47 @@ export function useWorkflowStudio({
   const startInProgress = useRef(false)
   const activeIdRef = useRef<number | null>(null)
 
-  const setNodes: Dispatch<SetStateAction<WorkflowNode[]>> = useCallback(value => {
-    const previous = nodesRef.current
-    const next = typeof value === 'function' ? value(previous) : value
-    if (sameNodes(previous, next)) return
-    nodeHistory.current.past.push(clone(previous))
-    if (nodeHistory.current.past.length > 100) nodeHistory.current.past.shift()
-    nodeHistory.current.future = []
-    nodesRef.current = next
-    setNodesState(next)
-    setHistoryVersion(version => version + 1)
-  }, [])
+  const setNodes: Dispatch<SetStateAction<WorkflowNode[]>> =
+    useCallback(value => {
+      const previous = nodesRef.current
+      const next =
+        typeof value === 'function'
+          ? value(previous)
+          : value
 
-  const setNodesTransient: Dispatch<SetStateAction<WorkflowNode[]>> = useCallback(value => {
-    const next = typeof value === 'function' ? value(nodesRef.current) : value
-    nodesRef.current = next
-    setNodesState(next)
-  }, [])
+      if (sameNodes(previous, next)) return
+
+      nodeHistory.current.past.push(clone(previous))
+
+      if (nodeHistory.current.past.length > 100) {
+        nodeHistory.current.past.shift()
+      }
+
+      nodeHistory.current.future = []
+      nodesRef.current = next
+      setNodesState(next)
+      setHistoryVersion(version => version + 1)
+    }, [])
+
+  const setNodesTransient: Dispatch<SetStateAction<WorkflowNode[]>> =
+    useCallback(value => {
+      const next =
+        typeof value === 'function'
+          ? value(nodesRef.current)
+          : value
+
+      nodesRef.current = next
+      setNodesState(next)
+    }, [])
 
   const replaceNodes = useCallback((next: WorkflowNode[]) => {
     const replacement = clone(next)
-    nodeHistory.current = { past: [], future: [] }
+
+    nodeHistory.current = {
+      past: [],
+      future: [],
+    }
+
     nodesRef.current = replacement
     setNodesState(replacement)
     setHistoryVersion(version => version + 1)
@@ -174,8 +335,13 @@ export function useWorkflowStudio({
 
   const commitNodeHistory = useCallback((before: WorkflowNode[]) => {
     if (sameNodes(before, nodesRef.current)) return
+
     nodeHistory.current.past.push(clone(before))
-    if (nodeHistory.current.past.length > 100) nodeHistory.current.past.shift()
+
+    if (nodeHistory.current.past.length > 100) {
+      nodeHistory.current.past.shift()
+    }
+
     nodeHistory.current.future = []
     setHistoryVersion(version => version + 1)
   }, [])
@@ -183,7 +349,9 @@ export function useWorkflowStudio({
   const undo = useCallback(() => {
     const previous = nodeHistory.current.past.pop()
     if (!previous) return
+
     nodeHistory.current.future.push(clone(nodesRef.current))
+
     const replacement = clone(previous)
     nodesRef.current = replacement
     setNodesState(replacement)
@@ -193,7 +361,9 @@ export function useWorkflowStudio({
   const redo = useCallback(() => {
     const next = nodeHistory.current.future.pop()
     if (!next) return
+
     nodeHistory.current.past.push(clone(nodesRef.current))
+
     const replacement = clone(next)
     nodesRef.current = replacement
     setNodesState(replacement)
@@ -204,6 +374,7 @@ export function useWorkflowStudio({
     () => nodeHistory.current.past.length > 0,
     [historyVersion],
   )
+
   const canRedo = useMemo(
     () => nodeHistory.current.future.length > 0,
     [historyVersion],
@@ -211,15 +382,20 @@ export function useWorkflowStudio({
 
   useEffect(() => {
     try {
-      window.localStorage.setItem('cliptora.workflow.libraryOpen', String(libraryOpen))
+      window.localStorage.setItem(
+        'cliptora.workflow.libraryOpen',
+        String(libraryOpen),
+      )
     } catch {
-      // Storage is unavailable.
+      // Storage unavailable.
     }
   }, [libraryOpen])
 
   const showToolLibrary = () => {
     setLibraryOpen(true)
-    window.requestAnimationFrame(() => toolSearchRef.current?.focus())
+    window.requestAnimationFrame(
+      () => toolSearchRef.current?.focus(),
+    )
   }
 
   const editorMedia = useEditor(state => state.media)
@@ -227,8 +403,7 @@ export function useWorkflowStudio({
   const importInput = useRef<HTMLInputElement>(null)
   const flow = useRef<ReactFlowInstance<StudioFlowNode, Edge> | null>(null)
   const selected = nodes.find(node => node.id === selectedId) ?? null
-  // Live contracts are optional: older installations keep their legacy wiring.
-  // The server (not the exported TypeScript file) remains the source of truth.
+
   const refreshTypeCatalog = useCallback(async () => {
     try {
       const next = await fetchWorkflowTypeCatalog()
@@ -241,111 +416,233 @@ export function useWorkflowStudio({
 
   useEffect(() => {
     let active = true
-    void fetchWorkflowTypeCatalog().then(next => {
-      if (active) { setTypeCatalog(next); setTypeCatalogError(null) }
-    }).catch(reason => {
-      if (active) setTypeCatalogError(errorMessage(reason))
-    })
-    return () => { active = false }
+
+    void fetchWorkflowTypeCatalog()
+      .then(next => {
+        if (active) {
+          setTypeCatalog(next)
+          setTypeCatalogError(null)
+        }
+      })
+      .catch(reason => {
+        if (active) {
+          setTypeCatalogError(errorMessage(reason))
+        }
+      })
+
+    return () => {
+      active = false
+    }
   }, [projectId])
 
   const localTypeDecision = useCallback((
-    sourceType: string, targetType: string,
+    sourceType: string,
+    targetType: string,
     targetSettings: Record<string, unknown> = {},
     sourceSettings: Record<string, unknown> = {},
   ): TypeLinkDecision => {
-    const sourceEntry = typeCatalog?.nodes.find(item => item.node_type === sourceType)
-    const targetEntry = typeCatalog?.nodes.find(item => item.node_type === targetType)
-    const source = asContract(sourceSettings.type_output_schema) ?? asContract(sourceEntry?.output_contract)
-    const target = asContract(targetSettings.type_input_schema) ?? asContract(targetEntry?.input_contract)
+    const sourceEntry = typeCatalog?.nodes.find(
+      item => item.node_type === sourceType,
+    )
+
+    const targetEntry = typeCatalog?.nodes.find(
+      item => item.node_type === targetType,
+    )
+
+    const source =
+      asContract(sourceSettings.type_output_schema) ??
+      asContract(sourceEntry?.output_contract)
+
+    const target =
+      asContract(targetSettings.type_input_schema) ??
+      asContract(targetEntry?.input_contract)
+
     const report = previewTypedLink(source, target)
     const mode = String(targetSettings.type_validation_mode ?? 'legacy')
     const strict = mode === 'strict' || mode === 'auto'
     const blocked = strict && report.status === 'requires_mapping'
-    const message = report.status === 'requires_mapping'
-      ? `Type mismatch: ${report.issues.slice(0, 3).join('; ')}. ${blocked ? 'Choose Adapt and approve a mapping before connecting.' : 'Connection kept in legacy mode; configure a mapping before typed execution.'}`
-      : report.status === 'unknown'
-        ? 'Type contract not fully declared; the backend will validate at execution.'
-        : 'Type contracts are compatible.'
-    return { allowed: !blocked, status: report.status, issues: report.issues, message }
+
+    const message =
+      report.status === 'requires_mapping'
+        ? `Type mismatch: ${report.issues.slice(0, 3).join('; ')}. ${
+            blocked
+              ? 'Choose Adapt and approve a mapping before connecting.'
+              : 'Connection kept in legacy mode; configure a mapping before typed execution.'
+          }`
+        : report.status === 'unknown'
+          ? 'Type contract not fully declared; the backend will validate at execution.'
+          : 'Type contracts are compatible.'
+
+    return {
+      allowed: !blocked,
+      status: report.status,
+      issues: report.issues,
+      message,
+    }
   }, [typeCatalog])
 
   const checkTypeConnection = useCallback(async (
-    sourceType: string, targetType: string,
+    sourceType: string,
+    targetType: string,
     targetSettings: Record<string, unknown> = {},
     sourceSettings: Record<string, unknown> = {},
   ): Promise<TypeLinkDecision> => {
-    const local = localTypeDecision(sourceType, targetType, targetSettings, sourceSettings)
+    const local = localTypeDecision(
+      sourceType,
+      targetType,
+      targetSettings,
+      sourceSettings,
+    )
+
     if (!local.allowed) return local
-    const sourceEntry = typeCatalog?.nodes.find(item => item.node_type === sourceType)
-    const targetEntry = typeCatalog?.nodes.find(item => item.node_type === targetType)
-    // Avoid calling a compatibility endpoint for undeclared contracts.
-    if (!sourceEntry || !targetEntry || sourceEntry.contract_status !== 'declared' ||
-        targetEntry.contract_status !== 'declared' ||
-        !Object.keys(sourceEntry.output_contract).length || !Object.keys(targetEntry.input_contract).length) return local
+
+    const sourceEntry = typeCatalog?.nodes.find(
+      item => item.node_type === sourceType,
+    )
+
+    const targetEntry = typeCatalog?.nodes.find(
+      item => item.node_type === targetType,
+    )
+
+    if (
+      !sourceEntry ||
+      !targetEntry ||
+      sourceEntry.contract_status !== 'declared' ||
+      targetEntry.contract_status !== 'declared' ||
+      !Object.keys(sourceEntry.output_contract).length ||
+      !Object.keys(targetEntry.input_contract).length
+    ) {
+      return local
+    }
+
     try {
-      const server = await checkWorkflowTypeConnection({ source_type: sourceType, target_type: targetType })
-      // Explicit per-node schema overrides are not visible to the catalog API.
-      // The local override check is conservative; runtime validation remains final.
-      const overridden = Boolean(asContract(sourceSettings.type_output_schema) || asContract(targetSettings.type_input_schema))
+      const server = await checkWorkflowTypeConnection({
+        source_type: sourceType,
+        target_type: targetType,
+      })
+
+      const overridden = Boolean(
+        asContract(sourceSettings.type_output_schema) ||
+        asContract(targetSettings.type_input_schema),
+      )
+
       const status = overridden ? local.status : server.status
       const issues = overridden ? local.issues : server.issues
       const mode = String(targetSettings.type_validation_mode ?? 'legacy')
-      const blocked = (mode === 'strict' || mode === 'auto') && status === 'requires_mapping'
+
+      const blocked =
+        (mode === 'strict' || mode === 'auto') &&
+        status === 'requires_mapping'
+
       return {
-        allowed: !blocked, status, issues,
-        message: status === 'requires_mapping'
-          ? `Type mismatch: ${issues.slice(0, 3).join('; ')}. ${blocked ? 'Approve an adapter rule first.' : 'Legacy connection allowed with a mapping warning.'}`
-          : status === 'unknown' || status === 'runtime_check'
-            ? 'Connection added; actual input will be checked at runtime.'
-            : 'Type contracts compatible.',
+        allowed: !blocked,
+        status,
+        issues,
+        message:
+          status === 'requires_mapping'
+            ? `Type mismatch: ${issues.slice(0, 3).join('; ')}. ${
+                blocked
+                  ? 'Approve an adapter rule first.'
+                  : 'Legacy connection allowed with a mapping warning.'
+              }`
+            : status === 'unknown' || status === 'runtime_check'
+              ? 'Connection added; actual input will be checked at runtime.'
+              : 'Type contracts compatible.',
       }
     } catch (reason) {
-      // Do not turn a network failure into a silent compatibility approval.
       const mode = String(targetSettings.type_validation_mode ?? 'legacy')
+
       if (mode === 'strict' || mode === 'auto') {
-        return { allowed: false, status: 'unknown', issues: [errorMessage(reason)],
-          message: 'Cannot verify a Strict/Auto typed connection while the Type Registry API is unavailable.' }
+        return {
+          allowed: false,
+          status: 'unknown',
+          issues: [errorMessage(reason)],
+          message: 'Cannot verify a Strict/Auto typed connection while the Type Registry API is unavailable.',
+        }
       }
-      return { ...local, message: `Live type check unavailable (${errorMessage(reason)}); legacy link can be saved.` }
+
+      return {
+        ...local,
+        message: `Live type check unavailable (${errorMessage(reason)}); legacy link can be saved.`,
+      }
     }
   }, [localTypeDecision, typeCatalog])
 
-  const selectedCatalog = catalog.find(item => item.type === selected?.type)
-  const hasVideoSource = nodes.some(node => VIDEO_SOURCE_TYPES.has(node.type))
+  const selectedCatalog = catalog.find(
+    item => item.type === selected?.type,
+  )
 
-  const restoreRun = useCallback((workflowId: number, items: WorkflowRun[]) => {
-    const matching = items.filter(item => workflowIdOfRun(item) === workflowId)
+  const hasVideoSource = nodes.some(
+    node => VIDEO_SOURCE_TYPES.has(node.type),
+  )
+
+  const restoreRun = useCallback((
+    workflowId: number,
+    items: WorkflowRun[],
+  ) => {
+    const matching = items.filter(
+      item => workflowIdOfRun(item) === workflowId,
+    )
+
     const persistedId = savedRunId(projectId, workflowId)
-    const preferred = matching.find(item => item.id === persistedId) ?? matching[0] ?? null
+    const preferred =
+      matching.find(item => item.id === persistedId) ??
+      matching[0] ??
+      null
+
     setRun(preferred)
 
-    // Selected history can be older than the 30 most recent project runs.
-    if (persistedId !== null && !matching.some(item => item.id === persistedId)) {
-      void api<WorkflowRun>(`/workflows/${projectId}/runs/${persistedId}`)
+    if (
+      persistedId !== null &&
+      !matching.some(item => item.id === persistedId)
+    ) {
+      void api<WorkflowRun>(
+        `/workflows/${projectId}/runs/${persistedId}`,
+      )
         .then(saved => {
-          if (activeIdRef.current !== workflowId || workflowIdOfRun(saved) !== workflowId) return
-          setRun(current => current && workflowIdOfRun(current) === workflowId &&
-            current.id !== matching[0]?.id ? current : saved)
-          setRuns(previous => previous.some(item => item.id === saved.id)
-            ? previous
-            : [...previous, saved].sort((left, right) => right.id - left.id))
+          if (
+            activeIdRef.current !== workflowId ||
+            workflowIdOfRun(saved) !== workflowId
+          ) {
+            return
+          }
+
+          setRun(current =>
+            current &&
+            workflowIdOfRun(current) === workflowId &&
+            current.id !== matching[0]?.id
+              ? current
+              : saved,
+          )
+
+          setRuns(previous =>
+            previous.some(item => item.id === saved.id)
+              ? previous
+              : [...previous, saved].sort(
+                  (left, right) => right.id - left.id,
+                ),
+          )
         })
         .catch(() => {
-          // Keep the latest available run if the old one is unavailable.
+          // Keep the latest available run.
         })
     }
   }, [projectId])
 
   const reload = useCallback(async () => {
-    const [catalogRows, templateRows, definitionRows, sourceRows, runRows] =
-      await Promise.all([
-        api<WorkflowCatalogItem[]>('/workflows/catalog'),
-        api<WorkflowTemplate[]>('/workflows/templates'),
-        api<WorkflowDefinition[]>(`/workflows/${projectId}/definitions`),
-        api<WorkflowSource[]>(`/workflows/${projectId}/sources`),
-        api<WorkflowRun[]>(`/workflows/${projectId}/runs`),
-      ])
+    const [
+      catalogRows,
+      templateRows,
+      definitionRows,
+      sourceRows,
+      runRows,
+    ] = await Promise.all([
+      api<WorkflowCatalogItem[]>('/workflows/catalog'),
+      api<WorkflowTemplate[]>('/workflows/templates'),
+      api<WorkflowDefinition[]>(`/workflows/${projectId}/definitions`),
+      api<WorkflowSource[]>(`/workflows/${projectId}/sources`),
+      api<WorkflowRun[]>(`/workflows/${projectId}/runs`),
+    ])
 
     setCatalog(catalogRows)
     setTemplates(templateRows)
@@ -359,7 +656,11 @@ export function useWorkflowStudio({
 
     if (requested) {
       activeIdRef.current = requested.id
-      lastSavedSnapshot.current = workflowSnapshot(requested.name, requested.nodes)
+      lastSavedSnapshot.current = workflowSnapshot(
+        requested.name,
+        requested.nodes,
+      )
+
       setActiveId(requested.id)
       setName(requested.name)
       replaceNodes(requested.nodes)
@@ -369,46 +670,88 @@ export function useWorkflowStudio({
 
       void api<WorkflowVersion[]>(
         `/workflows/${projectId}/definitions/${requested.id}/versions`,
-      ).then(setVersions).catch(err => setError(errorMessage(err)))
+      )
+        .then(setVersions)
+        .catch(err => setError(errorMessage(err)))
     } else if (initialWorkflowId) {
       setRun(null)
-      setError('Workflow not found or it does not belong to this project.')
+      setError(
+        'Workflow not found or it does not belong to this project.',
+      )
     }
-  }, [projectId, initialWorkflowId, replaceNodes, restoreRun])
+  }, [
+    projectId,
+    initialWorkflowId,
+    replaceNodes,
+    restoreRun,
+  ])
 
   useEffect(() => {
     let disposed = false
+
     void reload().catch(err => {
-      if (!disposed) setError(errorMessage(err))
+      if (!disposed) {
+        setError(errorMessage(err))
+      }
     })
+
     return () => {
       disposed = true
     }
   }, [reload])
 
   const refreshRuns = useCallback(async () => {
-    const rows = await api<WorkflowRun[]>(`/workflows/${projectId}/runs`)
+    const rows = await api<WorkflowRun[]>(
+      `/workflows/${projectId}/runs`,
+    )
+
     const workflowId = activeIdRef.current
-    const persistedId = workflowId !== null ? savedRunId(projectId, workflowId) : null
+    const persistedId =
+      workflowId !== null
+        ? savedRunId(projectId, workflowId)
+        : null
+
     setRuns(previous => {
-      const archived = previous.find(item => item.id === persistedId)
+      const archived = previous.find(
+        item => item.id === persistedId,
+      )
+
       return archived && !rows.some(item => item.id === archived.id)
-        ? [...rows, archived].sort((left, right) => right.id - left.id)
+        ? [...rows, archived].sort(
+            (left, right) => right.id - left.id,
+          )
         : rows
     })
-    setRun(current => rows.find(item => item.id === current?.id) ?? current)
+
+    setRun(current =>
+      rows.find(item => item.id === current?.id) ?? current,
+    )
   }, [projectId])
 
-  const getRunDetails = useCallback((id: number) =>
-    api<WorkflowRun>(`/workflows/${projectId}/runs/${id}`), [projectId])
+  const getRunDetails = useCallback(
+    (id: number) =>
+      api<WorkflowRun>(
+        `/workflows/${projectId}/runs/${id}`,
+      ),
+    [projectId],
+  )
 
-  // Persist the selected ID only; full results remain in MySQL and storage.
   useEffect(() => {
-    if (!run || activeId === null || workflowIdOfRun(run) !== activeId) return
+    if (
+      !run ||
+      activeId === null ||
+      workflowIdOfRun(run) !== activeId
+    ) {
+      return
+    }
+
     try {
-      window.localStorage.setItem(selectedRunKey(projectId, activeId), String(run.id))
+      window.localStorage.setItem(
+        selectedRunKey(projectId, activeId),
+        String(run.id),
+      )
     } catch {
-      // Storage may be unavailable; keep the active run in memory.
+      // Storage unavailable.
     }
   }, [run?.id, activeId, projectId])
 
@@ -418,43 +761,65 @@ export function useWorkflowStudio({
       setJsonError(null)
       return
     }
+
     setJsonEditor(JSON.stringify(selected.settings, null, 2))
     setJsonError(null)
   }, [selectedId, selected?.settings])
 
   useEffect(() => {
     setSourceId(sourceIdFromNodes(nodes))
-    if (selectedId && !nodes.some(node => node.id === selectedId)) {
+
+    if (
+      selectedId &&
+      !nodes.some(node => node.id === selectedId)
+    ) {
       setSelectedId(preferredNode(nodes))
     }
   }, [nodes, selectedId])
 
   useEffect(() => {
-    if (!run || !['queued', 'running', 'cancelling'].includes(run.state)) return
+    if (
+      !run ||
+      !['queued', 'running', 'cancelling'].includes(run.state)
+    ) {
+      return
+    }
 
     let live = true
+
     const timer = window.setInterval(() => {
       void api<WorkflowRun>(
         `/workflows/${projectId}/runs/${run.id}`,
-      ).then(next => {
-        if (!live) return
-        setRun(next)
-        setRuns(previous => [next, ...previous.filter(item => item.id !== next.id)]
-          .sort((left, right) => right.id - left.id))
-        if (
-          next.state === 'completed' ||
-          next.state === 'failed' ||
-          next.state === 'cancelled'
-        ) {
-          setMessage(
-            next.state === 'completed'
-              ? 'Workflow finished. Inspect node artifacts before applying edits.'
-              : `Run ${next.state}`,
+      )
+        .then(next => {
+          if (!live) return
+
+          setRun(next)
+
+          setRuns(previous =>
+            [
+              next,
+              ...previous.filter(item => item.id !== next.id),
+            ].sort((left, right) => right.id - left.id),
           )
-        }
-      }).catch(err => {
-        if (live) setError(errorMessage(err))
-      })
+
+          if (
+            next.state === 'completed' ||
+            next.state === 'failed' ||
+            next.state === 'cancelled'
+          ) {
+            setMessage(
+              next.state === 'completed'
+                ? 'Workflow finished. Inspect node artifacts before applying edits.'
+                : `Run ${next.state}`,
+            )
+          }
+        })
+        .catch(err => {
+          if (live) {
+            setError(errorMessage(err))
+          }
+        })
     }, 1400)
 
     return () => {
@@ -469,40 +834,66 @@ export function useWorkflowStudio({
   )
 
   const visibleCatalog = useMemo(
-    () => catalog.filter(item =>
-      (nodeGroup === 'All' || item.group === nodeGroup) &&
-      `${item.label} ${item.type}`.toLowerCase().includes(nodeSearch.toLowerCase()),
-    ),
+    () =>
+      catalog.filter(
+        item =>
+          (nodeGroup === 'All' || item.group === nodeGroup) &&
+          `${item.label} ${item.type}`
+            .toLowerCase()
+            .includes(nodeSearch.toLowerCase()),
+      ),
     [catalog, nodeGroup, nodeSearch],
   )
 
   const updateNode = (id: string, delta: Partial<WorkflowNode>) =>
     setNodes(previous =>
-      previous.map(node => node.id === id ? { ...node, ...delta } : node),
+      previous.map(node =>
+        node.id === id
+          ? { ...node, ...delta }
+          : node,
+      ),
     )
 
   const setWorkflowSourceId = (value: number | null) => {
     const nextId =
       typeof value === 'number' &&
-        Number.isInteger(value) &&
-        value > 0 ? value : null
+      Number.isInteger(value) &&
+      value > 0
+        ? value
+        : null
 
     setSourceId(nextId)
 
-    setNodes(previous => previous.map(node => {
-      if (!VIDEO_SOURCE_TYPES.has(node.type) || node.settings.source_id === nextId) {
-        return node
-      }
-      return {
-        ...node,
-        settings: { ...node.settings, source_id: nextId },
-      }
-    }))
+    setNodes(previous =>
+      previous.map(node => {
+        if (
+          !VIDEO_SOURCE_TYPES.has(node.type) ||
+          node.settings.source_id === nextId
+        ) {
+          return node
+        }
+
+        return {
+          ...node,
+          settings: {
+            ...node.settings,
+            source_id: nextId,
+          },
+        }
+      }),
+    )
   }
 
-  const updateSelectedSettings = (patch: Record<string, unknown>) => {
+  const updateSelectedSettings = (
+    patch: Record<string, unknown>,
+  ) => {
     if (!selected) return
-    const settings = { ...selected.settings, ...patch }
+
+    const settings = {
+      ...selected.settings,
+      ...patch,
+    }
+
     updateNode(selected.id, { settings })
     setJsonEditor(JSON.stringify(settings, null, 2))
   }
@@ -511,12 +902,23 @@ export function useWorkflowStudio({
     updateSelectedSettings({ [key]: value })
   }
 
-  const addNode = (type: string, position?: { x: number; y: number }) => {
+  const addNode = (
+    type: string,
+    position?: { x: number; y: number },
+  ) => {
     const item = catalog.find(candidate => candidate.type === type)
-    if (!item || item.status !== 'implemented' || nodes.length >= 100) return
+
+    if (
+      !item ||
+      item.status !== 'implemented' ||
+      nodes.length >= 100
+    ) {
+      return
+    }
 
     if (type === 'core.video_source') {
       const existing = nodes.find(node => node.type === type)
+
       if (existing) {
         setSelectedId(existing.id)
         setJsonEditor(JSON.stringify(existing.settings, null, 2))
@@ -525,6 +927,7 @@ export function useWorkflowStudio({
     }
 
     const id = uid(type, nodes.map(node => node.id))
+
     const next: WorkflowNode = {
       id,
       type,
@@ -546,119 +949,263 @@ export function useWorkflowStudio({
   }
 
   const removeNode = (id: string) => {
-    if (nodes.find(node => node.id === id)?.type === 'core.video_source') {
+    if (
+      nodes.find(node => node.id === id)?.type === 'core.video_source'
+    ) {
       setSourceId(null)
     }
 
     setNodes(previous =>
-      previous.filter(node => node.id !== id).map(node => {
-        const sourceHandles = node.settings.__cliptora_ui_source_handles
-        const nextHandles =
-          sourceHandles &&
+      previous
+        .filter(node => node.id !== id)
+        .map(node => {
+          const sourceHandles =
+            node.settings.__cliptora_ui_source_handles
+
+          const nextHandles =
+            sourceHandles &&
             typeof sourceHandles === 'object' &&
             !Array.isArray(sourceHandles)
-            ? Object.fromEntries(
-              Object.entries(sourceHandles).filter(([sourceId]) => sourceId !== id),
-            )
-            : sourceHandles
+              ? Object.fromEntries(
+                  Object.entries(sourceHandles).filter(
+                    ([sourceId]) => sourceId !== id,
+                  ),
+                )
+              : sourceHandles
 
-        const typedHandles = node.settings.__cliptora_ui_target_handles
-        const nextTypedHandles = typedHandles &&
-          typeof typedHandles === 'object' && !Array.isArray(typedHandles)
-          ? Object.fromEntries(Object.entries(typedHandles).filter(([sourceId]) => sourceId !== id))
-          : typedHandles
-        return {
-          ...node,
-          depends_on: node.depends_on.filter(dep => dep !== id),
-          settings: {
-            ...node.settings,
-            __cliptora_ui_source_handles: nextHandles,
-            __cliptora_ui_target_handles: nextTypedHandles,
-          },
-        }
-      }),
+          const typedHandles =
+            node.settings.__cliptora_ui_target_handles
+
+          const nextTypedHandles =
+            typedHandles &&
+            typeof typedHandles === 'object' &&
+            !Array.isArray(typedHandles)
+              ? Object.fromEntries(
+                  Object.entries(typedHandles).filter(
+                    ([sourceId]) => sourceId !== id,
+                  ),
+                )
+              : typedHandles
+
+          return {
+            ...node,
+            depends_on: node.depends_on.filter(
+              dep => dep !== id,
+            ),
+            settings: {
+              ...node.settings,
+              __cliptora_ui_source_handles: nextHandles,
+              __cliptora_ui_target_handles: nextTypedHandles,
+            },
+          }
+        }),
     )
 
-    setSelectedId(previous => previous === id ? null : previous)
+    setSelectedId(previous =>
+      previous === id ? null : previous,
+    )
   }
 
-  const flowNodes = useMemo<StudioFlowNode[]>(() =>
-    nodes.map((node, index) => {
-      const result = run?.results?.[node.id]
-      const status: StudioFlowNode['data']['status'] =
-        result?.state === 'completed' ? 'done'
-          : result?.state === 'failed' ||
-            (run?.state === 'failed' && run.current_node === node.id)
-            ? 'failed'
-            : run?.state === 'running' && run.current_node === node.id
-              ? 'running'
-              : 'waiting'
+  /*
+   * Read actual node artifacts when the Run summary does not include
+   * an explicit output count.
+   *
+   * No fake count is shown when the artifact cannot be read.
+   */
+  useEffect(() => {
+    if (!run?.id) return
 
-      const count = Object.entries(result ?? {})
-        .find(([key]) => key.endsWith('_count'))?.[1]
+    const candidates = nodes
+      .filter(node => {
+        const result = run.results?.[node.id]
+        const key = `${run.id}:${node.id}`
 
-      return {
-        id: node.id,
-        type: 'studio',
-        draggable: node.settings.__cliptora_ui_pinned !== true,
-        position: node.position ?? {
-          x: 80 + (index % 3) * 260,
-          y: 60 + Math.floor(index / 3) * 150,
-        },
-        data: {
-          label:
-            typeof node.settings.__cliptora_ui_label === 'string' &&
-              node.settings.__cliptora_ui_label.trim()
-              ? node.settings.__cliptora_ui_label
-              : catalog.find(item => item.type === node.type)?.label ?? node.type,
-          pinned: node.settings.__cliptora_ui_pinned === true,
-          note:
-            node.settings.__cliptora_ui_note_visible === true &&
-              typeof node.settings.__cliptora_ui_notes === 'string'
-              ? node.settings.__cliptora_ui_notes
-              : undefined,
-          nodeType: node.type,
-          subtitle: node.type === 'core.video_source'
-            ? sources.find(item => item.id === node.settings.source_id)?.filename ??
-            'Select a video'
+        return (
+          result?.state === 'completed' &&
+          explicitOutputCount(result) === null &&
+          !Object.prototype.hasOwnProperty.call(
+            artifactItemCounts,
+            key,
+          ) &&
+          !requestedArtifactCounts.current.has(key)
+        )
+      })
+      .slice(0, 3)
+
+    for (const node of candidates) {
+      const key = `${run.id}:${node.id}`
+
+      requestedArtifactCounts.current.add(key)
+
+      void api<unknown>(
+        `/workflows/${projectId}/runs/${run.id}/artifacts/${encodeURIComponent(node.id)}`,
+      )
+        .then(artifact => {
+          const count = countInlineOutput(artifact)
+
+          setArtifactItemCounts(previous => ({
+            ...previous,
+            [key]: count,
+          }))
+        })
+        .catch(() => {
+          setArtifactItemCounts(previous => ({
+            ...previous,
+            [key]: null,
+          }))
+        })
+    }
+  }, [
+    projectId,
+    run?.id,
+    run?.results,
+    nodes,
+    artifactItemCounts,
+  ])
+
+  const flowNodes = useMemo<StudioFlowNode[]>(
+    () =>
+      nodes.map((node, index) => {
+        const result = run?.results?.[node.id]
+
+        const status: StudioFlowNode['data']['status'] =
+          result?.state === 'completed'
+            ? 'done'
+            : result?.state === 'failed' ||
+              (run?.state === 'failed' &&
+                run.current_node === node.id)
+              ? 'failed'
+              : run?.state === 'running' &&
+                run.current_node === node.id
+                ? 'running'
+                : 'waiting'
+
+        const key = run ? `${run.id}:${node.id}` : ''
+        const artifactCount = artifactItemCounts[key] ?? null
+
+        const output = outputPresentation(
+          result,
+          node.type,
+          artifactCount,
+        )
+
+        const count = output.count
+
+        const executionLabel = output.execution
+          ? `${output.execution}${
+              output.executionTotal !== null
+                ? ` (${output.executionTotal})`
+                : ''
+            }`
+          : null
+
+        const outputMode = executionLabel
+          ? `${output.shape} · ${executionLabel}`
+          : output.shape
+
+        const customLabel =
+          typeof node.settings.__cliptora_ui_label === 'string' &&
+          node.settings.__cliptora_ui_label.trim()
+            ? node.settings.__cliptora_ui_label
+            : catalog.find(item => item.type === node.type)?.label ??
+              node.type
+
+        const subtitle =
+          node.type === 'core.video_source'
+            ? sources.find(
+                item => item.id === node.settings.source_id,
+              )?.filename ?? 'Select a video'
             : node.depends_on.length
-              ? `${node.depends_on.length} connected input${node.depends_on.length === 1 ? '' : 's'
-              }`
-              : 'Start workflow here',
-          meta: count !== undefined
-            ? `${String(count)} items`
-            : node.when === 'always' ? 'Ready' : `If ${node.when}`,
-          status,
-          run,
-        },
-        selected: selectedId === node.id,
-      }
-    }),
-    [nodes, catalog, selectedId, run, sources])
+              ? `${node.depends_on.length} connected input${
+                  node.depends_on.length === 1 ? '' : 's'
+                }`
+              : 'Start workflow here'
 
-  const flowEdges = useMemo<Edge[]>(() =>
-    nodes.flatMap(node =>
-      node.depends_on.map(dep => ({
-        id: `${dep}:${node.id}`,
-        source: dep,
-        target: node.id,
-        type: 'smoothstep',
-        animated: run?.state === 'running' && run.current_node === node.id,
-      })),
-    ),
-    [nodes, run?.state, run?.current_node])
+        const meta =
+          result?.state === 'completed'
+            ? count !== null
+              ? `${count} ${count === 1 ? 'item' : 'items'}`
+              : 'Result ready'
+            : node.when === 'always'
+              ? 'Ready'
+              : `If ${node.when}`
+
+        return {
+          id: node.id,
+          type: 'studio',
+          draggable:
+            node.settings.__cliptora_ui_pinned !== true,
+          position: node.position ?? {
+            x: 80 + (index % 3) * 260,
+            y: 60 + Math.floor(index / 3) * 150,
+          },
+          data: {
+            label: customLabel,
+            pinned:
+              node.settings.__cliptora_ui_pinned === true,
+            note:
+              node.settings.__cliptora_ui_note_visible === true &&
+              typeof node.settings.__cliptora_ui_notes === 'string'
+                ? node.settings.__cliptora_ui_notes
+                : undefined,
+            nodeType: node.type,
+            subtitle,
+            meta,
+            outputMode:
+              result?.state === 'completed'
+                ? outputMode
+                : undefined,
+            status,
+            run,
+          },
+          selected: selectedId === node.id,
+        }
+      }),
+    [
+      nodes,
+      catalog,
+      selectedId,
+      run,
+      sources,
+      artifactItemCounts,
+    ],
+  )
+
+  const flowEdges = useMemo<Edge[]>(
+    () =>
+      nodes.flatMap(node =>
+        node.depends_on.map(dep => ({
+          id: `${dep}:${node.id}`,
+          source: dep,
+          target: node.id,
+          type: 'smoothstep',
+          animated:
+            run?.state === 'running' &&
+            run.current_node === node.id,
+        })),
+      ),
+    [
+      nodes,
+      run?.state,
+      run?.current_node,
+    ],
+  )
 
   const connect = (connection: Connection) => {
     if (
       !connection.source ||
       !connection.target ||
       connection.source === connection.target
-    ) return
+    ) {
+      return
+    }
 
     updateNode(connection.target, {
       depends_on: [
         ...new Set([
-          ...(nodes.find(node => node.id === connection.target)?.depends_on ?? []),
+          ...(nodes.find(
+            node => node.id === connection.target,
+          )?.depends_on ?? []),
           connection.source,
         ]),
       ],
@@ -667,12 +1214,22 @@ export function useWorkflowStudio({
 
   const applySettings = () => {
     if (!selected) return
+
     try {
       const parsed: unknown = JSON.parse(jsonEditor)
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed)
+      ) {
         throw Error('Settings must be a JSON object')
       }
-      updateNode(selected.id, { settings: parsed as Record<string, unknown> })
+
+      updateNode(selected.id, {
+        settings: parsed as Record<string, unknown>,
+      })
+
       setJsonError(null)
       setMessage('Node settings updated. Save workflow to persist.')
     } catch (err) {
@@ -682,7 +1239,11 @@ export function useWorkflowStudio({
 
   const openDefinition = (definition: WorkflowDefinition) => {
     activeIdRef.current = definition.id
-    lastSavedSnapshot.current = workflowSnapshot(definition.name, definition.nodes)
+    lastSavedSnapshot.current = workflowSnapshot(
+      definition.name,
+      definition.nodes,
+    )
+
     failedAutoSaveSnapshot.current = ''
     setActiveId(definition.id)
     setName(definition.name)
@@ -690,13 +1251,17 @@ export function useWorkflowStudio({
     setSelectedId(preferredNode(definition.nodes))
     setSourceId(sourceIdFromNodes(definition.nodes))
     restoreRun(definition.id, runs)
-    setJsonEditor(JSON.stringify(definition.nodes[0]?.settings ?? {}, null, 2))
+    setJsonEditor(
+      JSON.stringify(definition.nodes[0]?.settings ?? {}, null, 2),
+    )
     setPage('nodes')
     setError(null)
 
     void api<WorkflowVersion[]>(
       `/workflows/${projectId}/definitions/${definition.id}/versions`,
-    ).then(setVersions).catch(err => setError(errorMessage(err)))
+    )
+      .then(setVersions)
+      .catch(err => setError(errorMessage(err)))
   }
 
   const openTemplate = (template: WorkflowTemplate) => {
@@ -710,17 +1275,32 @@ export function useWorkflowStudio({
     replaceNodes(template.nodes)
     setSelectedId(preferredNode(template.nodes))
     setSourceId(sourceIdFromNodes(template.nodes))
-    setJsonEditor(JSON.stringify(template.nodes[0]?.settings ?? {}, null, 2))
+    setJsonEditor(
+      JSON.stringify(template.nodes[0]?.settings ?? {}, null, 2),
+    )
     setPage('nodes')
-    setMessage(`Template loaded: ${template.name}. Save it to your project.`)
+    setMessage(
+      `Template loaded: ${template.name}. Save it to your project.`,
+    )
   }
 
-  const save = async (automatic = false): Promise<WorkflowDefinition | null> => {
-    if (canvasDragging || saveInProgress.current) return null
+  const save = async (
+    automatic = false,
+  ): Promise<WorkflowDefinition | null> => {
+    if (
+      canvasDragging ||
+      saveInProgress.current
+    ) {
+      return null
+    }
 
     const submittedName = name.trim()
     const submittedNodes = clone(nodesRef.current)
-    const submittedSnapshot = workflowSnapshot(submittedName, submittedNodes)
+    const submittedSnapshot = workflowSnapshot(
+      submittedName,
+      submittedNodes,
+    )
+
     const savedId = activeIdRef.current
 
     saveInProgress.current = true
@@ -728,24 +1308,32 @@ export function useWorkflowStudio({
     setError(null)
 
     try {
-      const data = { name: submittedName, nodes: submittedNodes }
+      const data = {
+        name: submittedName,
+        nodes: submittedNodes,
+      }
 
       const result = savedId
         ? await api<WorkflowDefinition>(
-          `/workflows/${projectId}/definitions/${savedId}`,
-          { method: 'PUT', body: JSON.stringify(data) },
-        )
+            `/workflows/${projectId}/definitions/${savedId}`,
+            {
+              method: 'PUT',
+              body: JSON.stringify(data),
+            },
+          )
         : await api<WorkflowDefinition>(
-          `/workflows/${projectId}/definitions`,
-          { method: 'POST', body: JSON.stringify(data) },
-        )
+            `/workflows/${projectId}/definitions`,
+            {
+              method: 'POST',
+              body: JSON.stringify(data),
+            },
+          )
 
       activeIdRef.current = result.id
       setActiveId(result.id)
       lastSavedSnapshot.current = submittedSnapshot
       failedAutoSaveSnapshot.current = ''
 
-      // Never overwrite current positions with the server response.
       setDefinitions(previous => [
         result,
         ...previous.filter(item => item.id !== result.id),
@@ -758,9 +1346,13 @@ export function useWorkflowStudio({
           ? 'Changes saved automatically.'
           : 'Workflow saved to MySQL.',
       )
+
       return result
     } catch (err) {
-      if (automatic) failedAutoSaveSnapshot.current = submittedSnapshot
+      if (automatic) {
+        failedAutoSaveSnapshot.current = submittedSnapshot
+      }
+
       setError(errorMessage(err))
       return null
     } finally {
@@ -782,7 +1374,9 @@ export function useWorkflowStudio({
       canvasDragging ||
       currentSnapshot === lastSavedSnapshot.current ||
       currentSnapshot === failedAutoSaveSnapshot.current
-    ) return
+    ) {
+      return
+    }
 
     const timer = window.setTimeout(() => {
       void save(true)
@@ -790,7 +1384,11 @@ export function useWorkflowStudio({
 
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSnapshot, working, canvasDragging])
+  }, [
+    currentSnapshot,
+    working,
+    canvasDragging,
+  ])
 
   useEffect(() => {
     if (currentSnapshot === lastSavedSnapshot.current) return
@@ -799,12 +1397,17 @@ export function useWorkflowStudio({
       event.preventDefault()
       event.returnValue = ''
     }
+
     window.addEventListener('beforeunload', warnBeforeLeaving)
-    return () => window.removeEventListener('beforeunload', warnBeforeLeaving)
+
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeLeaving)
+    }
   }, [currentSnapshot])
 
   const start = async () => {
     if (startInProgress.current) return
+
     startInProgress.current = true
 
     try {
@@ -818,6 +1421,7 @@ export function useWorkflowStudio({
 
       setWorking(true)
       setError(null)
+
       const next = await api<WorkflowRun>(
         `/workflows/${projectId}/runs`,
         {
@@ -828,12 +1432,16 @@ export function useWorkflowStudio({
           }),
         },
       )
+
       setRun(next)
       setRuns(previous => [next, ...previous])
       setPage(liveLoopView ? 'nodes' : 'runs')
-      setMessage(liveLoopView
-        ? 'Workflow queued. Live loop view will display real task progress as it arrives.'
-        : 'Workflow queued. You can monitor each node here.')
+
+      setMessage(
+        liveLoopView
+          ? 'Workflow queued. Live loop view will display real task progress as it arrives.'
+          : 'Workflow queued. You can monitor each node here.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -857,12 +1465,18 @@ export function useWorkflowStudio({
     const include = (id: string) => {
       if (required.has(id)) return
       required.add(id)
-      for (const dependency of byId.get(id)?.depends_on ?? []) include(dependency)
+
+      for (const dependency of byId.get(id)?.depends_on ?? []) {
+        include(dependency)
+      }
     }
+
     include(nodeId)
 
-    const stepNeedsVideo = nodes.some(node =>
-      required.has(node.id) && VIDEO_SOURCE_TYPES.has(node.type),
+    const stepNeedsVideo = nodes.some(
+      node =>
+        required.has(node.id) &&
+        VIDEO_SOURCE_TYPES.has(node.type),
     )
 
     if (stepNeedsVideo && !sourceId) {
@@ -872,6 +1486,7 @@ export function useWorkflowStudio({
 
     setWorking(true)
     setError(null)
+
     try {
       const next = await api<WorkflowRun>(
         `/workflows/${projectId}/runs`,
@@ -884,11 +1499,14 @@ export function useWorkflowStudio({
           }),
         },
       )
+
       setRun(next)
+
       setRuns(previous => [
         next,
         ...previous.filter(item => item.id !== next.id),
       ])
+
       setMessage(
         `Executing ${nodeId} with its required upstream nodes (cached results reused where safe).`,
       )
@@ -899,23 +1517,33 @@ export function useWorkflowStudio({
     }
   }
 
-  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+  const upload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     setWorking(true)
     setError(null)
+
     try {
       const data = new FormData()
       data.append('file', file)
 
       const source = await api<WorkflowSource>(
         `/workflows/${projectId}/sources`,
-        { method: 'POST', body: data },
+        {
+          method: 'POST',
+          body: data,
+        },
       )
+
       setSources(previous => [source, ...previous])
       setWorkflowSourceId(source.id)
-      setMessage('Video uploaded and selected in the Source Video node.')
+
+      setMessage(
+        'Video uploaded and selected in the Source Video node.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -926,6 +1554,7 @@ export function useWorkflowStudio({
 
   const useMediaSource = async (mediaId: number) => {
     if (!mediaId) return
+
     setWorking(true)
     setError(null)
 
@@ -934,9 +1563,13 @@ export function useWorkflowStudio({
         `/workflows/${projectId}/sources/from-media/${mediaId}`,
         { method: 'POST' },
       )
+
       setSources(previous => [source, ...previous])
       setWorkflowSourceId(source.id)
-      setMessage('Media Library video linked to the Source Video node.')
+
+      setMessage(
+        'Media Library video linked to the Source Video node.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -946,21 +1579,27 @@ export function useWorkflowStudio({
 
   const fetchArtifact = async (nodeId: string) => {
     if (!run) return
+
     setWorking(true)
     setError(null)
+
     try {
       const payload = await api<Record<string, unknown>>(
         `/workflows/${projectId}/runs/${run.id}/artifacts/${nodeId}`,
       )
+
       const blob = new Blob(
         [JSON.stringify(payload, null, 2)],
         { type: 'application/json' },
       )
+
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
+
       anchor.href = url
       anchor.download = `${nodeId}_${run.id}.json`
       anchor.click()
+
       window.setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (err) {
       setError(errorMessage(err))
@@ -971,22 +1610,35 @@ export function useWorkflowStudio({
 
   const downloadVideo = async () => {
     if (!run) return
+
     setWorking(true)
     setError(null)
+
     try {
-      const base = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1'
+      const base =
+        import.meta.env.VITE_API_URL ??
+        'http://127.0.0.1:8000/api/v1'
+
       const response = await fetch(
         `${base}/workflows/${projectId}/runs/${run.id}/video`,
-        { credentials: 'include' },
+        {
+          credentials: 'include',
+        },
       )
+
       if (!response.ok) {
         throw Error(`Video unavailable (HTTP ${response.status})`)
       }
-      const url = URL.createObjectURL(await response.blob())
+
+      const url = URL.createObjectURL(
+        await response.blob(),
+      )
+
       const anchor = document.createElement('a')
       anchor.href = url
       anchor.download = `cliptora_run_${run.id}.mp4`
       anchor.click()
+
       window.setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (err) {
       setError(errorMessage(err))
@@ -998,31 +1650,39 @@ export function useWorkflowStudio({
   const applyCutPlan = async () => {
     if (!run || run.state !== 'completed') return
 
-    const source = sources.find(item => item.id === run.source_id)
+    const source = sources.find(
+      item => item.id === run.source_id,
+    )
+
     if (!source) {
       setError('This run has no video source.')
       return
     }
 
-    const mediaMatches = useEditor.getState().media.filter(media =>
-      media.kind === 'video' &&
-      (
-        source.media_id
-          ? media.id === source.media_id
-          : mediaName(media).toLowerCase() === source.filename.toLowerCase()
-      ),
+    const mediaMatches = useEditor.getState().media.filter(
+      media =>
+        media.kind === 'video' &&
+        (
+          source.media_id
+            ? media.id === source.media_id
+            : mediaName(media).toLowerCase() ===
+              source.filename.toLowerCase()
+        ),
     )
 
     if (mediaMatches.length !== 1) {
       setError(
         'Import the SAME video into Media Library first (with same filename), then retry. Found ' +
-        mediaMatches.length + ' matches.',
+          mediaMatches.length +
+          ' matches.',
       )
+
       return
     }
 
     const cutNode = Object.entries(run.results ?? {}).find(
-      ([, value]) => value.type === 'timeline.cut_plan' &&
+      ([, value]) =>
+        value.type === 'timeline.cut_plan' &&
         value.state === 'completed',
     )
 
@@ -1031,12 +1691,17 @@ export function useWorkflowStudio({
       return
     }
 
-    if (!window.confirm(
-      'Add the proposed highlights as NEW Timeline clips? Existing Timeline clips are not deleted.',
-    )) return
+    if (
+      !window.confirm(
+        'Add the proposed highlights as NEW Timeline clips? Existing Timeline clips are not deleted.',
+      )
+    ) {
+      return
+    }
 
     setWorking(true)
     setError(null)
+
     try {
       const artifact = await api<{
         cut_plan: Array<{
@@ -1045,26 +1710,37 @@ export function useWorkflowStudio({
           timeline_start: number
           duration: number
         }>
-      }>(`/workflows/${projectId}/runs/${run.id}/artifacts/${cutNode[0]}`)
+      }>(
+        `/workflows/${projectId}/runs/${run.id}/artifacts/${cutNode[0]}`,
+      )
 
       const plans = artifact.cut_plan
+
       if (!Array.isArray(plans) || plans.length === 0) {
         throw Error('Cut plan is empty')
       }
 
       const media = mediaMatches[0]
       const measure = await probeMediaDuration(media)
+
       if (measure.measured) {
-        useEditor.getState().setMediaDuration(media.id, measure.duration)
+        useEditor.getState().setMediaDuration(
+          media.id,
+          measure.duration,
+        )
       }
 
       const before = useEditor.getState()
+
       const existingEnd = before.tracks.reduce(
-        (max, track) => Math.max(
-          max,
-          ...track.clips.map(clip => clip.start + clip.duration),
-          0,
-        ),
+        (max, track) =>
+          Math.max(
+            max,
+            ...track.clips.map(
+              clip => clip.start + clip.duration,
+            ),
+            0,
+          ),
         0,
       )
 
@@ -1074,14 +1750,23 @@ export function useWorkflowStudio({
 
       for (const cut of plans) {
         if (
-          ![cut.source_start, cut.source_end, cut.duration].every(Number.isFinite) ||
+          ![
+            cut.source_start,
+            cut.source_end,
+            cut.duration,
+          ].every(Number.isFinite) ||
           cut.duration < 0.1 ||
           cut.source_start < 0
-        ) continue
+        ) {
+          continue
+        }
 
         const state = useEditor.getState()
+
         const ids = new Set(
-          state.tracks.flatMap(track => track.clips.map(clip => clip.client_id)),
+          state.tracks.flatMap(
+            track => track.clips.map(clip => clip.client_id),
+          ),
         )
 
         const added = state.addMediaClipAt(
@@ -1091,21 +1776,30 @@ export function useWorkflowStudio({
           existingEnd + offset,
           'bottom',
         )
+
         if (!added) break
 
         const updated = useEditor.getState()
+
         const created = updated.tracks
           .flatMap(track => track.clips)
-          .find(clip =>
-            !ids.has(clip.client_id) &&
-            String(clip.media_id) === String(media.id),
+          .find(
+            clip =>
+              !ids.has(clip.client_id) &&
+              String(clip.media_id) === String(media.id),
           )
+
         if (!created) break
 
         if (!newTrack) {
-          newTrack = updated.tracks.find(track =>
-            track.clips.some(clip => clip.client_id === created.client_id),
-          )?.client_id ?? null
+          newTrack =
+            updated.tracks.find(
+              track =>
+                track.clips.some(
+                  clip =>
+                    clip.client_id === created.client_id,
+                ),
+            )?.client_id ?? null
         }
 
         updated.patchClip(created.client_id, {
@@ -1121,8 +1815,11 @@ export function useWorkflowStudio({
       setMessage(
         `Added ${inserted}/${plans.length} clips to Timeline. Autosave will persist them. Review and save before exporting.`,
       )
+
       if (inserted < plans.length) {
-        setError('Stopped early: layer/timeline limit or media placement rejected some clips.')
+        setError(
+          'Stopped early: layer/timeline limit or media placement rejected some clips.',
+        )
       }
     } catch (err) {
       setError(errorMessage(err))
@@ -1131,16 +1828,31 @@ export function useWorkflowStudio({
     }
   }
 
-  const cancel = async (runId: number = run?.id ?? 0) => {
+  const cancel = async (
+    runId: number = run?.id ?? 0,
+  ) => {
     if (!runId) return
+
     try {
       const cancelledRun = await api<WorkflowRun>(
         `/workflows/${projectId}/runs/${runId}/cancel`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+        },
       )
-      setRuns(previous => [cancelledRun, ...previous.filter(item => item.id !== cancelledRun.id)]
-        .sort((left, right) => right.id - left.id))
-      if (run?.id === cancelledRun.id) setRun(cancelledRun)
+
+      setRuns(previous =>
+        [
+          cancelledRun,
+          ...previous.filter(
+            item => item.id !== cancelledRun.id,
+          ),
+        ].sort((left, right) => right.id - left.id),
+      )
+
+      if (run?.id === cancelledRun.id) {
+        setRun(cancelledRun)
+      }
     } catch (err) {
       setError(errorMessage(err))
     }
@@ -1148,13 +1860,20 @@ export function useWorkflowStudio({
 
   const retry = async () => {
     if (!run) return
+
     try {
       const next = await api<WorkflowRun>(
         `/workflows/${projectId}/runs/${run.id}/retry`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+        },
       )
+
       setRun(next)
-      setMessage('Run queued again. Matching completed-node checkpoints will be reused.')
+
+      setMessage(
+        'Run queued again. Matching completed-node checkpoints will be reused.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     }
@@ -1166,10 +1885,19 @@ export function useWorkflowStudio({
     setError(null)
   }
 
-  const dropNode = (event: DragEvent<HTMLDivElement>) => {
+  const dropNode = (
+    event: DragEvent<HTMLDivElement>,
+  ) => {
     event.preventDefault()
-    const type = event.dataTransfer.getData('text/cliptora-node')
-    if (type && catalog.some(item => item.type === type)) {
+
+    const type = event.dataTransfer.getData(
+      'text/cliptora-node',
+    )
+
+    if (
+      type &&
+      catalog.some(item => item.type === type)
+    ) {
       addNode(
         type,
         flow.current?.screenToFlowPosition({
@@ -1182,28 +1910,55 @@ export function useWorkflowStudio({
 
   const exportWorkflow = () => {
     const blob = new Blob(
-      [JSON.stringify({ schema: 'cliptora.workflow.v1', name, nodes }, null, 2)],
-      { type: 'application/json' },
+      [
+        JSON.stringify(
+          {
+            schema: 'cliptora.workflow.v1',
+            name,
+            nodes,
+          },
+          null,
+          2,
+        ),
+      ],
+      {
+        type: 'application/json',
+      },
     )
+
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
+
     anchor.href = url
-    anchor.download = `${name.replace(/[^a-z0-9_-]+/gi, '_') || 'workflow'
-      }.json`
+    anchor.download = `${
+      name.replace(/[^a-z0-9_-]+/gi, '_') || 'workflow'
+    }.json`
+
     anchor.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 10000)
+
+    window.setTimeout(
+      () => URL.revokeObjectURL(url),
+      10000,
+    )
   }
 
-  const importWorkflow = async (event: ChangeEvent<HTMLInputElement>) => {
+  const importWorkflow = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     try {
-      const value: unknown = JSON.parse(await file.text())
+      const value: unknown = JSON.parse(
+        await file.text(),
+      )
+
       if (
         !value ||
         typeof value !== 'object' ||
-        !Array.isArray((value as { nodes?: unknown }).nodes)
+        !Array.isArray(
+          (value as { nodes?: unknown }).nodes,
+        )
       ) {
         throw Error('Invalid CLIPTORA workflow JSON')
       }
@@ -1215,15 +1970,20 @@ export function useWorkflowStudio({
 
       activeIdRef.current = null
       setActiveId(null)
+
       setName(
         typeof imported.name === 'string'
           ? imported.name.slice(0, 160)
           : file.name.replace(/\.json$/i, ''),
       )
+
       replaceNodes(imported.nodes)
       setSelectedId(imported.nodes[0]?.id ?? null)
       setSourceId(sourceIdFromNodes(imported.nodes))
-      setMessage('Workflow imported locally. Save to validate and persist it.')
+
+      setMessage(
+        'Workflow imported locally. Save to validate and persist it.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1233,15 +1993,23 @@ export function useWorkflowStudio({
 
   const duplicateDefinition = async () => {
     if (!activeId) return
+
     setWorking(true)
+
     try {
       const copy = await api<WorkflowDefinition>(
         `/workflows/${projectId}/definitions/${activeId}/duplicate`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+        },
       )
+
       setDefinitions(previous => [copy, ...previous])
       openDefinition(copy)
-      setMessage('Workflow duplicated with independent version history.')
+
+      setMessage(
+        'Workflow duplicated with independent version history.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1249,24 +2017,40 @@ export function useWorkflowStudio({
     }
   }
 
-  const restoreVersion = async (version: number) => {
+  const restoreVersion = async (
+    version: number,
+  ) => {
     if (
       !activeId ||
-      !window.confirm(`Restore version ${version} as a new current version?`)
-    ) return
+      !window.confirm(
+        `Restore version ${version} as a new current version?`,
+      )
+    ) {
+      return
+    }
 
     setWorking(true)
+
     try {
       const restored = await api<WorkflowDefinition>(
         `/workflows/${projectId}/definitions/${activeId}/versions/${version}/restore`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+        },
       )
+
       setDefinitions(previous => [
         restored,
-        ...previous.filter(item => item.id !== restored.id),
+        ...previous.filter(
+          item => item.id !== restored.id,
+        ),
       ])
+
       openDefinition(restored)
-      setMessage(`Version ${version} restored as version ${restored.version}.`)
+
+      setMessage(
+        `Version ${version} restored as version ${restored.version}.`,
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1277,19 +2061,35 @@ export function useWorkflowStudio({
   const deleteDefinition = async () => {
     if (
       !activeId ||
-      !window.confirm('Delete this saved workflow? Runs will remain accessible.')
-    ) return
+      !window.confirm(
+        'Delete this saved workflow? Runs will remain accessible.',
+      )
+    ) {
+      return
+    }
 
     setWorking(true)
+
     try {
       await api<void>(
         `/workflows/${projectId}/definitions/${activeId}`,
-        { method: 'DELETE' },
+        {
+          method: 'DELETE',
+        },
       )
-      setDefinitions(previous => previous.filter(item => item.id !== activeId))
+
+      setDefinitions(previous =>
+        previous.filter(
+          item => item.id !== activeId,
+        ),
+      )
+
       activeIdRef.current = null
       setActiveId(null)
-      setMessage('Workflow deleted. Current canvas remains unsaved.')
+
+      setMessage(
+        'Workflow deleted. Current canvas remains unsaved.',
+      )
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -1297,42 +2097,134 @@ export function useWorkflowStudio({
     }
   }
 
-  const source = sources.find(item => item.id === sourceId) ?? null
+  const source =
+    sources.find(item => item.id === sourceId) ?? null
+
   const previewMedia = source?.media_id
-    ? editorMedia.find(item => item.id === source.media_id)
+    ? editorMedia.find(
+        item => item.id === source.media_id,
+      )
     : null
-  const completedNodes = Object.values(run?.results ?? {})
-    .filter(item => item.state === 'completed').length
+
+  const completedNodes = Object.values(
+    run?.results ?? {},
+  ).filter(item => item.state === 'completed').length
+
   const downstream = selected
-    ? nodes.filter(node => node.depends_on.includes(selected.id))
+    ? nodes.filter(
+        node => node.depends_on.includes(selected.id),
+      )
     : []
-  const waitingNodes = Math.max(0, nodes.length - completedNodes)
+
+  const waitingNodes = Math.max(
+    0,
+    nodes.length - completedNodes,
+  )
 
   return {
-    projectId, onClose,
-    typeCatalog, typeCatalogError, refreshTypeCatalog, localTypeDecision, checkTypeConnection,
-    catalog, templates, definitions, sources, runs, versions, setVersions,
-    activeId, setActiveId, name, setName,
-    nodes, setNodes, setNodesTransient, replaceNodes, commitNodeHistory,
-    undo, redo, canUndo, canRedo,
-    selectedId, setSelectedId, jsonEditor, setJsonEditor, jsonError, setJsonError,
-    sourceId, setSourceId: setWorkflowSourceId,
-    run, setRun, working, canvasDragging, setCanvasDragging,
-    error, setError, message, setMessage,
-    page, setPage, liveLoopView, setLiveLoopView,
-    nodeSearch, setNodeSearch, nodeGroup, setNodeGroup,
-    inspectorTab, setInspectorTab, libraryOpen, setLibraryOpen,
-    toolSearchRef, showToolLibrary,
-    editorMedia, fileInput, importInput, flow, selected, selectedCatalog,
-    hasVideoSource, groups, visibleCatalog,
-    updateNode, updateSelectedSetting, updateSelectedSettings, addNode, removeNode,
-    flowNodes, flowEdges, connect, applySettings, openDefinition, openTemplate,
-    save, start, testStep, upload, useMediaSource, fetchArtifact, downloadVideo,
-    applyCutPlan, cancel, retry, chooseRun, dropNode, exportWorkflow,
-    importWorkflow, duplicateDefinition, restoreVersion, deleteDefinition,
-    refreshRuns, getRunDetails,
-    previewMedia, completedNodes, downstream, waitingNodes,
+    projectId,
+    onClose,
+    typeCatalog,
+    typeCatalogError,
+    refreshTypeCatalog,
+    localTypeDecision,
+    checkTypeConnection,
+    catalog,
+    templates,
+    definitions,
+    sources,
+    runs,
+    versions,
+    setVersions,
+    activeId,
+    setActiveId,
+    name,
+    setName,
+    nodes,
+    setNodes,
+    setNodesTransient,
+    replaceNodes,
+    commitNodeHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selectedId,
+    setSelectedId,
+    jsonEditor,
+    setJsonEditor,
+    jsonError,
+    setJsonError,
+    sourceId,
+    setSourceId: setWorkflowSourceId,
+    run,
+    setRun,
+    working,
+    canvasDragging,
+    setCanvasDragging,
+    error,
+    setError,
+    message,
+    setMessage,
+    page,
+    setPage,
+    liveLoopView,
+    setLiveLoopView,
+    nodeSearch,
+    setNodeSearch,
+    nodeGroup,
+    setNodeGroup,
+    inspectorTab,
+    setInspectorTab,
+    libraryOpen,
+    setLibraryOpen,
+    toolSearchRef,
+    showToolLibrary,
+    editorMedia,
+    fileInput,
+    importInput,
+    flow,
+    selected,
+    selectedCatalog,
+    hasVideoSource,
+    groups,
+    visibleCatalog,
+    updateNode,
+    updateSelectedSetting,
+    updateSelectedSettings,
+    addNode,
+    removeNode,
+    flowNodes,
+    flowEdges,
+    connect,
+    applySettings,
+    openDefinition,
+    openTemplate,
+    save,
+    start,
+    testStep,
+    upload,
+    useMediaSource,
+    fetchArtifact,
+    downloadVideo,
+    applyCutPlan,
+    cancel,
+    retry,
+    chooseRun,
+    dropNode,
+    exportWorkflow,
+    importWorkflow,
+    duplicateDefinition,
+    restoreVersion,
+    deleteDefinition,
+    refreshRuns,
+    getRunDetails,
+    previewMedia,
+    completedNodes,
+    downstream,
+    waitingNodes,
   }
 }
 
-export type WorkflowStudioState = ReturnType<typeof useWorkflowStudio>
+export type WorkflowStudioState =
+  ReturnType<typeof useWorkflowStudio>
